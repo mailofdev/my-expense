@@ -1,10 +1,10 @@
 {
-  "short_name": "GlowMoney",
-  "name": "GlowMoney — Track • Manage • Grow",
+  "short_name": "Glow Money",
+  "name": "Glow Money — Track • Manage • Grow",
   "description": "Indian-friendly money manager: wallet tracker, budget manager, expense analyzer, financial habits.",
   "icons": [
     {
-      "src": "glowmoney-logo.png",
+      "src": "glow_money-logo.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"

@@ -4,7 +4,7 @@ import { APP_NAME } from '../../core/constants/brand';
 export default function InstallPWA() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem('glowmoney_pwa_dismissed') === '1'
+    () => localStorage.getItem('glow_money_pwa_dismissed') === '1'
   );
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function InstallPWA() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('glowmoney_pwa_dismissed', '1');
+    localStorage.setItem('glow_money_pwa_dismissed', '1');
     setDismissed(true);
   };
 

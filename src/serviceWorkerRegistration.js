@@ -18,7 +18,7 @@ export function register() {
         };
       })
       .catch((error) => {
-        console.error('GlowMoney SW registration failed:', error);
+        console.error('Glow Money SW registration failed:', error);
       });
   });
 }

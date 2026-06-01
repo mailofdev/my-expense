@@ -1,9 +1,9 @@
-const CACHE_NAME = 'glowmoney-v1';
+const CACHE_NAME = 'glow-money-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/glowmoney-logo.png',
+  '/glow_money-logo.png',
   '/logo192.png',
   '/logo512.png',
 ];
