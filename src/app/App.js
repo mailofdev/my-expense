@@ -7,9 +7,6 @@ import { initAuthListener } from '../modules/auth/store/authSlice';
 import { authRoutes } from '../modules/auth/routes';
 import { dashboardRoutes } from '../modules/dashboard/routes';
 import InstallPWA from '../shared/components/InstallPWA';
-import './App.css';
-import './dashboard-ui.css';
-import './responsive.css';
 
 function App() {
   const dispatch = useDispatch();

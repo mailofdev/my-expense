@@ -8,16 +8,19 @@ export default function FormField({
   autoComplete,
 }) {
   return (
-    <div className={`form-field ${error ? 'form-field--error' : ''}`}>
-      <label htmlFor={id}>{label}</label>
+    <div className={error ? 'space-y-1' : 'space-y-1'}>
+      <label htmlFor={id} className="label">
+        {label}
+      </label>
       <input
         id={id}
         type={type}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        className={`input ${error ? 'border-danger' : ''}`}
         {...register}
       />
-      {error && <span className="form-field__error">{error.message}</span>}
+      {error && <span className="text-xs text-red-300">{error.message}</span>}
     </div>
   );
 }

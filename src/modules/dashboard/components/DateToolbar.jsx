@@ -35,22 +35,40 @@ export default function DateToolbar() {
   };
 
   return (
-    <div className="date-toolbar">
-      <div className="date-toolbar__month">
-        <button type="button" className="date-toolbar__arrow" onClick={() => shiftMonth(-1)} aria-label="Previous month">
+    <div className="rounded border border-edge bg-surface px-3 py-3 sm:px-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-edge bg-surface-2 text-lg leading-none text-[#f0f4f2] hover:border-primary hover:text-primary"
+          onClick={() => shiftMonth(-1)}
+          aria-label="Previous month"
+        >
           ‹
         </button>
-        <span className="date-toolbar__month-label">{monthLabel}</span>
-        <button type="button" className="date-toolbar__arrow" onClick={() => shiftMonth(1)} aria-label="Next month">
+        <span className="min-w-0 flex-1 text-center text-sm font-semibold sm:text-base">{monthLabel}</span>
+        <button
+          type="button"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-edge bg-surface-2 text-lg leading-none hover:border-primary hover:text-primary"
+          onClick={() => shiftMonth(1)}
+          aria-label="Next month"
+        >
           ›
         </button>
-        <button type="button" className="date-toolbar__today" onClick={() => dispatch(setDayFilter({ date: getTodayString() }))}>
+        <button
+          type="button"
+          className="hidden rounded-sm border border-edge px-2.5 py-1 text-xs font-semibold text-primary hover:border-primary sm:inline"
+          onClick={() => dispatch(setDayFilter({ date: getTodayString() }))}
+        >
           Today
         </button>
-        <span className="date-toolbar__day-total">{formatINRCompact(dayTotal)}</span>
+        <span className="ml-auto text-sm font-bold text-primary">{formatINRCompact(dayTotal)}</span>
       </div>
 
-      <div className="date-toolbar__days" role="tablist" aria-label="Select day">
+      <div
+        className="scrollbar-hide -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+        role="tablist"
+        aria-label="Select day"
+      >
         {days.map((day) => (
           <button
             key={day.date}
@@ -59,12 +77,22 @@ export default function DateToolbar() {
             role="tab"
             aria-selected={day.isSelected}
             disabled={day.isFuture}
-            className={`date-toolbar__day ${day.isSelected ? 'date-toolbar__day--active' : ''} ${day.isToday ? 'date-toolbar__day--today' : ''}`}
+            className={`relative flex w-[42px] shrink-0 flex-col items-center gap-0.5 rounded-sm border py-1.5 text-[0.65rem] transition-all disabled:cursor-not-allowed disabled:opacity-30 ${
+              day.isSelected
+                ? 'border-primary bg-primary/20 text-primary shadow-[0_0_12px_rgba(232,197,71,0.22)]'
+                : day.isToday
+                  ? 'border-accent bg-surface-2 text-muted'
+                  : 'border-transparent bg-surface-2 text-muted'
+            }`}
             onClick={() => goToDay(day.date)}
           >
-            <span>{dayjs(day.date).format('dd')[0]}</span>
-            <strong>{day.dayNum}</strong>
-            {day.total > 0 && <i className="date-toolbar__dot" />}
+            <span className="uppercase">{dayjs(day.date).format('dd')[0]}</span>
+            <strong className={`text-sm ${day.isSelected ? 'text-primary' : 'text-[#f0f4f2]'}`}>
+              {day.dayNum}
+            </strong>
+            {day.total > 0 && (
+              <i className="absolute right-1 top-1 h-1 w-1 rounded-full bg-accent" />
+            )}
           </button>
         ))}
       </div>

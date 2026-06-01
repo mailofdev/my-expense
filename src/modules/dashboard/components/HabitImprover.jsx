@@ -6,6 +6,15 @@ import {
   markWeeklyReview,
 } from '../store/dashboardSlice';
 
+const insightBorder = {
+  danger: 'border-l-danger',
+  warning: 'border-l-accent',
+  success: 'border-l-success',
+  tip: 'border-l-primary',
+  info: 'border-l-primary',
+  action: 'border-l-primary',
+};
+
 export default function HabitImprover() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
@@ -36,15 +45,16 @@ export default function HabitImprover() {
   return (
     <div className="feature-panel">
       <section className="card">
-        <h3>Financial Habit Improver</h3>
-        <p className="card__desc">
-          Smart tips based on your real spending — built for Indian money habits (UPI, budgets, savings).
+        <h3 className="card-title">Financial Habit Improver</h3>
+        <p className="card-desc">
+          Smart tips based on your real spending — built for Indian money habits.
         </p>
 
-        <div className="settings-form settings-form--inline">
-          <label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="label min-w-[140px] flex-1">
             Savings goal (% of income)
             <input
+              className="input mt-1"
               type="number"
               min="5"
               max="80"
@@ -52,17 +62,17 @@ export default function HabitImprover() {
               onChange={(e) => setSavingsGoal(e.target.value)}
             />
           </label>
-          <button type="button" className="btn btn--primary" onClick={handleSaveGoal} disabled={saving}>
+          <button type="button" className="btn-primary sm:mb-0" onClick={handleSaveGoal} disabled={saving}>
             Save goal
           </button>
         </div>
 
         {lastReview && (
-          <p className="habit-meta">Last weekly review: {lastReview}</p>
+          <p className="mt-3 text-xs text-muted">Last weekly review: {lastReview}</p>
         )}
         <button
           type="button"
-          className="btn btn--outline btn--full"
+          className="btn-outline btn-full mt-3"
           onClick={handleWeeklyReview}
           disabled={saving}
         >
@@ -71,28 +81,39 @@ export default function HabitImprover() {
       </section>
 
       <section className="card">
-        <h3>Your Insights</h3>
+        <h3 className="card-title">Your Insights</h3>
         {insights.length === 0 ? (
           <p className="empty-state">Insights will appear as you track expenses</p>
         ) : (
-          <ul className="insights-list">
+          <ul className="m-0 list-none space-y-2 p-0">
             {insights.map((insight, i) => (
-              <li key={i} className={`insights-list__item insights-list__item--${insight.type}`}>
-                <span>{insight.icon}</span>
-                <p>{insight.text}</p>
+              <li
+                key={i}
+                className={`flex gap-3 rounded-sm border-l-[3px] bg-surface-2 p-3 ${
+                  insightBorder[insight.type] || 'border-l-primary'
+                }`}
+              >
+                <span className="text-lg">{insight.icon}</span>
+                <p className="m-0 text-sm">{insight.text}</p>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <section className="card habit-challenges">
-        <h3>Weekly Challenges</h3>
-        <ul>
-          <li>🚫 No impulse Swiggy/Zomato for 3 days</li>
-          <li>📱 Check UPI spends every Sunday evening</li>
-          <li>💰 Move 10% salary to savings on payday</li>
-          <li>🧾 Log every expense within 24 hours</li>
+      <section className="card">
+        <h3 className="card-title">Weekly Challenges</h3>
+        <ul className="m-0 list-none space-y-0 p-0 text-sm text-muted">
+          {[
+            '🚫 No impulse Swiggy/Zomato for 3 days',
+            '📱 Check UPI spends every Sunday evening',
+            '💰 Move 10% salary to savings on payday',
+            '🧾 Log every expense within 24 hours',
+          ].map((text) => (
+            <li key={text} className="border-t border-edge py-2.5 first:border-0">
+              {text}
+            </li>
+          ))}
         </ul>
       </section>
     </div>

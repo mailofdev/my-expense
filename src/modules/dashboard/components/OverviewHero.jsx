@@ -19,30 +19,35 @@ export default function OverviewHero() {
     monthlyBudget > 0 ? Math.min(100, Math.round((monthTotal / monthlyBudget) * 100)) : 0;
 
   return (
-    <section className="overview-hero">
-      <div className="overview-hero__main">
-        <p className="overview-hero__label">{isToday ? 'Spent today' : dayLabel}</p>
-        <p className="overview-hero__amount">{formatINR(dayTotal)}</p>
-      </div>
-      <div className="overview-hero__stats">
-        <div className="overview-hero__stat">
-          <span>Wallet</span>
-          <strong>{formatINRCompact(walletBalance)}</strong>
+    <section className="rounded-lg border border-edge bg-gradient-to-br from-surface-2 to-surface p-5 shadow-card sm:p-6">
+      <p className="m-0 text-xs uppercase tracking-wider text-muted">
+        {isToday ? 'Spent today' : dayLabel}
+      </p>
+      <p className="text-glow m-0 mb-4 text-[clamp(2rem,8vw,2.75rem)] font-bold leading-tight text-primary">
+        {formatINR(dayTotal)}
+      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="rounded-sm bg-black/20 px-3 py-2">
+          <span className="text-[0.7rem] uppercase tracking-wide text-muted">Wallet</span>
+          <strong className="mt-0.5 block text-sm">{formatINRCompact(walletBalance)}</strong>
         </div>
-        <div className="overview-hero__stat">
-          <span>This month</span>
-          <strong>{formatINRCompact(monthTotal)}</strong>
+        <div className="rounded-sm bg-black/20 px-3 py-2">
+          <span className="text-[0.7rem] uppercase tracking-wide text-muted">This month</span>
+          <strong className="mt-0.5 block text-sm">{formatINRCompact(monthTotal)}</strong>
         </div>
-        <div className="overview-hero__stat">
-          <span>Budget left</span>
-          <strong className={budgetLeft < 0 ? 'text-danger' : ''}>
+        <div className="rounded-sm bg-black/20 px-3 py-2">
+          <span className="text-[0.7rem] uppercase tracking-wide text-muted">Budget left</span>
+          <strong className={`mt-0.5 block text-sm ${budgetLeft < 0 ? 'text-danger' : ''}`}>
             {formatINRCompact(Math.abs(budgetLeft))}
           </strong>
         </div>
       </div>
       {monthlyBudget > 0 && (
-        <div className="overview-hero__budget">
-          <div className="overview-hero__budget-bar" style={{ width: `${budgetPercent}%` }} />
+        <div className="mt-4 h-1 overflow-hidden rounded-full bg-surface-2">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+            style={{ width: `${budgetPercent}%` }}
+          />
         </div>
       )}
     </section>

@@ -35,7 +35,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Track, manage and grow your money">
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert-error">{error}</div>}
       <AuthForm onSubmit={handleSubmit(onSubmit)} submitLabel="Login" loading={loading}>
         <FormField
           label="Email"
@@ -60,12 +60,14 @@ export default function LoginPage() {
           })}
           error={errors.password}
         />
-        <div className="auth-form__links">
-          <Link to="/forgot-password">Forgot password?</Link>
+        <div className="-mt-2 text-right">
+          <Link to="/forgot-password" className="text-sm no-underline hover:underline">
+            Forgot password?
+          </Link>
         </div>
       </AuthForm>
-      <p className="auth-switch">
-        New here? <Link to="/signup">Create an account</Link>
+      <p className="mt-5 text-center text-sm text-muted">
+        New here? <Link to="/signup" className="no-underline hover:underline">Create an account</Link>
       </p>
     </AuthLayout>
   );

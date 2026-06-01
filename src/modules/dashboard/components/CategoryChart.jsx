@@ -31,10 +31,10 @@ export default function CategoryChart() {
   const hasData = chartData.labels.length > 0;
 
   return (
-    <section className="category-chart card">
-      <h3>By Category — {monthLabel}</h3>
+    <section className="card">
+      <h3 className="card-title">By Category — {monthLabel}</h3>
       {hasData ? (
-        <div className="category-chart__canvas">
+        <div className="chart-box">
           <Doughnut
             data={chartData}
             options={{
@@ -44,10 +44,7 @@ export default function CategoryChart() {
                 legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } },
                 tooltip: {
                   callbacks: {
-                    label: (ctx) => {
-                      const value = ctx.raw;
-                      return ` ₹${value.toLocaleString('en-IN')}`;
-                    },
+                    label: (ctx) => ` ₹${ctx.raw.toLocaleString('en-IN')}`,
                   },
                 },
               },
@@ -55,7 +52,7 @@ export default function CategoryChart() {
           />
         </div>
       ) : (
-        <p className="empty-state">No expenses this month for category breakdown</p>
+        <p className="empty-state-sm">No expenses this month for category breakdown</p>
       )}
     </section>
   );

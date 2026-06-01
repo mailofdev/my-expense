@@ -22,22 +22,20 @@ export default function DashboardHeader() {
     .toUpperCase();
 
   return (
-    <header className="dashboard-header">
-      <BrandLogo size="sm" className="dashboard-header__brand" />
-      <div className="dashboard-header__user">
-        <div className="dashboard-header__avatar" aria-hidden="true">
+    <header className="sticky top-0 z-[200] flex flex-wrap items-center justify-between gap-3 border-b border-edge bg-surface/90 px-4 py-3 backdrop-blur-md pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6">
+      <BrandLogo size="sm" className="!flex-row shrink-0" />
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-sm font-semibold text-primary"
+          aria-hidden="true"
+        >
           {initials}
         </div>
-        <div className="dashboard-header__info">
-          <span className="dashboard-header__greeting">Namaste,</span>
-          <strong>{displayName}</strong>
+        <div className="hidden flex-col text-sm sm:flex">
+          <span className="text-xs text-muted">Namaste,</span>
+          <strong className="max-w-[120px] truncate sm:max-w-[160px]">{displayName}</strong>
         </div>
-        <button
-          type="button"
-          className="btn btn--outline btn--sm"
-          onClick={handleLogout}
-          disabled={loading}
-        >
+        <button type="button" className="btn-outline btn-sm" onClick={handleLogout} disabled={loading}>
           Logout
         </button>
       </div>

@@ -55,16 +55,16 @@ export default function AddExpenseForm() {
   };
 
   return (
-    <section className="quick-add card card--flat">
-      <form className="quick-add__form" onSubmit={handleSubmit(onSubmit)}>
-        <div className="quick-add__row">
+    <section className="card card-flat px-4 py-3 sm:px-5">
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
           <input
-            className="quick-add__title"
+            className="input min-w-0 flex-1 basis-full sm:basis-auto"
             placeholder={isToday ? 'What did you spend on?' : 'Expense title'}
             {...register('title', { required: 'Required' })}
           />
           <input
-            className="quick-add__amount"
+            className="input w-full sm:w-24"
             type="number"
             placeholder="₹"
             min="1"
@@ -73,35 +73,35 @@ export default function AddExpenseForm() {
               min: { value: 1, message: 'Min ₹1' },
             })}
           />
-          <button type="submit" className="btn btn--primary quick-add__submit" disabled={saving}>
+          <button type="submit" className="btn-primary min-w-[72px] shrink-0 px-4" disabled={saving}>
             {saving ? '…' : 'Add'}
           </button>
         </div>
 
         {(errors.title || errors.amount) && (
-          <p className="form-field__error">
+          <p className="mt-2 text-xs text-red-300">
             {errors.title?.message || errors.amount?.message}
           </p>
         )}
 
         <button
           type="button"
-          className="quick-add__toggle"
+          className="mt-2 w-full border-0 bg-transparent p-1 text-left text-xs text-muted hover:text-primary"
           onClick={() => setShowDetails((v) => !v)}
           aria-expanded={showDetails}
         >
-          {showDetails ? 'Hide options' : 'Category, date & payment'}
+          {showDetails ? 'Hide options ⬆' : 'Category, date & payment ⬇'}
         </button>
 
         {showDetails && (
-          <div className="quick-add__details">
-            <input type="date" {...register('date', { required: true })} />
-            <select {...register('category')}>
+          <div className="mt-3 grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-2">
+            <input type="date" className="input sm:col-span-2" {...register('date', { required: true })} />
+            <select className="input" {...register('category')}>
               {categories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
-            <select {...register('paymentMode')}>
+            <select className="input" {...register('paymentMode')}>
               {paymentModes.map((mode) => (
                 <option key={mode} value={mode}>{mode}</option>
               ))}

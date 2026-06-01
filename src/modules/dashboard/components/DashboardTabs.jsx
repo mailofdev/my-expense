@@ -8,18 +8,27 @@ const TABS = [
 
 export default function DashboardTabs({ activeTab, onTabChange }) {
   return (
-    <nav className="dashboard-tabs" aria-label="Dashboard sections">
+    <nav
+      className="scrollbar-hide flex gap-1 overflow-x-auto rounded border border-edge bg-surface p-1.5"
+      aria-label="Dashboard sections"
+    >
       {TABS.map((tab) => (
         <button
           key={tab.id}
           type="button"
-          className={`dashboard-tabs__btn ${activeTab === tab.id ? 'dashboard-tabs__btn--active' : ''}`}
+          className={`flex min-h-[44px] flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-sm border-0 px-3 py-2 text-sm font-medium transition-all sm:px-4 ${
+            activeTab === tab.id
+              ? 'bg-surface-2 text-primary shadow-sm'
+              : 'bg-transparent text-muted hover:text-[#f0f4f2]'
+          }`}
           onClick={() => onTabChange(tab.id)}
           aria-label={tab.label}
           title={tab.label}
         >
-          <span className="dashboard-tabs__icon" aria-hidden="true">{tab.icon}</span>
-          <span className="dashboard-tabs__label">{tab.label}</span>
+          <span className="text-lg" aria-hidden="true">
+            {tab.icon}
+          </span>
+          <span className="max-[479px]:hidden">{tab.label}</span>
         </button>
       ))}
     </nav>

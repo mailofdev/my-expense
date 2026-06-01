@@ -42,8 +42,7 @@ export default function MonthWiseDistribution() {
 
   const handleBarClick = (_, elements) => {
     if (!elements?.length) return;
-    const index = elements[0].index;
-    const item = distribution[index];
+    const item = distribution[elements[0].index];
     if (item) {
       dispatch(setMonthFilter({ month: item.month, year: item.year }));
       const d = dayjs(`${item.year}-${String(item.month).padStart(2, '0')}-01`);
@@ -53,11 +52,11 @@ export default function MonthWiseDistribution() {
   };
 
   return (
-    <section className="card month-distribution">
-      <h3>Month-wise Distribution</h3>
-      <p className="card__desc">Last 12 months — tap a bar to filter that month</p>
+    <section className="card">
+      <h3 className="card-title">Month-wise Distribution</h3>
+      <p className="card-desc">Last 12 months — tap a bar to filter that month</p>
       {hasAnyData ? (
-        <div className="category-chart__canvas category-chart__canvas--bar month-distribution__chart">
+        <div className="chart-box h-[240px] min-h-[240px] cursor-pointer sm:h-[260px]">
           <Bar
             data={chartData}
             options={{
@@ -87,7 +86,7 @@ export default function MonthWiseDistribution() {
           />
         </div>
       ) : (
-        <p className="empty-state">Add expenses to see month-wise trends</p>
+        <p className="empty-state-sm">Add expenses to see month-wise trends</p>
       )}
     </section>
   );

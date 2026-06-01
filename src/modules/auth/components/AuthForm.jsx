@@ -6,10 +6,10 @@ export default function AuthForm({
   footer,
 }) {
   return (
-    <form className="auth-form" onSubmit={onSubmit} noValidate>
-      <div className="auth-form__fields">{children}</div>
+    <form className="space-y-4" onSubmit={onSubmit} noValidate>
+      <div className="space-y-4">{children}</div>
       {footer}
-      <button type="submit" className="btn btn--primary btn--full" disabled={loading}>
+      <button type="submit" className="btn-primary btn-full" disabled={loading}>
         {loading ? 'Please wait...' : submitLabel}
       </button>
     </form>

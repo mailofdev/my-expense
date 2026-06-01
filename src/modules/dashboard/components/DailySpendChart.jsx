@@ -46,19 +46,16 @@ export default function DailySpendChart() {
 
   const handleChartClick = (_, elements) => {
     if (!elements?.length) return;
-    const index = elements[0].index;
-    const day = trend[index];
-    if (day?.date) {
-      dispatch(setDayFilter({ date: day.date }));
-    }
+    const day = trend[elements[0].index];
+    if (day?.date) dispatch(setDayFilter({ date: day.date }));
   };
 
   return (
-    <section className="category-chart card">
-      <h3>Daily spending — {monthLabel}</h3>
-      <p className="card__desc">Tap a bar to open that day&apos;s ledger</p>
+    <section className="card">
+      <h3 className="card-title">Daily spending — {monthLabel}</h3>
+      <p className="card-desc">Tap a bar to open that day&apos;s ledger</p>
       {hasData ? (
-        <div className="category-chart__canvas category-chart__canvas--bar">
+        <div className="chart-box cursor-pointer">
           <Bar
             data={chartData}
             options={{
@@ -69,9 +66,7 @@ export default function DailySpendChart() {
               scales: {
                 y: {
                   beginAtZero: true,
-                  ticks: {
-                    callback: (v) => `₹${v}`,
-                  },
+                  ticks: { callback: (v) => `₹${v}` },
                 },
                 x: {
                   ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 16 },
@@ -81,7 +76,7 @@ export default function DailySpendChart() {
           />
         </div>
       ) : (
-        <p className="empty-state">No daily spending recorded this month yet</p>
+        <p className="empty-state-sm">No daily spending recorded this month yet</p>
       )}
     </section>
   );

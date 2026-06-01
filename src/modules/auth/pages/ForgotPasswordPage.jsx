@@ -32,12 +32,12 @@ export default function ForgotPasswordPage() {
       subtitle="We'll send a reset link to your email"
     >
       {resetEmailSent ? (
-        <div className="alert alert--success">
+        <div className="alert-success">
           Reset link sent! Check your inbox and spam folder.
         </div>
       ) : (
         <>
-          {error && <div className="alert alert--error">{error}</div>}
+          {error && <div className="alert-error">{error}</div>}
           <AuthForm
             onSubmit={handleSubmit(onSubmit)}
             submitLabel="Send reset link"
@@ -58,8 +58,8 @@ export default function ForgotPasswordPage() {
           </AuthForm>
         </>
       )}
-      <p className="auth-switch">
-        <Link to="/login">← Back to login</Link>
+      <p className="mt-5 text-center text-sm text-muted">
+        <Link to="/login" className="no-underline hover:underline">← Back to login</Link>
       </p>
     </AuthLayout>
   );

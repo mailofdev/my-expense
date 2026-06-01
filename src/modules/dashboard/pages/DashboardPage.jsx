@@ -38,23 +38,35 @@ export default function DashboardPage() {
   const showDateToolbar = DATE_TABS.includes(activeTab);
 
   return (
-    <div className="dashboard">
+    <div
+      className="min-h-screen min-h-dvh"
+      style={{
+        background:
+          'radial-gradient(ellipse 60% 40% at 100% 0%, rgba(232, 197, 71, 0.08), transparent), #0a0f0d',
+      }}
+    >
       <DashboardHeader />
-      <main className="dashboard__main">
+      <main className="mx-auto w-full max-w-content px-3 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-8 sm:pt-4">
         {error && (
-          <div className="alert alert--error dashboard__alert">
-            {error}
-            <button type="button" onClick={() => dispatch(clearDashboardError())}>×</button>
+          <div className="alert-error mb-3 flex items-center justify-between gap-2">
+            <span>{error}</span>
+            <button
+              type="button"
+              className="border-0 bg-transparent text-xl text-inherit"
+              onClick={() => dispatch(clearDashboardError())}
+            >
+              ×
+            </button>
           </div>
         )}
 
         <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {showDateToolbar && <DateToolbar />}
+        {showDateToolbar && <div className="mt-3"><DateToolbar /></div>}
 
-        <div className="dashboard__content">
+        <div className="mt-3 flex flex-col gap-3 sm:gap-4">
           {activeTab === 'overview' && (
-            <div className="dashboard-overview">
+            <div className="flex flex-col gap-3 sm:gap-4">
               <OverviewHero />
               <AddExpenseForm />
               <DailyExpenseLedger />

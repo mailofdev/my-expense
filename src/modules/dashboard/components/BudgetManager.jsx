@@ -12,12 +12,9 @@ import { CATEGORIES } from '../../../core/constants/finance';
 export default function BudgetManager() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const {
-    monthlyBudget,
-    monthlyIncome,
-    categoryBudgets,
-    saving,
-  } = useSelector((state) => state.dashboard);
+  const { monthlyBudget, monthlyIncome, categoryBudgets, saving } = useSelector(
+    (state) => state.dashboard
+  );
   const totalSpent = useSelector(selectTotalSpent);
   const remaining = useSelector(selectBudgetRemaining);
   const monthLabel = useSelector(selectFilteredMonthLabel);
@@ -53,53 +50,58 @@ export default function BudgetManager() {
   return (
     <div className="feature-panel">
       <section className="card">
-        <h3>Budget — {monthLabel}</h3>
-        <div className="budget-bar">
+        <h3 className="card-title">Budget — {monthLabel}</h3>
+        <div className="mb-2 h-2.5 overflow-hidden rounded-full bg-surface-2">
           <div
-            className={`budget-bar__fill ${remaining < 0 ? 'budget-bar__fill--over' : ''}`}
+            className={`h-full rounded-full transition-all duration-300 ${
+              remaining < 0 ? 'bg-danger' : 'bg-gradient-to-r from-primary to-accent'
+            }`}
             style={{ width: `${percent}%` }}
           />
         </div>
-        <div className="budget-bar__labels">
+        <div className="mb-5 flex justify-between text-sm text-muted">
           <span>Spent: {formatINR(totalSpent)}</span>
           <span className={remaining < 0 ? 'text-danger' : ''}>
             {remaining < 0 ? 'Over by' : 'Left'}: {formatINR(Math.abs(remaining))}
           </span>
         </div>
 
-        <div className="settings-form">
-          <label>
+        <div className="flex flex-col gap-3">
+          <label className="label">
             Monthly income (₹)
             <input
+              className="input mt-1"
               type="number"
               value={income}
               onChange={(e) => setIncome(e.target.value)}
               placeholder="e.g. 75000"
             />
           </label>
-          <label>
+          <label className="label">
             Monthly budget (₹)
             <input
+              className="input mt-1"
               type="number"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
               placeholder="e.g. 50000"
             />
           </label>
-          <button type="button" className="btn btn--primary" onClick={handleSave} disabled={saving}>
+          <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Save budget settings'}
           </button>
         </div>
       </section>
 
       <section className="card">
-        <h3>Category-wise Limits</h3>
-        <p className="card__desc">Set limits for Food, Travel, etc. (Indian spending style)</p>
-        <div className="category-limits">
+        <h3 className="card-title">Category-wise Limits</h3>
+        <p className="card-desc">Set limits for Food, Travel, etc.</p>
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {CATEGORIES.map((cat) => (
-            <label key={cat}>
+            <label key={cat} className="label">
               {cat}
               <input
+                className="input mt-1"
                 type="number"
                 placeholder="₹ limit"
                 value={categoryLimits[cat] ?? ''}
@@ -110,7 +112,7 @@ export default function BudgetManager() {
             </label>
           ))}
         </div>
-        <button type="button" className="btn btn--outline btn--full" onClick={handleSave} disabled={saving}>
+        <button type="button" className="btn-outline btn-full" onClick={handleSave} disabled={saving}>
           Save category limits
         </button>
       </section>

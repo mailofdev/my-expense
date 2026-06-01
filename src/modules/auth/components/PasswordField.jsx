@@ -11,19 +11,22 @@ export default function PasswordField({
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className={`form-field form-field--password ${error ? 'form-field--error' : ''}`}>
-      <label htmlFor={id}>{label}</label>
-      <div className="form-field__input-wrap">
+    <div className="space-y-1">
+      <label htmlFor={id} className="label">
+        {label}
+      </label>
+      <div className="relative">
         <input
           id={id}
           type={visible ? 'text' : 'password'}
           placeholder={placeholder}
           autoComplete={autoComplete}
+          className={`input pr-11 ${error ? 'border-danger' : ''}`}
           {...register}
         />
         <button
           type="button"
-          className="form-field__toggle"
+          className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center p-1.5 text-muted hover:text-primary"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? 'Hide password' : 'Show password'}
           tabIndex={-1}
@@ -41,7 +44,7 @@ export default function PasswordField({
           )}
         </button>
       </div>
-      {error && <span className="form-field__error">{error.message}</span>}
+      {error && <span className="text-xs text-red-300">{error.message}</span>}
     </div>
   );
 }
