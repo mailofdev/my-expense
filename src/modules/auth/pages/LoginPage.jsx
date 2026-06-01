@@ -34,7 +34,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Track, manage and grow your money">
+    <AuthLayout title="Log in" subtitle="Sign in to track your spending">
       {error && <div className="alert-error">{error}</div>}
       <AuthForm onSubmit={handleSubmit(onSubmit)} submitLabel="Login" loading={loading}>
         <FormField

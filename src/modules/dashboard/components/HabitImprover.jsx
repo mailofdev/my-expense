@@ -40,81 +40,54 @@ export default function HabitImprover() {
     dispatch(markWeeklyReview({ uid: user.uid, habits }));
   };
 
-  const lastReview = habits?.lastWeeklyReview;
-
   return (
     <div className="feature-panel">
       <section className="card">
-        <h3 className="card-title">Financial Habit Improver</h3>
-        <p className="card-desc">
-          Smart tips based on your real spending — built for Indian money habits.
-        </p>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <label className="label min-w-[140px] flex-1">
-            Savings goal (% of income)
-            <input
-              className="input mt-1"
-              type="number"
-              min="5"
-              max="80"
-              value={savingsGoal}
-              onChange={(e) => setSavingsGoal(e.target.value)}
-            />
-          </label>
-          <button type="button" className="btn-primary sm:mb-0" onClick={handleSaveGoal} disabled={saving}>
-            Save goal
+        <h2 className="card-title">Savings goal</h2>
+        <p className="card-desc">How much of your income you want to save each month.</p>
+        <div className="flex gap-2">
+          <input
+            className="input flex-1"
+            type="number"
+            min="5"
+            max="80"
+            aria-label="Savings goal percent"
+            value={savingsGoal}
+            onChange={(e) => setSavingsGoal(e.target.value)}
+          />
+          <span className="flex items-center text-sm text-muted">%</span>
+          <button type="button" className="btn-primary shrink-0" onClick={handleSaveGoal} disabled={saving}>
+            Save
           </button>
         </div>
-
-        {lastReview && (
-          <p className="mt-3 text-xs text-muted">Last weekly review: {lastReview}</p>
-        )}
         <button
           type="button"
-          className="btn-outline btn-full mt-3"
+          className="btn-outline btn-full mt-4"
           onClick={handleWeeklyReview}
           disabled={saving}
         >
-          ✓ Mark weekly review done
+          Mark weekly review done
         </button>
       </section>
 
       <section className="card">
-        <h3 className="card-title">Your Insights</h3>
+        <h2 className="card-title">Tips for you</h2>
         {insights.length === 0 ? (
-          <p className="empty-state">Insights will appear as you track expenses</p>
+          <p className="empty-state-sm">Tips appear as you add expenses on Home.</p>
         ) : (
-          <ul className="m-0 list-none space-y-2 p-0">
+          <ul className="m-0 list-none space-y-3 p-0">
             {insights.map((insight, i) => (
               <li
                 key={i}
-                className={`flex gap-3 rounded-sm border-l-[3px] bg-surface-2 p-3 ${
+                className={`rounded-sm border-l-[3px] bg-surface-2/80 px-3 py-3 text-sm leading-relaxed ${
                   insightBorder[insight.type] || 'border-l-primary'
                 }`}
               >
-                <span className="text-lg">{insight.icon}</span>
-                <p className="m-0 text-sm">{insight.text}</p>
+                {insight.text}
               </li>
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="card">
-        <h3 className="card-title">Weekly Challenges</h3>
-        <ul className="m-0 list-none space-y-0 p-0 text-sm text-muted">
-          {[
-            '🚫 No impulse Swiggy/Zomato for 3 days',
-            '📱 Check UPI spends every Sunday evening',
-            '💰 Move 10% salary to savings on payday',
-            '🧾 Log every expense within 24 hours',
-          ].map((text) => (
-            <li key={text} className="border-t border-edge py-2.5 first:border-0">
-              {text}
-            </li>
-          ))}
-        </ul>
       </section>
     </div>
   );

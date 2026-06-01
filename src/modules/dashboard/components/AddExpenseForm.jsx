@@ -55,47 +55,47 @@ export default function AddExpenseForm() {
   };
 
   return (
-    <section className="card card-flat px-4 py-3 sm:px-5">
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+    <section className="card">
+      <h2 className="card-title">Add expense</h2>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <input
+          className="input"
+          placeholder={isToday ? 'What did you spend on?' : 'Expense name'}
+          {...register('title', { required: 'Enter a name' })}
+        />
+        <div className="flex gap-2">
           <input
-            className="input min-w-0 flex-1 basis-full sm:basis-auto"
-            placeholder={isToday ? 'What did you spend on?' : 'Expense title'}
-            {...register('title', { required: 'Required' })}
-          />
-          <input
-            className="input w-full sm:w-24"
+            className="input flex-1"
             type="number"
-            placeholder="₹"
+            placeholder="Amount in ₹"
             min="1"
             {...register('amount', {
-              required: 'Required',
+              required: 'Enter amount',
               min: { value: 1, message: 'Min ₹1' },
             })}
           />
-          <button type="submit" className="btn-primary min-w-[72px] shrink-0 px-4" disabled={saving}>
+          <button type="submit" className="btn-primary shrink-0 px-6" disabled={saving}>
             {saving ? '…' : 'Add'}
           </button>
         </div>
 
         {(errors.title || errors.amount) && (
-          <p className="mt-2 text-xs text-red-300">
+          <p className="text-xs text-red-300">
             {errors.title?.message || errors.amount?.message}
           </p>
         )}
 
         <button
           type="button"
-          className="mt-2 w-full border-0 bg-transparent p-1 text-left text-xs text-muted hover:text-primary"
+          className="w-full border-0 bg-transparent py-1 text-left text-sm text-muted hover:text-primary"
           onClick={() => setShowDetails((v) => !v)}
           aria-expanded={showDetails}
         >
-          {showDetails ? 'Hide options ⬆' : 'Category, date & payment ⬇'}
+          {showDetails ? 'Hide options' : 'Category & date'}
         </button>
 
         {showDetails && (
-          <div className="mt-3 grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-2">
-            <input type="date" className="input sm:col-span-2" {...register('date', { required: true })} />
+          <div className="space-y-2 border-t border-edge/60 pt-3">
             <select className="input" {...register('category')}>
               {categories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -106,6 +106,7 @@ export default function AddExpenseForm() {
                 <option key={mode} value={mode}>{mode}</option>
               ))}
             </select>
+            <input type="date" className="input" {...register('date', { required: true })} />
           </div>
         )}
       </form>

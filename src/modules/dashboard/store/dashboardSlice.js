@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import dayjs from 'dayjs';
 import {
-  CATEGORY_COLORS,
+  CATEGORY_CONFIG,
   CATEGORIES,
   PAYMENT_MODES,
   DEFAULT_HABITS,
@@ -57,6 +57,22 @@ export const removeExpense = createAsyncThunk(
       await expenseService.remove(uid, expenseId);
       const newBalance = await walletService.adjustBalance(uid, amount);
       return { expenseId, walletBalance: newBalance };
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const updateExpense = createAsyncThunk(
+  'dashboard/updateExpense',
+  async ({ uid, expenseId, expense, previousAmount }, { rejectWithValue }) => {
+    try {
+      const updated = await expenseService.update(uid, expenseId, expense);
+      let walletBalance;
+      if (previousAmount !== expense.amount) {
+        walletBalance = await walletService.adjustBalance(uid, previousAmount - expense.amount);
+      }
+      return { expense: updated, walletBalance };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -119,7 +135,7 @@ const dashboardSlice = createSlice({
     expenses: [],
     walletTransactions: [],
     categories: CATEGORIES,
-    categoryColors: CATEGORY_COLORS,
+    categoryColors: CATEGORY_CONFIG,
     paymentModes: PAYMENT_MODES,
     loading: false,
     saving: false,
@@ -204,6 +220,25 @@ const dashboardSlice = createSlice({
       .addCase(removeExpense.fulfilled, (state, action) => {
         state.expenses = state.expenses.filter((e) => e.id !== action.payload.expenseId);
         state.walletBalance = action.payload.walletBalance;
+      })
+
+      .addCase(updateExpense.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(updateExpense.fulfilled, (state, action) => {
+        state.saving = false;
+        const { expense, walletBalance } = action.payload;
+        const index = state.expenses.findIndex((e) => e.id === expense.id);
+        if (index !== -1) {
+          state.expenses[index] = { ...state.expenses[index], ...expense };
+        }
+        if (walletBalance !== undefined) {
+          state.walletBalance = walletBalance;
+        }
+      })
+      .addCase(updateExpense.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
       })
 
       .addCase(addWalletFunds.pending, (state) => {

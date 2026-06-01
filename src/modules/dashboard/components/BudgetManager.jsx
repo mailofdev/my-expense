@@ -22,6 +22,7 @@ export default function BudgetManager() {
   const [budget, setBudget] = useState(monthlyBudget || '');
   const [income, setIncome] = useState(monthlyIncome || '');
   const [categoryLimits, setCategoryLimits] = useState(categoryBudgets || {});
+  const [showCategories, setShowCategories] = useState(false);
 
   useEffect(() => {
     setBudget(monthlyBudget || '');
@@ -50,23 +51,29 @@ export default function BudgetManager() {
   return (
     <div className="feature-panel">
       <section className="card">
-        <h3 className="card-title">Budget — {monthLabel}</h3>
-        <div className="mb-2 h-2.5 overflow-hidden rounded-full bg-surface-2">
-          <div
-            className={`h-full rounded-full transition-all duration-300 ${
-              remaining < 0 ? 'bg-danger' : 'bg-gradient-to-r from-primary to-accent'
-            }`}
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-        <div className="mb-5 flex justify-between text-sm text-muted">
-          <span>Spent: {formatINR(totalSpent)}</span>
-          <span className={remaining < 0 ? 'text-danger' : ''}>
-            {remaining < 0 ? 'Over by' : 'Left'}: {formatINR(Math.abs(remaining))}
-          </span>
-        </div>
+        <p className="section-label m-0">{monthLabel}</p>
+        {monthlyBudget > 0 ? (
+          <>
+            <div className="mb-3 mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  remaining < 0 ? 'bg-danger' : 'bg-primary'
+                }`}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Spent {formatINR(totalSpent)}</span>
+              <span className={remaining < 0 ? 'text-danger' : 'font-medium'}>
+                {remaining < 0 ? 'Over' : 'Left'} {formatINR(Math.abs(remaining))}
+              </span>
+            </div>
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-muted">Set a monthly budget below to track spending.</p>
+        )}
 
-        <div className="flex flex-col gap-3">
+        <div className="mt-6 space-y-3">
           <label className="label">
             Monthly income (₹)
             <input
@@ -87,34 +94,46 @@ export default function BudgetManager() {
               placeholder="e.g. 50000"
             />
           </label>
-          <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save budget settings'}
+          <button type="button" className="btn-primary btn-full" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </section>
 
       <section className="card">
-        <h3 className="card-title">Category-wise Limits</h3>
-        <p className="card-desc">Set limits for Food, Travel, etc.</p>
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {CATEGORIES.map((cat) => (
-            <label key={cat} className="label">
-              {cat}
-              <input
-                className="input mt-1"
-                type="number"
-                placeholder="₹ limit"
-                value={categoryLimits[cat] ?? ''}
-                onChange={(e) =>
-                  setCategoryLimits((prev) => ({ ...prev, [cat]: e.target.value }))
-                }
-              />
-            </label>
-          ))}
-        </div>
-        <button type="button" className="btn-outline btn-full" onClick={handleSave} disabled={saving}>
-          Save category limits
+        <button
+          type="button"
+          className="card-title mb-0 flex w-full items-center justify-between border-0 bg-transparent p-0 text-left"
+          onClick={() => setShowCategories((v) => !v)}
+          aria-expanded={showCategories}
+        >
+          Category limits
+          <span className="text-sm font-normal text-muted">{showCategories ? '−' : '+'}</span>
         </button>
+        {showCategories && (
+          <>
+            <p className="card-desc">Optional — set a limit per category.</p>
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              {CATEGORIES.map((cat) => (
+                <label key={cat} className="label">
+                  {cat}
+                  <input
+                    className="input mt-1"
+                    type="number"
+                    placeholder="₹"
+                    value={categoryLimits[cat] ?? ''}
+                    onChange={(e) =>
+                      setCategoryLimits((prev) => ({ ...prev, [cat]: e.target.value }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+            <button type="button" className="btn-outline btn-full" onClick={handleSave} disabled={saving}>
+              Save limits
+            </button>
+          </>
+        )}
       </section>
     </div>
   );

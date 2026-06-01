@@ -2,6 +2,7 @@ import {
   collection,
   addDoc,
   deleteDoc,
+  updateDoc,
   doc,
   getDocs,
   query,
@@ -33,5 +34,12 @@ export const expenseService = {
 
   async remove(uid, expenseId) {
     await deleteDoc(doc(db, 'users', uid, 'expenses', expenseId));
+  },
+
+  async update(uid, expenseId, { title, amount, category, date, paymentMode }) {
+    const ref = doc(db, 'users', uid, 'expenses', expenseId);
+    const updates = { title, amount, category, date, paymentMode };
+    await updateDoc(ref, updates);
+    return { id: expenseId, ...updates };
   },
 };

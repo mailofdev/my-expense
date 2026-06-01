@@ -53,8 +53,8 @@ export default function MonthWiseDistribution() {
 
   return (
     <section className="card">
-      <h3 className="card-title">Month-wise Distribution</h3>
-      <p className="card-desc">Last 12 months — tap a bar to filter that month</p>
+      <h2 className="card-title">Last 12 months</h2>
+      <p className="card-desc">Tap a month to view it.</p>
       {hasAnyData ? (
         <div className="chart-box h-[240px] min-h-[240px] cursor-pointer sm:h-[260px]">
           <Bar

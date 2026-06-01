@@ -11,7 +11,7 @@ export default function MonthHistoryList() {
   if (groupedDays.length === 0) {
     return (
       <section className="card card-subtle">
-        <h3 className="card-title">Daily history</h3>
+        <h2 className="card-title">By day</h2>
         <p className="empty-state-sm">No expenses this month</p>
       </section>
     );
@@ -19,20 +19,19 @@ export default function MonthHistoryList() {
 
   return (
     <section className="card card-subtle">
-      <h3 className="card-title">Daily history</h3>
+      <h2 className="card-title">By day</h2>
       <ul className="m-0 list-none p-0">
         {groupedDays.map((group) => (
-          <li key={group.date} className="border-b border-edge last:border-0">
+          <li key={group.date} className="border-t border-edge/60 first:border-0">
             <button
               type="button"
-              className={`grid w-full cursor-pointer grid-cols-[1fr_auto_auto] items-center gap-2 border-0 bg-transparent py-3 text-left text-sm transition-colors hover:text-primary ${
-                group.date === filterDate ? 'text-primary' : 'text-[#f0f4f2]'
+              className={`flex w-full items-center justify-between gap-3 border-0 bg-transparent py-3.5 text-left text-sm transition-colors ${
+                group.date === filterDate ? 'text-primary' : 'text-[#f0f4f2] hover:text-primary'
               }`}
               onClick={() => dispatch(setDayFilter({ date: group.date }))}
             >
               <span>{formatDayLabel(group.date)}</span>
-              <span className="text-xs text-muted">{group.expenses.length} items</span>
-              <strong className="text-primary">{formatINR(group.total)}</strong>
+              <strong>{formatINR(group.total)}</strong>
             </button>
           </li>
         ))}

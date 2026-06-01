@@ -32,28 +32,23 @@ export default function DashboardPage() {
   }, [dispatch]);
 
   if (loading && !loaded) {
-    return <LoadingSpinner message="Loading your finances..." />;
+    return <LoadingSpinner message="Loading…" />;
   }
 
   const showDateToolbar = DATE_TABS.includes(activeTab);
 
   return (
-    <div
-      className="min-h-screen min-h-dvh"
-      style={{
-        background:
-          'radial-gradient(ellipse 60% 40% at 100% 0%, rgba(232, 197, 71, 0.08), transparent), #0a0f0d',
-      }}
-    >
+    <div className="min-h-screen min-h-dvh bg-bg">
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-content px-3 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-8 sm:pt-4">
+      <main className="mx-auto w-full max-w-lg px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-4 sm:max-w-xl sm:px-6 sm:pb-10">
         {error && (
-          <div className="alert-error mb-3 flex items-center justify-between gap-2">
+          <div className="alert-error mb-4 flex items-center justify-between gap-2">
             <span>{error}</span>
             <button
               type="button"
               className="border-0 bg-transparent text-xl text-inherit"
               onClick={() => dispatch(clearDashboardError())}
+              aria-label="Dismiss"
             >
               ×
             </button>
@@ -62,15 +57,19 @@ export default function DashboardPage() {
 
         <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {showDateToolbar && <div className="mt-3"><DateToolbar /></div>}
+        {showDateToolbar && (
+          <div className="mt-5">
+            <DateToolbar compact={activeTab === 'overview'} />
+          </div>
+        )}
 
-        <div className="mt-3 flex flex-col gap-3 sm:gap-4">
+        <div className="mt-5 flex flex-col gap-5 sm:gap-6">
           {activeTab === 'overview' && (
-            <div className="flex flex-col gap-3 sm:gap-4">
+            <>
               <OverviewHero />
               <AddExpenseForm />
               <DailyExpenseLedger />
-            </div>
+            </>
           )}
 
           {activeTab === 'wallet' && <WalletTracker />}

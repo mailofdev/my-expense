@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
+import { getCategoryColor } from '../../../core/constants/finance';
 import { formatINR } from '../../../core/utils/currency';
 import { removeExpense, selectMonthExpenses, selectFilteredMonthLabel } from '../store/dashboardSlice';
 
@@ -8,7 +9,6 @@ export default function RecentExpenses({ limit }) {
   const { user } = useSelector((state) => state.auth);
   const monthExpenses = useSelector(selectMonthExpenses);
   const monthLabel = useSelector(selectFilteredMonthLabel);
-  const categoryColors = useSelector((state) => state.dashboard.categoryColors);
   const saving = useSelector((state) => state.dashboard.saving);
 
   const list = limit ? monthExpenses.slice(0, limit) : monthExpenses;
@@ -24,7 +24,7 @@ export default function RecentExpenses({ limit }) {
             <li key={expense.id} className="expense-list__item">
               <span
                 className="expense-list__dot"
-                style={{ background: categoryColors[expense.category] }}
+                style={{ background: getCategoryColor(expense.category) }}
               />
               <div className="expense-list__info">
                 <strong>{expense.title}</strong>

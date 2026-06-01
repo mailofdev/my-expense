@@ -32,10 +32,10 @@ export default function WalletTracker() {
       id: `tx-${tx.id}`,
       type: tx.type,
       amount: tx.amount,
-      label: tx.note || 'Wallet top-up',
+      label: tx.note || 'Added money',
       date: tx.createdAt,
     })),
-    ...expenses.slice(0, 10).map((e) => ({
+    ...expenses.slice(0, 8).map((e) => ({
       id: `exp-${e.id}`,
       type: 'debit',
       amount: e.amount,
@@ -44,66 +44,51 @@ export default function WalletTracker() {
     })),
   ]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 15);
+    .slice(0, 12);
 
   return (
     <div className="feature-panel">
-      <section className="card py-8 text-center">
-        <span className="text-xs uppercase tracking-wider text-muted">Current Wallet Balance</span>
-        <strong className="text-glow my-2 block text-[clamp(1.75rem,8vw,2.25rem)] text-primary">
+      <section className="card text-center">
+        <p className="section-label m-0">Wallet balance</p>
+        <p className="text-glow m-0 mt-1 text-[clamp(1.75rem,8vw,2.5rem)] font-bold text-primary">
           {formatINR(walletBalance)}
-        </strong>
-        <p className="m-0 text-sm text-muted">Add money when salary arrives or you receive refunds</p>
+        </p>
       </section>
 
       <section className="card">
-        <h3 className="card-title">Add Money to Wallet</h3>
-        <form
-          className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]"
-          onSubmit={handleSubmit(onAddFunds)}
-        >
+        <h2 className="card-title">Add money</h2>
+        <form className="space-y-3" onSubmit={handleSubmit(onAddFunds)}>
           <input
             className="input"
             type="number"
             placeholder="Amount (₹)"
             min="1"
-            {...register('amount', { required: 'Amount required', min: { value: 1, message: 'Min ₹1' } })}
+            {...register('amount', { required: 'Enter amount', min: { value: 1, message: 'Min ₹1' } })}
           />
-          <input className="input" placeholder="Note (e.g. Salary)" {...register('note')} />
-          <button type="submit" className="btn-primary md:px-6" disabled={saving}>
-            {saving ? 'Adding...' : 'Add Funds'}
+          <input className="input" placeholder="Note (optional)" {...register('note')} />
+          <button type="submit" className="btn-primary btn-full" disabled={saving}>
+            {saving ? 'Adding…' : 'Add to wallet'}
           </button>
         </form>
         {errors.amount && <p className="mt-2 text-xs text-red-300">{errors.amount.message}</p>}
       </section>
 
-      <section className="card">
-        <h3 className="card-title">Wallet Activity</h3>
-        {recentActivity.length === 0 ? (
-          <p className="empty-state">No activity yet. Add funds or log an expense.</p>
-        ) : (
-          <ul className="m-0 list-none p-0">
+      {recentActivity.length > 0 && (
+        <section className="card">
+          <h2 className="card-title">Recent</h2>
+          <ul className="m-0 list-none space-y-0 p-0">
             {recentActivity.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center gap-3 border-b border-edge py-3 last:border-0"
+                className="flex items-center justify-between gap-3 border-t border-edge/60 py-3 first:border-0 first:pt-0"
               >
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                    item.type === 'credit'
-                      ? 'bg-success/20 text-success'
-                      : 'bg-danger/20 text-danger'
-                  }`}
-                >
-                  {item.type === 'credit' ? '+' : '−'}
-                </span>
                 <div className="min-w-0 flex-1">
-                  <strong className="block truncate text-sm">{item.label}</strong>
-                  <span className="text-xs text-muted">{dayjs(item.date).format('D MMM YYYY')}</span>
+                  <p className="m-0 truncate text-sm">{item.label}</p>
+                  <p className="m-0 text-xs text-muted">{dayjs(item.date).format('D MMM')}</p>
                 </div>
                 <span
-                  className={`shrink-0 font-semibold ${
-                    item.type === 'credit' ? 'text-success' : 'text-danger'
+                  className={`shrink-0 text-sm font-semibold ${
+                    item.type === 'credit' ? 'text-success' : 'text-[#f0f4f2]'
                   }`}
                 >
                   {item.type === 'credit' ? '+' : '−'}
@@ -112,8 +97,8 @@ export default function WalletTracker() {
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

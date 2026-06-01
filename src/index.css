@@ -61,23 +61,27 @@
   }
 
   .card {
-    @apply rounded border border-edge bg-surface p-4 sm:p-5;
+    @apply rounded-lg border border-edge/80 bg-surface p-5 sm:p-6;
   }
 
   .card-flat {
-    @apply border-edge/60 shadow-none;
+    @apply border-0 bg-surface/40 shadow-none;
   }
 
   .card-subtle {
-    @apply bg-surface/50;
+    @apply border-0 bg-surface/30;
   }
 
   .card-title {
-    @apply m-0 mb-3 text-[0.95rem] font-semibold;
+    @apply m-0 mb-4 text-base font-semibold text-[#f0f4f2];
   }
 
   .card-desc {
-    @apply -mt-2 mb-4 text-sm text-muted;
+    @apply -mt-3 mb-4 text-sm leading-relaxed text-muted;
+  }
+
+  .section-label {
+    @apply mb-2 text-xs font-medium text-muted;
   }
 
   .input {
@@ -101,7 +105,7 @@
   }
 
   .feature-panel {
-    @apply flex flex-col gap-3 sm:gap-4;
+    @apply flex flex-col gap-5 sm:gap-6;
   }
 
   .alert-error {

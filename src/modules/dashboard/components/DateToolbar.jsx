@@ -6,17 +6,14 @@ import {
   setDayFilter,
   selectFilteredMonthLabel,
   selectMonthDayCalendar,
-  selectDayTotal,
 } from '../store/dashboardSlice';
 import { getTodayString } from '../../../core/utils/date';
-import { formatINRCompact } from '../../../core/utils/currency';
 
-export default function DateToolbar() {
+export default function DateToolbar({ compact = false }) {
   const dispatch = useDispatch();
   const { filterMonth, filterYear } = useSelector((state) => state.dashboard);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const days = useSelector(selectMonthDayCalendar);
-  const dayTotal = useSelector(selectDayTotal);
   const selectedRef = useRef(null);
   const selectedDate = days.find((d) => d.isSelected)?.date;
 
@@ -35,20 +32,20 @@ export default function DateToolbar() {
   };
 
   return (
-    <div className="rounded border border-edge bg-surface px-3 py-3 sm:px-4">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className={compact ? 'px-1' : 'card card-flat px-4 py-4 sm:px-5'}>
+      <div className="mb-3 flex items-center gap-2">
         <button
           type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-edge bg-surface-2 text-lg leading-none text-[#f0f4f2] hover:border-primary hover:text-primary"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg text-muted hover:text-primary"
           onClick={() => shiftMonth(-1)}
           aria-label="Previous month"
         >
           ‹
         </button>
-        <span className="min-w-0 flex-1 text-center text-sm font-semibold sm:text-base">{monthLabel}</span>
+        <span className="min-w-0 flex-1 text-center text-sm font-medium sm:text-base">{monthLabel}</span>
         <button
           type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-edge bg-surface-2 text-lg leading-none hover:border-primary hover:text-primary"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg text-muted hover:text-primary"
           onClick={() => shiftMonth(1)}
           aria-label="Next month"
         >
@@ -56,16 +53,15 @@ export default function DateToolbar() {
         </button>
         <button
           type="button"
-          className="hidden rounded-sm border border-edge px-2.5 py-1 text-xs font-semibold text-primary hover:border-primary sm:inline"
+          className="shrink-0 rounded-full bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/25"
           onClick={() => dispatch(setDayFilter({ date: getTodayString() }))}
         >
           Today
         </button>
-        <span className="ml-auto text-sm font-bold text-primary">{formatINRCompact(dayTotal)}</span>
       </div>
 
       <div
-        className="scrollbar-hide -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+        className="scrollbar-hide flex gap-2 overflow-x-auto pb-1"
         role="tablist"
         aria-label="Select day"
       >
@@ -77,22 +73,16 @@ export default function DateToolbar() {
             role="tab"
             aria-selected={day.isSelected}
             disabled={day.isFuture}
-            className={`relative flex w-[42px] shrink-0 flex-col items-center gap-0.5 rounded-sm border py-1.5 text-[0.65rem] transition-all disabled:cursor-not-allowed disabled:opacity-30 ${
+            className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-full text-sm transition-all disabled:cursor-not-allowed disabled:opacity-25 ${
               day.isSelected
-                ? 'border-primary bg-primary/20 text-primary shadow-[0_0_12px_rgba(232,197,71,0.22)]'
+                ? 'bg-primary font-semibold text-bg'
                 : day.isToday
-                  ? 'border-accent bg-surface-2 text-muted'
-                  : 'border-transparent bg-surface-2 text-muted'
+                  ? 'bg-surface-2 text-primary ring-1 ring-primary/40'
+                  : 'bg-surface-2/80 text-muted hover:text-[#f0f4f2]'
             }`}
             onClick={() => goToDay(day.date)}
           >
-            <span className="uppercase">{dayjs(day.date).format('dd')[0]}</span>
-            <strong className={`text-sm ${day.isSelected ? 'text-primary' : 'text-[#f0f4f2]'}`}>
-              {day.dayNum}
-            </strong>
-            {day.total > 0 && (
-              <i className="absolute right-1 top-1 h-1 w-1 rounded-full bg-accent" />
-            )}
+            {day.dayNum}
           </button>
         ))}
       </div>
