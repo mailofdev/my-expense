@@ -3,18 +3,17 @@ import { useDispatch, useSelector } from 'react-redux';
 import LoadingSpinner from '../../../shared/components/LoadingSpinner';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardTabs from '../components/DashboardTabs';
-import ExpenseSummary from '../components/ExpenseSummary';
+import DateToolbar from '../components/DateToolbar';
+import OverviewHero from '../components/OverviewHero';
 import AddExpenseForm from '../components/AddExpenseForm';
-import DayPickerStrip from '../components/DayPickerStrip';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
-import DailySpendChart from '../components/DailySpendChart';
 import WalletTracker from '../components/WalletTracker';
 import BudgetManager from '../components/BudgetManager';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import HabitImprover from '../components/HabitImprover';
-import MonthYearFilter from '../components/MonthYearFilter';
-import MonthWiseDistribution from '../components/MonthWiseDistribution';
 import { fetchDashboardData, clearDashboardError } from '../store/dashboardSlice';
+
+const DATE_TABS = ['overview', 'analyzer'];
 
 export default function DashboardPage() {
   const dispatch = useDispatch();
@@ -36,6 +35,8 @@ export default function DashboardPage() {
     return <LoadingSpinner message="Loading your finances..." />;
   }
 
+  const showDateToolbar = DATE_TABS.includes(activeTab);
+
   return (
     <div className="dashboard">
       <DashboardHeader />
@@ -46,30 +47,25 @@ export default function DashboardPage() {
             <button type="button" onClick={() => dispatch(clearDashboardError())}>×</button>
           </div>
         )}
-        <MonthYearFilter />
-        <DayPickerStrip />
+
         <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {activeTab === 'overview' && (
-          <>
-            <ExpenseSummary />
-            <div className="dashboard__grid dashboard__grid--overview">
-              <div className="dashboard__col dashboard__col--wide">
-                <AddExpenseForm />
-                <DailyExpenseLedger />
-              </div>
-              <div className="dashboard__col">
-                <DailySpendChart />
-                <MonthWiseDistribution />
-              </div>
-            </div>
-          </>
-        )}
+        {showDateToolbar && <DateToolbar />}
 
-        {activeTab === 'wallet' && <WalletTracker />}
-        {activeTab === 'budget' && <BudgetManager />}
-        {activeTab === 'analyzer' && <ExpenseAnalyzer />}
-        {activeTab === 'habits' && <HabitImprover />}
+        <div className="dashboard__content">
+          {activeTab === 'overview' && (
+            <div className="dashboard-overview">
+              <OverviewHero />
+              <AddExpenseForm />
+              <DailyExpenseLedger />
+            </div>
+          )}
+
+          {activeTab === 'wallet' && <WalletTracker />}
+          {activeTab === 'budget' && <BudgetManager />}
+          {activeTab === 'analyzer' && <ExpenseAnalyzer />}
+          {activeTab === 'habits' && <HabitImprover />}
+        </div>
       </main>
     </div>
   );

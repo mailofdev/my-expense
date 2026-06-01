@@ -95,7 +95,7 @@
 }
 
 .dashboard__main {
-  padding: clamp(0.75rem, 3vw, 1.5rem);
+  padding: clamp(0.5rem, 2vw, 1.25rem);
   padding-left: calc(clamp(0.75rem, 3vw, 1.5rem) + var(--safe-left));
   padding-right: calc(clamp(0.75rem, 3vw, 1.5rem) + var(--safe-right));
   padding-bottom: calc(clamp(1rem, 3vw, 1.5rem) + var(--safe-bottom) + 4rem);

@@ -23,7 +23,7 @@ export default function DashboardHeader() {
 
   return (
     <header className="dashboard-header">
-      <BrandLogo size="sm" showTagline={false} className="dashboard-header__brand" />
+      <BrandLogo size="sm" className="dashboard-header__brand" />
       <div className="dashboard-header__user">
         <div className="dashboard-header__avatar" aria-hidden="true">
           {initials}

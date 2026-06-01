@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import { addExpense, setDayFilter, selectFilterDate, selectIsTodaySelected } from '../store/dashboardSlice';
@@ -9,6 +9,7 @@ export default function AddExpenseForm() {
   const { categories, paymentModes, saving } = useSelector((state) => state.dashboard);
   const filterDate = useSelector(selectFilterDate);
   const isToday = useSelector(selectIsTodaySelected);
+  const [showDetails, setShowDetails] = useState(false);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -48,48 +49,66 @@ export default function AddExpenseForm() {
           category: categories[0],
           paymentMode: paymentModes[0],
         });
+        setShowDetails(false);
       }
     });
   };
 
   return (
-    <section className="add-expense card">
-      <h3>{isToday ? "Log today's expense" : 'Log expense for selected day'}</h3>
-      <p className="card__desc">Record each payment as it happens — day by day</p>
-      <form className="add-expense__form" onSubmit={handleSubmit(onSubmit)}>
-        <input
-          placeholder="What did you spend on?"
-          {...register('title', { required: 'Title required' })}
-        />
-        <input
-          type="number"
-          placeholder="Amount (₹)"
-          min="1"
-          {...register('amount', {
-            required: 'Amount required',
-            min: { value: 1, message: 'Min ₹1' },
-          })}
-        />
-        <input type="date" {...register('date', { required: 'Date required' })} />
-        <select {...register('category')}>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-        <select {...register('paymentMode')}>
-          {paymentModes.map((mode) => (
-            <option key={mode} value={mode}>{mode}</option>
-          ))}
-        </select>
-        <button type="submit" className="btn btn--primary" disabled={saving}>
-          {saving ? 'Saving...' : 'Add to this day'}
+    <section className="quick-add card card--flat">
+      <form className="quick-add__form" onSubmit={handleSubmit(onSubmit)}>
+        <div className="quick-add__row">
+          <input
+            className="quick-add__title"
+            placeholder={isToday ? 'What did you spend on?' : 'Expense title'}
+            {...register('title', { required: 'Required' })}
+          />
+          <input
+            className="quick-add__amount"
+            type="number"
+            placeholder="₹"
+            min="1"
+            {...register('amount', {
+              required: 'Required',
+              min: { value: 1, message: 'Min ₹1' },
+            })}
+          />
+          <button type="submit" className="btn btn--primary quick-add__submit" disabled={saving}>
+            {saving ? '…' : 'Add'}
+          </button>
+        </div>
+
+        {(errors.title || errors.amount) && (
+          <p className="form-field__error">
+            {errors.title?.message || errors.amount?.message}
+          </p>
+        )}
+
+        <button
+          type="button"
+          className="quick-add__toggle"
+          onClick={() => setShowDetails((v) => !v)}
+          aria-expanded={showDetails}
+        >
+          {showDetails ? 'Hide options' : 'Category, date & payment'}
         </button>
+
+        {showDetails && (
+          <div className="quick-add__details">
+            <input type="date" {...register('date', { required: true })} />
+            <select {...register('category')}>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <select {...register('paymentMode')}>
+              {paymentModes.map((mode) => (
+                <option key={mode} value={mode}>{mode}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </form>
-      {(errors.title || errors.amount) && (
-        <p className="form-field__error">
-          {errors.title?.message || errors.amount?.message}
-        </p>
-      )}
     </section>
   );
 }
