@@ -7,7 +7,7 @@ export default function ProtectedRoute({ children }) {
   const location = useLocation();
 
   if (initializing) {
-    return <LoadingSpinner message="Checking session..." />;
+    return <LoadingSpinner message="Loading..." />;
   }
 
   if (!isAuthenticated) {
