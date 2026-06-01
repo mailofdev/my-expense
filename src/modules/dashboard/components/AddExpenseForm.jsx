@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
+import DisclosureToggle from '../../../shared/components/DisclosureToggle';
 import { addExpense, setDayFilter, selectFilterDate, selectIsTodaySelected } from '../store/dashboardSlice';
 
 export default function AddExpenseForm() {
@@ -85,28 +86,39 @@ export default function AddExpenseForm() {
           </p>
         )}
 
-        <button
-          type="button"
-          className="w-full border-0 bg-transparent py-1 text-left text-sm text-muted hover:text-primary"
-          onClick={() => setShowDetails((v) => !v)}
-          aria-expanded={showDetails}
-        >
-          {showDetails ? 'Hide options' : 'Category & date'}
-        </button>
+        <DisclosureToggle
+          open={showDetails}
+          onToggle={() => setShowDetails((v) => !v)}
+          title="Category & date"
+          hintClosed="Tap to add category, payment & date"
+          controlsId="expense-extra-options"
+        />
 
         {showDetails && (
-          <div className="space-y-2 border-t border-edge/60 pt-3">
-            <select className="input" {...register('category')}>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <select className="input" {...register('paymentMode')}>
-              {paymentModes.map((mode) => (
-                <option key={mode} value={mode}>{mode}</option>
-              ))}
-            </select>
-            <input type="date" className="input" {...register('date', { required: true })} />
+          <div
+            id="expense-extra-options"
+            className="space-y-2 rounded-sm border border-edge/60 bg-surface-2/40 p-3"
+          >
+            <label className="label">
+              Category
+              <select className="input mt-1" {...register('category')}>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </label>
+            <label className="label">
+              Payment
+              <select className="input mt-1" {...register('paymentMode')}>
+                {paymentModes.map((mode) => (
+                  <option key={mode} value={mode}>{mode}</option>
+                ))}
+              </select>
+            </label>
+            <label className="label">
+              Date
+              <input type="date" className="input mt-1" {...register('date', { required: true })} />
+            </label>
           </div>
         )}
       </form>

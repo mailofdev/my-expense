@@ -8,6 +8,7 @@ import {
   selectFilteredMonthLabel,
 } from '../store/dashboardSlice';
 import { CATEGORIES } from '../../../core/constants/finance';
+import DisclosureToggle from '../../../shared/components/DisclosureToggle';
 
 export default function BudgetManager() {
   const dispatch = useDispatch();
@@ -101,19 +102,19 @@ export default function BudgetManager() {
       </section>
 
       <section className="card">
-        <button
-          type="button"
-          className="card-title mb-0 flex w-full items-center justify-between border-0 bg-transparent p-0 text-left"
-          onClick={() => setShowCategories((v) => !v)}
-          aria-expanded={showCategories}
-        >
-          Category limits
-          <span className="text-sm font-normal text-muted">{showCategories ? '−' : '+'}</span>
-        </button>
+        <DisclosureToggle
+          open={showCategories}
+          onToggle={() => setShowCategories((v) => !v)}
+          title="Category limits"
+          hintClosed="Tap to set optional limits per category"
+          controlsId="category-limits-panel"
+        />
         {showCategories && (
-          <>
-            <p className="card-desc">Optional — set a limit per category.</p>
-            <div className="mb-4 grid grid-cols-2 gap-3">
+          <div
+            id="category-limits-panel"
+            className="mt-3 space-y-3 rounded-sm border border-edge/60 bg-surface-2/40 p-3"
+          >
+            <div className="grid grid-cols-2 gap-3">
               {CATEGORIES.map((cat) => (
                 <label key={cat} className="label">
                   {cat}
@@ -130,9 +131,9 @@ export default function BudgetManager() {
               ))}
             </div>
             <button type="button" className="btn-outline btn-full" onClick={handleSave} disabled={saving}>
-              Save limits
+              {saving ? 'Saving…' : 'Save limits'}
             </button>
-          </>
+          </div>
         )}
       </section>
     </div>
