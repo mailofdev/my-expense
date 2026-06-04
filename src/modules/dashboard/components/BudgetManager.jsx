@@ -7,13 +7,12 @@ import {
   selectBudgetRemaining,
   selectFilteredMonthLabel,
 } from '../store/dashboardSlice';
-import { CATEGORIES } from '../../../core/constants/finance';
 import DisclosureToggle from '../../../shared/components/DisclosureToggle';
 
 export default function BudgetManager() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { monthlyBudget, monthlyIncome, categoryBudgets, saving } = useSelector(
+  const { monthlyBudget, monthlyIncome, categoryBudgets, categories, saving } = useSelector(
     (state) => state.dashboard
   );
   const totalSpent = useSelector(selectTotalSpent);
@@ -115,7 +114,7 @@ export default function BudgetManager() {
             className="mt-3 space-y-3 rounded-sm border border-edge/60 bg-surface-2/40 p-3"
           >
             <div className="grid grid-cols-2 gap-3">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <label key={cat} className="label">
                   {cat}
                   <input

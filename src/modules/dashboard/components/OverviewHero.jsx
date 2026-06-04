@@ -5,6 +5,7 @@ import {
   selectFilteredDayLabel,
   selectIsTodaySelected,
   selectBudgetRemaining,
+  selectInAppReminders,
 } from '../store/dashboardSlice';
 
 export default function OverviewHero() {
@@ -13,6 +14,7 @@ export default function OverviewHero() {
   const dayLabel = useSelector(selectFilteredDayLabel);
   const isToday = useSelector(selectIsTodaySelected);
   const budgetLeft = useSelector(selectBudgetRemaining);
+  const reminders = useSelector(selectInAppReminders);
 
   return (
     <section className="px-1 py-2 sm:px-2">
@@ -37,6 +39,24 @@ export default function OverviewHero() {
           </span>
         )}
       </p>
+      {!!reminders.length && (
+        <div className="mt-4 space-y-2">
+          {reminders.map((reminder) => (
+            <p
+              key={reminder.id}
+              className={`m-0 rounded-sm border px-3 py-2 text-xs ${
+                reminder.tone === 'danger'
+                  ? 'border-danger/40 bg-danger/10 text-red-200'
+                  : reminder.tone === 'warning'
+                    ? 'border-accent/40 bg-accent/10 text-yellow-100'
+                    : 'border-edge bg-surface-2 text-muted'
+              }`}
+            >
+              {reminder.text}
+            </p>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

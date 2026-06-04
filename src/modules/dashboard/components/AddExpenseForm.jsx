@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import DisclosureToggle from '../../../shared/components/DisclosureToggle';
-import { addExpense, setDayFilter, selectFilterDate, selectIsTodaySelected } from '../store/dashboardSlice';
+import {
+  addExpense,
+  setDayFilter,
+  selectFilterDate,
+  selectIsTodaySelected,
+  updateFinanceSettings,
+} from '../store/dashboardSlice';
 
 export default function AddExpenseForm() {
   const dispatch = useDispatch();
@@ -11,6 +17,7 @@ export default function AddExpenseForm() {
   const filterDate = useSelector(selectFilterDate);
   const isToday = useSelector(selectIsTodaySelected);
   const [showDetails, setShowDetails] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -25,6 +32,12 @@ export default function AddExpenseForm() {
   useEffect(() => {
     setValue('date', filterDate);
   }, [filterDate, setValue]);
+
+  useEffect(() => {
+    if (categories?.length) {
+      setValue('category', categories[0]);
+    }
+  }, [categories, setValue]);
 
   const onSubmit = (data) => {
     dispatch(
@@ -53,6 +66,20 @@ export default function AddExpenseForm() {
         setShowDetails(false);
       }
     });
+  };
+
+  const handleAddCustomCategory = () => {
+    const trimmed = newCategory.trim();
+    if (!trimmed || categories.includes(trimmed)) return;
+    const nextCategories = [...categories, trimmed];
+    dispatch(
+      updateFinanceSettings({
+        uid: user.uid,
+        updates: { categories: nextCategories },
+      })
+    );
+    setValue('category', trimmed);
+    setNewCategory('');
   };
 
   return (
@@ -107,6 +134,25 @@ export default function AddExpenseForm() {
                 ))}
               </select>
             </label>
+            <div>
+              <p className="label">Add custom category</p>
+              <div className="flex gap-2">
+                <input
+                  className="input"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="e.g. Pets"
+                />
+                <button
+                  type="button"
+                  className="btn-outline shrink-0"
+                  onClick={handleAddCustomCategory}
+                  disabled={!newCategory.trim() || categories.includes(newCategory.trim()) || saving}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
             <label className="label">
               Payment
               <select className="input mt-1" {...register('paymentMode')}>

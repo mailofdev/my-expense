@@ -6,14 +6,19 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../core/config/firebase';
-import { DEFAULT_HABITS } from '../../../core/constants/finance';
+import { CATEGORIES, DEFAULT_HABITS } from '../../../core/constants/finance';
 
 const defaultProfile = () => ({
   walletBalance: 0,
   monthlyBudget: 0,
   monthlyIncome: 0,
   categoryBudgets: {},
+  categories: CATEGORIES,
   habits: { ...DEFAULT_HABITS },
+  splitGroups: [],
+  recurringExpenses: [],
+  activityLog: [],
+  onboardingSeen: false,
 });
 
 export const userService = {

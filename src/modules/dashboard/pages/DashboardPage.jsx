@@ -11,6 +11,7 @@ import WalletTracker from '../components/WalletTracker';
 import BudgetManager from '../components/BudgetManager';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import HabitImprover from '../components/HabitImprover';
+import SplitGroupsHub from '../components/SplitGroupsHub';
 import { fetchDashboardData, clearDashboardError } from '../store/dashboardSlice';
 
 const DATE_TABS = ['overview', 'analyzer'];
@@ -72,6 +73,7 @@ export default function DashboardPage() {
             </>
           )}
 
+          {activeTab === 'split' && <SplitGroupsHub />}
           {activeTab === 'wallet' && <WalletTracker />}
           {activeTab === 'budget' && <BudgetManager />}
           {activeTab === 'analyzer' && <ExpenseAnalyzer />}

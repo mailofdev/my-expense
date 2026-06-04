@@ -1,5 +1,6 @@
 const TABS = [
   { id: 'overview', label: 'Home' },
+  { id: 'split', label: 'Split' },
   { id: 'wallet', label: 'Wallet' },
   { id: 'budget', label: 'Budget' },
   { id: 'analyzer', label: 'Charts' },
