@@ -17,8 +17,8 @@ export default function ExpenseAnalyzer() {
   return (
     <div className="feature-panel">
       <div className="px-1">
-        <p className="section-label m-0">This month</p>
-        <p className="m-0 text-sm text-muted">{monthLabel}</p>
+        <p className="section-label m-0">{monthLabel}</p>
+        <p className="m-0 text-sm text-muted">Total spent</p>
         <p className="mt-1 text-2xl font-bold text-primary">{formatINR(totalSpent)}</p>
       </div>
 

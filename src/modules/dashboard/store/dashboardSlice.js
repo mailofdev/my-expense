@@ -13,6 +13,7 @@ import {
   formatMonthYearLabel,
   formatDayLabel,
   resolveFilterDateForMonth,
+  getMonthKey,
 } from '../../../core/utils/date';
 import { expenseService } from '../services/expenseService';
 import { walletService } from '../services/walletService';
@@ -40,7 +41,10 @@ export const fetchDashboardData = createAsyncThunk(
         expenseService.fetchAll(uid),
         walletService.fetchTransactions(uid),
       ]);
-      return { profile, expenses, walletTransactions };
+      const monthlyWallets = profile
+        ? await walletService.migrateLegacyBalance(uid, profile, expenses, walletTransactions)
+        : {};
+      return { profile, expenses, walletTransactions, monthlyWallets };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -52,8 +56,7 @@ export const addExpense = createAsyncThunk(
   async ({ uid, expense }, { rejectWithValue }) => {
     try {
       const created = await expenseService.create(uid, expense);
-      const newBalance = await walletService.adjustBalance(uid, -expense.amount);
-      return { expense: created, walletBalance: newBalance };
+      return { expense: created };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -65,8 +68,7 @@ export const removeExpense = createAsyncThunk(
   async ({ uid, expenseId, amount }, { rejectWithValue }) => {
     try {
       await expenseService.remove(uid, expenseId);
-      const newBalance = await walletService.adjustBalance(uid, amount);
-      return { expenseId, walletBalance: newBalance };
+      return { expenseId };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -78,11 +80,7 @@ export const updateExpense = createAsyncThunk(
   async ({ uid, expenseId, expense, previousAmount }, { rejectWithValue }) => {
     try {
       const updated = await expenseService.update(uid, expenseId, expense);
-      let walletBalance;
-      if (previousAmount !== expense.amount) {
-        walletBalance = await walletService.adjustBalance(uid, previousAmount - expense.amount);
-      }
-      return { expense: updated, walletBalance };
+      return { expense: updated };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -91,9 +89,9 @@ export const updateExpense = createAsyncThunk(
 
 export const addWalletFunds = createAsyncThunk(
   'dashboard/addWalletFunds',
-  async ({ uid, amount, note }, { rejectWithValue }) => {
+  async ({ uid, amount, note, monthKey }, { rejectWithValue }) => {
     try {
-      const result = await walletService.addFunds(uid, { amount, note });
+      const result = await walletService.addFunds(uid, { amount, note, monthKey });
       return result;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -358,7 +356,6 @@ export const applyDueRecurringExpenses = createAsyncThunk(
       if (!due.length) return { expenses: [], recurringExpenses: state.recurringExpenses };
 
       const createdExpenses = [];
-      let walletBalance = state.walletBalance;
       for (const template of due) {
         const created = await expenseService.create(uid, {
           title: template.title,
@@ -368,7 +365,6 @@ export const applyDueRecurringExpenses = createAsyncThunk(
           date: getTodayString(),
         });
         createdExpenses.push(created);
-        walletBalance = await walletService.adjustBalance(uid, -(template.amount || 0));
       }
 
       const nextRecurring = state.recurringExpenses.map((item) => {
@@ -399,7 +395,7 @@ export const applyDueRecurringExpenses = createAsyncThunk(
         activityLog: [...activity, ...state.activityLog].slice(0, 100),
       };
       await userService.updateProfile(uid, updates);
-      return { expenses: createdExpenses, recurringExpenses: nextRecurring, walletBalance, activity };
+      return { expenses: createdExpenses, recurringExpenses: nextRecurring, activity };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -500,7 +496,7 @@ const dashboardSlice = createSlice({
     filterMonth: initialMonthYear.month,
     filterYear: initialMonthYear.year,
     filterDate: getTodayString(),
-    walletBalance: 0,
+    monthlyWallets: {},
     monthlyBudget: 0,
     monthlyIncome: 0,
     categoryBudgets: {},
@@ -538,7 +534,7 @@ const dashboardSlice = createSlice({
       state.filterMonth = now.month;
       state.filterYear = now.year;
       state.filterDate = getTodayString();
-      state.walletBalance = 0;
+      state.monthlyWallets = {};
       state.monthlyBudget = 0;
       state.monthlyIncome = 0;
       state.categoryBudgets = {};
@@ -570,9 +566,9 @@ const dashboardSlice = createSlice({
       .addCase(fetchDashboardData.fulfilled, (state, action) => {
         state.loading = false;
         state.loaded = true;
-        const { profile, expenses, walletTransactions } = action.payload;
+        const { profile, expenses, walletTransactions, monthlyWallets } = action.payload;
         if (profile) {
-          state.walletBalance = profile.walletBalance ?? 0;
+          state.monthlyWallets = monthlyWallets ?? profile.monthlyWallets ?? {};
           state.monthlyBudget = profile.monthlyBudget ?? 0;
           state.monthlyIncome = profile.monthlyIncome ?? 0;
           state.categoryBudgets = profile.categoryBudgets ?? {};
@@ -597,7 +593,6 @@ const dashboardSlice = createSlice({
       .addCase(addExpense.fulfilled, (state, action) => {
         state.saving = false;
         state.expenses.unshift(action.payload.expense);
-        state.walletBalance = action.payload.walletBalance;
         state.habits.expensesLoggedThisWeek =
           (state.habits.expensesLoggedThisWeek || 0) + 1;
       })
@@ -608,7 +603,6 @@ const dashboardSlice = createSlice({
 
       .addCase(removeExpense.fulfilled, (state, action) => {
         state.expenses = state.expenses.filter((e) => e.id !== action.payload.expenseId);
-        state.walletBalance = action.payload.walletBalance;
       })
 
       .addCase(updateExpense.pending, (state) => {
@@ -616,13 +610,10 @@ const dashboardSlice = createSlice({
       })
       .addCase(updateExpense.fulfilled, (state, action) => {
         state.saving = false;
-        const { expense, walletBalance } = action.payload;
+        const { expense } = action.payload;
         const index = state.expenses.findIndex((e) => e.id === expense.id);
         if (index !== -1) {
           state.expenses[index] = { ...state.expenses[index], ...expense };
-        }
-        if (walletBalance !== undefined) {
-          state.walletBalance = walletBalance;
         }
       })
       .addCase(updateExpense.rejected, (state, action) => {
@@ -635,7 +626,7 @@ const dashboardSlice = createSlice({
       })
       .addCase(addWalletFunds.fulfilled, (state, action) => {
         state.saving = false;
-        state.walletBalance = action.payload.walletBalance;
+        state.monthlyWallets = action.payload.monthlyWallets;
         state.walletTransactions.unshift({
           ...action.payload.transaction,
           createdAt: new Date().toISOString(),
@@ -681,7 +672,6 @@ const dashboardSlice = createSlice({
       .addCase(applyDueRecurringExpenses.fulfilled, (state, action) => {
         state.expenses = [...action.payload.expenses, ...state.expenses];
         state.recurringExpenses = action.payload.recurringExpenses;
-        state.walletBalance = action.payload.walletBalance;
         state.activityLog = [...action.payload.activity, ...state.activityLog].slice(0, 100);
       })
       .addCase(updateRecurringTemplate.fulfilled, (state, action) => {
@@ -817,6 +807,42 @@ export const selectMonthlyDistribution = (state) => {
   return months;
 };
 
+export const selectFilterMonthKey = (state) => {
+  const { month, year } = selectFilter(state);
+  return getMonthKey(month, year);
+};
+
+export const selectMonthWalletFunded = (state) => {
+  const key = selectFilterMonthKey(state);
+  return state.dashboard.monthlyWallets[key] || 0;
+};
+
+export const selectMonthWalletRemaining = (state) => {
+  const funded = selectMonthWalletFunded(state);
+  if (!funded) return 0;
+  return funded - selectTotalSpent(state);
+};
+
+export const selectMonthWalletStatsByDate = (state, dateStr, excludeExpenseId = null) => {
+  const d = dayjs(dateStr);
+  const monthKey = getMonthKey(d.month() + 1, d.year());
+  const month = d.month() + 1;
+  const year = d.year();
+  const funded = state.dashboard.monthlyWallets[monthKey] || 0;
+  const spent = state.dashboard.expenses
+    .filter((e) => isInMonthYear(e.date, month, year) && e.id !== excludeExpenseId)
+    .reduce((sum, e) => sum + e.amount, 0);
+  const remaining = funded ? funded - spent : 0;
+  return { monthKey, monthLabel: formatMonthYearLabel(month, year), funded, spent, remaining };
+};
+
+export const selectMonthWalletUsagePercent = (state) => {
+  const funded = selectMonthWalletFunded(state);
+  if (!funded) return 0;
+  const spent = selectTotalSpent(state);
+  return Math.round((spent / funded) * 100);
+};
+
 export const selectTotalSpent = (state) =>
   selectMonthExpenses(state).reduce((sum, e) => sum + e.amount, 0);
 
@@ -937,6 +963,27 @@ export const selectHabitInsights = (state) => {
     });
   }
 
+  const walletFunded = selectMonthWalletFunded(state);
+  if (walletFunded === 0 && spent > 0) {
+    insights.push({
+      type: 'action',
+      icon: '👛',
+      text: `${monthLabel} has expenses but no wallet funded. Add your wallet amount to track remaining balance.`,
+    });
+  } else if (walletFunded > 0 && spent > walletFunded) {
+    insights.push({
+      type: 'danger',
+      icon: '💸',
+      text: `You've spent ₹${(spent - walletFunded).toLocaleString('en-IN')} more than your wallet for ${monthLabel}.`,
+    });
+  } else if (walletFunded > 0 && spent > walletFunded * 0.8) {
+    insights.push({
+      type: 'warning',
+      icon: '👛',
+      text: 'You have used 80%+ of this month\'s wallet. Watch your remaining balance.',
+    });
+  }
+
   const upiCount = selectMonthExpenses(state).filter((e) => e.paymentMode === 'UPI').length;
   if (upiCount >= 5) {
     insights.push({
@@ -1049,6 +1096,33 @@ export const selectInAppReminders = (state) => {
         text: `Budget exceeded by ${Math.abs(remaining).toLocaleString('en-IN')}.`,
       });
     }
+  }
+  const walletFunded = selectMonthWalletFunded(state);
+  const walletRemaining = selectMonthWalletRemaining(state);
+  const monthSpent = selectTotalSpent(state);
+  if (walletFunded === 0 && (selectIsFilterCurrentMonth(state) || monthSpent > 0)) {
+    reminders.push({
+      id: 'fund-month-wallet',
+      tone: 'info',
+      action: 'wallet',
+      text: selectIsFilterCurrentMonth(state)
+        ? 'Add your wallet amount for this month to start tracking spends.'
+        : `Fund your wallet for ${selectFilteredMonthLabel(state)} to track that month's balance.`,
+    });
+  } else if (walletFunded > 0 && walletRemaining < 0) {
+    reminders.push({
+      id: 'wallet-over',
+      tone: 'danger',
+      action: 'wallet',
+      text: `Wallet overspent by ${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
+    });
+  } else if (walletFunded > 0 && walletRemaining <= walletFunded * 0.2) {
+    reminders.push({
+      id: 'wallet-low',
+      tone: 'warning',
+      action: 'wallet',
+      text: `Only ${Math.max(0, walletRemaining).toLocaleString('en-IN')} left in this month's wallet.`,
+    });
   }
   return reminders.slice(0, 4);
 };

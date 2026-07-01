@@ -4,6 +4,7 @@ import {
   selectTotalSpent,
   selectBudgetRemaining,
   selectSavingsRate,
+  selectMonthWalletRemaining,
   selectFilteredMonthLabel,
   selectDayTotal,
   selectFilteredDayLabel,
@@ -11,7 +12,7 @@ import {
 } from '../store/dashboardSlice';
 
 export default function ExpenseSummary() {
-  const { walletBalance, monthlyBudget } = useSelector((state) => state.dashboard);
+  const { monthlyBudget } = useSelector((state) => state.dashboard);
   const totalSpent = useSelector(selectTotalSpent);
   const dayTotal = useSelector(selectDayTotal);
   const budgetRemaining = useSelector(selectBudgetRemaining);
@@ -19,6 +20,7 @@ export default function ExpenseSummary() {
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const dayLabel = useSelector(selectFilteredDayLabel);
   const isToday = useSelector(selectIsTodaySelected);
+  const walletRemaining = useSelector(selectMonthWalletRemaining);
   const budgetUsedPercent =
     monthlyBudget > 0
       ? Math.min(100, Math.round((totalSpent / monthlyBudget) * 100))
@@ -32,10 +34,10 @@ export default function ExpenseSummary() {
       accent: 'teal',
     },
     {
-      label: 'Wallet Balance',
-      value: formatINR(walletBalance),
-      sub: 'Available to spend',
-      accent: 'green',
+      label: `${monthLabel} wallet left`,
+      value: formatINR(walletRemaining),
+      sub: 'Funded amount minus month spends',
+      accent: walletRemaining >= 0 ? 'green' : 'red',
     },
     {
       label: `Month — ${monthLabel}`,

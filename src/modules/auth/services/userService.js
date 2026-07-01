@@ -9,7 +9,7 @@ import { db } from '../../../core/config/firebase';
 import { CATEGORIES, DEFAULT_HABITS } from '../../../core/constants/finance';
 
 const defaultProfile = () => ({
-  walletBalance: 0,
+  monthlyWallets: {},
   monthlyBudget: 0,
   monthlyIncome: 0,
   categoryBudgets: {},

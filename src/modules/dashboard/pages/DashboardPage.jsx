@@ -12,15 +12,25 @@ import BudgetManager from '../components/BudgetManager';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import HabitImprover from '../components/HabitImprover';
 import SplitGroupsHub from '../components/SplitGroupsHub';
-import { fetchDashboardData, clearDashboardError } from '../store/dashboardSlice';
+import { fetchDashboardData, clearDashboardError, setMonthFilter, setDayFilter } from '../store/dashboardSlice';
+import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
 
-const DATE_TABS = ['overview', 'analyzer'];
+const DATE_TABS = ['overview', 'wallet', 'budget', 'analyzer', 'habits'];
 
 export default function DashboardPage() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { loading, loaded, error } = useSelector((state) => state.dashboard);
   const [activeTab, setActiveTab] = useState('overview');
+
+  const handleTabChange = (tab) => {
+    if (tab === 'wallet') {
+      const now = getNowMonthYear();
+      dispatch(setMonthFilter({ month: now.month, year: now.year }));
+      dispatch(setDayFilter({ date: getTodayString() }));
+    }
+    setActiveTab(tab);
+  };
 
   useEffect(() => {
     if (user?.uid) {
@@ -56,7 +66,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
         {showDateToolbar && (
           <div className="mt-5">
@@ -67,8 +77,8 @@ export default function DashboardPage() {
         <div className="mt-5 flex flex-col gap-5 sm:gap-6">
           {activeTab === 'overview' && (
             <>
-              <OverviewHero />
-              <AddExpenseForm />
+              <OverviewHero onTabChange={handleTabChange} />
+              <AddExpenseForm onGoToWallet={() => handleTabChange('wallet')} />
               <DailyExpenseLedger />
             </>
           )}

@@ -6,6 +6,9 @@ import {
   selectTotalSpent,
   selectBudgetRemaining,
   selectFilteredMonthLabel,
+  selectMonthWalletFunded,
+  selectMonthWalletRemaining,
+  selectMonthWalletUsagePercent,
 } from '../store/dashboardSlice';
 import DisclosureToggle from '../../../shared/components/DisclosureToggle';
 
@@ -18,6 +21,9 @@ export default function BudgetManager() {
   const totalSpent = useSelector(selectTotalSpent);
   const remaining = useSelector(selectBudgetRemaining);
   const monthLabel = useSelector(selectFilteredMonthLabel);
+  const walletFunded = useSelector(selectMonthWalletFunded);
+  const walletRemaining = useSelector(selectMonthWalletRemaining);
+  const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
 
   const [budget, setBudget] = useState(monthlyBudget || '');
   const [income, setIncome] = useState(monthlyIncome || '');
@@ -32,6 +38,7 @@ export default function BudgetManager() {
 
   const percent =
     monthlyBudget > 0 ? Math.min(100, Math.round((totalSpent / monthlyBudget) * 100)) : 0;
+  const walletBarPercent = walletFunded > 0 ? Math.min(100, walletUsagePercent) : 0;
 
   const handleSave = () => {
     dispatch(
@@ -51,7 +58,33 @@ export default function BudgetManager() {
   return (
     <div className="feature-panel">
       <section className="card">
-        <p className="section-label m-0">{monthLabel}</p>
+        <p className="section-label m-0">{monthLabel} wallet</p>
+        {walletFunded > 0 ? (
+          <>
+            <div className="mb-3 mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  walletRemaining < 0 ? 'bg-danger' : walletUsagePercent >= 80 ? 'bg-accent' : 'bg-primary'
+                }`}
+                style={{ width: `${walletBarPercent}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Spent {formatINR(totalSpent)}</span>
+              <span className={walletRemaining < 0 ? 'text-danger' : 'font-medium'}>
+                {walletRemaining < 0 ? 'Over' : 'Left'} {formatINR(Math.abs(walletRemaining))}
+              </span>
+            </div>
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-muted">
+            Wallet not funded for {monthLabel}. Fund it from the Wallet tab.
+          </p>
+        )}
+      </section>
+
+      <section className="card">
+        <p className="section-label m-0">{monthLabel} budget</p>
         {monthlyBudget > 0 ? (
           <>
             <div className="mb-3 mt-2 h-2 overflow-hidden rounded-full bg-surface-2">

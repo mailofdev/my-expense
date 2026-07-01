@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
+import dayjs from 'dayjs';
 import DisclosureToggle from '../../../shared/components/DisclosureToggle';
+import { formatINR } from '../../../core/utils/currency';
+import { getTodayString } from '../../../core/utils/date';
 import {
   addExpense,
   setDayFilter,
   selectFilterDate,
   selectIsTodaySelected,
+  selectMonthWalletStatsByDate,
   updateFinanceSettings,
 } from '../store/dashboardSlice';
 
-export default function AddExpenseForm() {
+export default function AddExpenseForm({ onGoToWallet }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { categories, paymentModes, saving } = useSelector((state) => state.dashboard);
@@ -19,7 +23,9 @@ export default function AddExpenseForm() {
   const [showDetails, setShowDetails] = useState(false);
   const [newCategory, setNewCategory] = useState('');
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm({
+  const today = getTodayString();
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
       title: '',
       amount: '',
@@ -28,6 +34,9 @@ export default function AddExpenseForm() {
       paymentMode: paymentModes[0],
     },
   });
+
+  const watchedDate = watch('date') || filterDate;
+  const expenseWallet = useSelector((state) => selectMonthWalletStatsByDate(state, watchedDate));
 
   useEffect(() => {
     setValue('date', filterDate);
@@ -39,7 +48,7 @@ export default function AddExpenseForm() {
     }
   }, [categories, setValue]);
 
-  const onSubmit = (data) => {
+  const submitExpense = (data) => {
     dispatch(
       addExpense({
         uid: user.uid,
@@ -68,6 +77,27 @@ export default function AddExpenseForm() {
     });
   };
 
+  const onSubmit = (data) => {
+    if (dayjs(data.date).isAfter(dayjs(), 'day')) return;
+
+    const amount = Number(data.amount);
+    const remainingAfter = expenseWallet.remaining - amount;
+
+    if (expenseWallet.funded === 0) {
+      const proceed = window.confirm(
+        `${expenseWallet.monthLabel} wallet is not funded yet.\n\nAdd this expense anyway? You can fund the wallet later from the Wallet tab.`
+      );
+      if (!proceed) return;
+    } else if (remainingAfter < 0) {
+      const proceed = window.confirm(
+        `This will exceed your ${expenseWallet.monthLabel} wallet by ${formatINR(Math.abs(remainingAfter))}.\n\nAdd expense anyway?`
+      );
+      if (!proceed) return;
+    }
+
+    submitExpense(data);
+  };
+
   const handleAddCustomCategory = () => {
     const trimmed = newCategory.trim();
     if (!trimmed || categories.includes(trimmed)) return;
@@ -81,6 +111,10 @@ export default function AddExpenseForm() {
     setValue('category', trimmed);
     setNewCategory('');
   };
+
+  const watchedAmount = Number(watch('amount')) || 0;
+  const projectedRemaining = expenseWallet.remaining - watchedAmount;
+  const dateDiffersFromFilter = watchedDate !== filterDate;
 
   return (
     <section className="card">
@@ -110,6 +144,34 @@ export default function AddExpenseForm() {
         {(errors.title || errors.amount) && (
           <p className="text-xs text-red-300">
             {errors.title?.message || errors.amount?.message}
+          </p>
+        )}
+
+        {(expenseWallet.funded > 0 || watchedAmount > 0) && (
+          <p
+            className={`m-0 rounded-sm border px-3 py-2 text-xs ${
+              projectedRemaining < 0
+                ? 'border-danger/40 bg-danger/10 text-red-200'
+                : expenseWallet.funded === 0
+                  ? 'border-accent/40 bg-accent/10 text-yellow-100'
+                  : 'border-edge bg-surface-2 text-muted'
+            }`}
+          >
+            {expenseWallet.funded === 0 ? (
+              <>
+                {expenseWallet.monthLabel} wallet not funded.{' '}
+                {onGoToWallet && (
+                  <button type="button" className="border-0 bg-transparent p-0 font-semibold text-primary underline" onClick={onGoToWallet}>
+                    Fund wallet
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {expenseWallet.monthLabel} wallet: {formatINR(Math.max(0, projectedRemaining))} left after this
+                {dateDiffersFromFilter && ' (different month)'}
+              </>
+            )}
           </p>
         )}
 
@@ -163,8 +225,18 @@ export default function AddExpenseForm() {
             </label>
             <label className="label">
               Date
-              <input type="date" className="input mt-1" {...register('date', { required: true })} />
+              <input
+                type="date"
+                className="input mt-1"
+                max={today}
+                {...register('date', { required: true })}
+              />
             </label>
+            {dateDiffersFromFilter && (
+              <p className="m-0 text-xs text-muted">
+                Expense will count toward {expenseWallet.monthLabel} wallet, not the day shown in the calendar above.
+              </p>
+            )}
           </div>
         )}
       </form>

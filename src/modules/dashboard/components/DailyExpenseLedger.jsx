@@ -12,6 +12,7 @@ import {
   selectFilterDate,
   selectFilteredDayLabel,
   selectIsTodaySelected,
+  selectMonthWalletStatsByDate,
 } from '../store/dashboardSlice';
 
 export default function DailyExpenseLedger() {
@@ -30,6 +31,10 @@ export default function DailyExpenseLedger() {
   const [editCategory, setEditCategory] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editPaymentMode, setEditPaymentMode] = useState('');
+
+  const editWallet = useSelector((state) =>
+    editingId ? selectMonthWalletStatsByDate(state, editDate || filterDate, editingId) : null
+  );
 
   const startEdit = (expense) => {
     setEditingId(expense.id);
@@ -59,6 +64,22 @@ export default function DailyExpenseLedger() {
     if (!date) return;
     if (dayjs(date).isAfter(dayjs(), 'day')) return;
 
+    const monthChanged = dayjs(date).format('YYYY-MM') !== dayjs(expense.date).format('YYYY-MM');
+    const stats = editWallet || { remaining: 0, funded: 0, monthLabel: '' };
+    const remainingAfter = stats.remaining - amount;
+
+    if (stats.funded === 0 && amount > 0) {
+      const proceed = window.confirm(
+        `${stats.monthLabel} wallet is not funded. Save this expense anyway?`
+      );
+      if (!proceed) return;
+    } else if (remainingAfter < 0) {
+      const proceed = window.confirm(
+        `This will exceed ${stats.monthLabel} wallet by ${formatINR(Math.abs(remainingAfter))}. Save anyway?`
+      );
+      if (!proceed) return;
+    }
+
     dispatch(
       updateExpense({
         uid: user.uid,
@@ -76,6 +97,9 @@ export default function DailyExpenseLedger() {
       if (!result.error) {
         if (date !== filterDate) {
           dispatch(setDayFilter({ date }));
+        }
+        if (monthChanged) {
+          window.alert(`Expense moved to ${stats.monthLabel} wallet.`);
         }
         cancelEdit();
       }
@@ -104,6 +128,11 @@ export default function DailyExpenseLedger() {
     Number(editAmount) >= 1 &&
     editDate &&
     !dayjs(editDate).isAfter(dayjs(), 'day');
+
+  const editAmountNum = Number(editAmount) || 0;
+  const editProjectedRemaining = editWallet ? editWallet.remaining - editAmountNum : 0;
+  const editMonthChanged =
+    editingId && editDate && dayjs(editDate).format('YYYY-MM') !== dayjs(filterDate).format('YYYY-MM');
 
   return (
     <section className="card">
@@ -180,6 +209,22 @@ export default function DailyExpenseLedger() {
                       onChange={(e) => setEditDate(e.target.value)}
                       aria-label="Date"
                     />
+                    {editWallet && editAmountNum > 0 && (
+                      <p
+                        className={`m-0 rounded-sm border px-2 py-1.5 text-xs ${
+                          editProjectedRemaining < 0
+                            ? 'border-danger/40 bg-danger/10 text-red-200'
+                            : editWallet.funded === 0
+                              ? 'border-accent/40 bg-accent/10 text-yellow-100'
+                              : 'border-edge bg-surface-2 text-muted'
+                        }`}
+                      >
+                        {editWallet.funded === 0
+                          ? `${editWallet.monthLabel} wallet not funded`
+                          : `${editWallet.monthLabel} wallet: ${formatINR(Math.max(0, editProjectedRemaining))} left after save`}
+                        {editMonthChanged && ' · affects different month'}
+                      </p>
+                    )}
                     <div className="flex justify-end gap-2 pt-1">
                       <button
                         type="button"

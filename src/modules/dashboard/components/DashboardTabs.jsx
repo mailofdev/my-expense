@@ -1,10 +1,10 @@
 const TABS = [
   { id: 'overview', label: 'Home' },
-  { id: 'split', label: 'Split' },
+  // { id: 'split', label: 'Split' },
   { id: 'wallet', label: 'Wallet' },
-  { id: 'budget', label: 'Budget' },
+  // { id: 'budget', label: 'Budget' },
   { id: 'analyzer', label: 'Charts' },
-  { id: 'habits', label: 'Tips' },
+  // { id: 'habits', label: 'Tips' },
 ];
 
 export default function DashboardTabs({ activeTab, onTabChange }) {
