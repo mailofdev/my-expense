@@ -17,11 +17,6 @@ const mapFirebaseUser = (firebaseUser, token, profile = null) => ({
     firebaseUser.email?.split('@')[0] ||
     'User',
   token,
-  monthlyWallets: profile?.monthlyWallets ?? {},
-  monthlyBudget: profile?.monthlyBudget ?? 0,
-  monthlyIncome: profile?.monthlyIncome ?? 0,
-  categoryBudgets: profile?.categoryBudgets ?? {},
-  habits: profile?.habits ?? null,
   createdAt: profile?.createdAt ?? null,
 });
 

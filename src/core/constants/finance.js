@@ -18,9 +18,3 @@ export const PAYMENT_MODES = ['UPI', 'Cash', 'Card', 'Bank'];
 export function getCategoryColor(category) {
   return CATEGORY_CONFIG[category]?.color ?? '#6b7280';
 }
-
-export const DEFAULT_HABITS = {
-  savingsGoalPercent: 20,
-  lastWeeklyReview: null,
-  expensesLoggedThisWeek: 0,
-};
