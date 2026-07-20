@@ -18,7 +18,7 @@ import {
 export default function DailyExpenseLedger() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { categories, paymentModes, saving } = useSelector((state) => state.dashboard);
+  const { categories, paymentModes, saving, categoryColors } = useSelector((state) => state.dashboard);
   const filterDate = useSelector(selectFilterDate);
   const dayExpenses = useSelector(selectDayExpenses);
   const dayTotal = useSelector(selectDayTotal);
@@ -248,7 +248,7 @@ export default function DailyExpenseLedger() {
                   <div className="flex items-center gap-3">
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: getCategoryColor(expense.category) }}
+                      style={{ background: getCategoryColor(expense.category, categoryColors) }}
                       aria-hidden="true"
                     />
                     <div className="min-w-0 flex-1">

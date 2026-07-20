@@ -10,6 +10,7 @@ export default function RecentExpenses({ limit }) {
   const monthExpenses = useSelector(selectMonthExpenses);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const saving = useSelector((state) => state.dashboard.saving);
+  const categoryColors = useSelector((state) => state.dashboard.categoryColors);
 
   const list = limit ? monthExpenses.slice(0, limit) : monthExpenses;
 
@@ -24,7 +25,7 @@ export default function RecentExpenses({ limit }) {
             <li key={expense.id} className="expense-list__item">
               <span
                 className="expense-list__dot"
-                style={{ background: getCategoryColor(expense.category) }}
+                style={{ background: getCategoryColor(expense.category, categoryColors) }}
               />
               <div className="expense-list__info">
                 <strong>{expense.title}</strong>

@@ -1,20 +1,33 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { getCategoryColor } from '../../../core/constants/finance';
-import { selectExpensesByCategory, selectFilteredMonthLabel } from '../store/dashboardSlice';
+import {
+  DEFAULT_CHART_PERIOD,
+  filterExpensesByPeriod,
+  getPeriodMeta,
+  groupExpensesByCategory,
+} from '../utils/chartPeriods';
+import ChartPeriodSelector from './ChartPeriodSelector';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function CategoryChart() {
-  const expensesByCategory = useSelector(selectExpensesByCategory);
-  const monthLabel = useSelector(selectFilteredMonthLabel);
+  const expenses = useSelector((state) => state.dashboard.expenses);
+  const categoryColors = useSelector((state) => state.dashboard.categoryColors);
+  const [period, setPeriod] = useState(DEFAULT_CHART_PERIOD);
+  const periodMeta = getPeriodMeta(period);
+
+  const expensesByCategory = useMemo(() => {
+    const filtered = filterExpensesByPeriod(expenses, period);
+    return groupExpensesByCategory(filtered);
+  }, [expenses, period]);
 
   const chartData = useMemo(() => {
     const labels = Object.keys(expensesByCategory);
     const data = Object.values(expensesByCategory);
-    const colors = labels.map((label) => getCategoryColor(label));
+    const colors = labels.map((label) => getCategoryColor(label, categoryColors));
 
     return {
       labels,
@@ -26,14 +39,20 @@ export default function CategoryChart() {
         },
       ],
     };
-  }, [expensesByCategory]);
+  }, [expensesByCategory, categoryColors]);
 
   const hasData = chartData.labels.length > 0;
 
   return (
     <section className="card">
-      <h2 className="card-title">By category</h2>
-      <p className="card-desc">{monthLabel}</p>
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="card-title mb-1">By category</h2>
+          <p className="card-desc mb-0">Last {periodMeta.title}</p>
+        </div>
+        <ChartPeriodSelector value={period} onChange={setPeriod} />
+      </div>
+
       {hasData ? (
         <div className="chart-box">
           <Doughnut
@@ -53,7 +72,7 @@ export default function CategoryChart() {
           />
         </div>
       ) : (
-        <p className="empty-state-sm">No expenses this month for category breakdown</p>
+        <p className="empty-state-sm">No expenses in this period for category breakdown</p>
       )}
     </section>
   );

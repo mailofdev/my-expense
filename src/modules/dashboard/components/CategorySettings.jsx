@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { getCategoryColor, pickDistinctCategoryColor } from '../../../core/constants/finance';
 import { deleteCategory, updateFinanceSettings } from '../store/dashboardSlice';
 
 export default function CategorySettings() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { categories, saving } = useSelector((state) => state.dashboard);
+  const { categories, categoryColors, saving } = useSelector((state) => state.dashboard);
   const [newCategory, setNewCategory] = useState('');
   const [query, setQuery] = useState('');
   const [message, setMessage] = useState('');
@@ -24,10 +25,17 @@ export default function CategorySettings() {
       setMessage('That category already exists.');
       return;
     }
+
+    const nextColor = pickDistinctCategoryColor(Object.values(categoryColors || {}));
+    const nextColors = { ...categoryColors, [trimmed]: nextColor };
+
     dispatch(
       updateFinanceSettings({
         uid: user.uid,
-        updates: { categories: [...categories, trimmed] },
+        updates: {
+          categories: [...categories, trimmed],
+          categoryColors: nextColors,
+        },
       })
     ).then((result) => {
       if (!result.error) {
@@ -105,7 +113,12 @@ export default function CategorySettings() {
           <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
             {filtered.map((cat) => (
               <li key={cat}>
-                <span className="inline-flex max-w-full items-center gap-1 rounded-sm border border-edge/70 bg-surface px-2.5 py-1.5 text-sm text-[#f0f4f2]">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-sm border border-edge/70 bg-surface px-2.5 py-1.5 text-sm text-[#f0f4f2]">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                    style={{ background: getCategoryColor(cat, categoryColors) }}
+                    aria-hidden="true"
+                  />
                   <span className="truncate">{cat}</span>
                   <button
                     type="button"

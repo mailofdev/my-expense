@@ -6,7 +6,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../core/config/firebase';
-import { CATEGORIES, DEFAULT_HABITS } from '../../../core/constants/finance';
+import { CATEGORIES, DEFAULT_HABITS, DEFAULT_CATEGORY_COLORS } from '../../../core/constants/finance';
 
 const defaultProfile = () => ({
   monthlyWallets: {},
@@ -14,6 +14,7 @@ const defaultProfile = () => ({
   monthlyIncome: 0,
   categoryBudgets: {},
   categories: CATEGORIES,
+  categoryColors: { ...DEFAULT_CATEGORY_COLORS },
   habits: { ...DEFAULT_HABITS },
   splitGroups: [],
   recurringExpenses: [],

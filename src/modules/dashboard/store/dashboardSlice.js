@@ -1,10 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import dayjs from 'dayjs';
 import {
-  CATEGORY_CONFIG,
   CATEGORIES,
   PAYMENT_MODES,
   DEFAULT_HABITS,
+  DEFAULT_CATEGORY_COLORS,
+  buildCategoryColors,
 } from '../../../core/constants/finance';
 import {
   getNowMonthYear,
@@ -44,7 +45,25 @@ export const fetchDashboardData = createAsyncThunk(
       const monthlyWallets = profile
         ? await walletService.migrateLegacyBalance(uid, profile, expenses, walletTransactions)
         : {};
-      return { profile, expenses, walletTransactions, monthlyWallets };
+
+      let nextProfile = profile;
+      if (profile) {
+        const categories = profile.categories?.length ? profile.categories : CATEGORIES;
+        const categoryColors = buildCategoryColors(categories, profile.categoryColors);
+        const savedKeys = Object.keys(profile.categoryColors || {});
+        const needsColorPersist =
+          categories.some((name) => !savedKeys.includes(name)) ||
+          savedKeys.some((key) => typeof profile.categoryColors[key] !== 'string');
+
+        if (needsColorPersist) {
+          await userService.updateProfile(uid, { categoryColors });
+          nextProfile = { ...profile, categoryColors };
+        } else {
+          nextProfile = { ...profile, categoryColors };
+        }
+      }
+
+      return { profile: nextProfile, expenses, walletTransactions, monthlyWallets };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -428,6 +447,7 @@ export const renameCategory = createAsyncThunk(
           expenses: state.expenses,
           recurringExpenses: state.recurringExpenses,
           categoryBudgets: state.categoryBudgets,
+          categoryColors: state.categoryColors,
         };
       }
 
@@ -443,12 +463,18 @@ export const renameCategory = createAsyncThunk(
         delete categoryBudgets[oldName];
       }
 
+      const categoryColors = { ...state.categoryColors };
+      if (categoryColors[oldName]) {
+        categoryColors[trimmedNew] = categoryColors[oldName];
+        delete categoryColors[oldName];
+      }
+
       for (const expense of toUpdate) {
         await expenseService.update(uid, expense.id, { ...expense, category: trimmedNew });
       }
 
-      await userService.updateProfile(uid, { categories, recurringExpenses, categoryBudgets });
-      return { categories, expenses, recurringExpenses, categoryBudgets };
+      await userService.updateProfile(uid, { categories, recurringExpenses, categoryBudgets, categoryColors });
+      return { categories, expenses, recurringExpenses, categoryBudgets, categoryColors };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -477,11 +503,17 @@ export const deleteCategory = createAsyncThunk(
         delete categoryBudgets[name];
       }
 
+      const categoryColors = { ...state.categoryColors };
+      delete categoryColors[name];
+      if (!categoryColors[safeFallback]) {
+        categoryColors[safeFallback] = DEFAULT_CATEGORY_COLORS[safeFallback] || '#6b7280';
+      }
+
       for (const expense of toUpdate) {
         await expenseService.update(uid, expense.id, { ...expense, category: safeFallback });
       }
-      await userService.updateProfile(uid, { categories, recurringExpenses, categoryBudgets });
-      return { categories, expenses, recurringExpenses, categoryBudgets };
+      await userService.updateProfile(uid, { categories, recurringExpenses, categoryBudgets, categoryColors });
+      return { categories, expenses, recurringExpenses, categoryBudgets, categoryColors };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -508,7 +540,7 @@ const dashboardSlice = createSlice({
     recurringExpenses: [],
     onboardingSeen: false,
     categories: CATEGORIES,
-    categoryColors: CATEGORY_CONFIG,
+    categoryColors: { ...DEFAULT_CATEGORY_COLORS },
     paymentModes: PAYMENT_MODES,
     loading: false,
     saving: false,
@@ -578,6 +610,7 @@ const dashboardSlice = createSlice({
           state.recurringExpenses = profile.recurringExpenses ?? [];
           state.onboardingSeen = profile.onboardingSeen ?? false;
           state.categories = profile.categories?.length ? profile.categories : CATEGORIES;
+          state.categoryColors = buildCategoryColors(state.categories, profile.categoryColors);
         }
         state.expenses = expenses;
         state.walletTransactions = walletTransactions;
@@ -682,12 +715,18 @@ const dashboardSlice = createSlice({
         state.expenses = action.payload.expenses;
         state.recurringExpenses = action.payload.recurringExpenses;
         state.categoryBudgets = action.payload.categoryBudgets;
+        if (action.payload.categoryColors) {
+          state.categoryColors = action.payload.categoryColors;
+        }
       })
       .addCase(deleteCategory.fulfilled, (state, action) => {
         state.categories = action.payload.categories;
         state.expenses = action.payload.expenses;
         state.recurringExpenses = action.payload.recurringExpenses;
         state.categoryBudgets = action.payload.categoryBudgets;
+        if (action.payload.categoryColors) {
+          state.categoryColors = action.payload.categoryColors;
+        }
       });
   },
 });
