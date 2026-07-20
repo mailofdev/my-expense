@@ -12,6 +12,7 @@ import BudgetManager from '../components/BudgetManager';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import HabitImprover from '../components/HabitImprover';
 import SplitGroupsHub from '../components/SplitGroupsHub';
+import SettingsHub from '../components/SettingsHub';
 import { fetchDashboardData, clearDashboardError, setMonthFilter, setDayFilter } from '../store/dashboardSlice';
 import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
 
@@ -70,7 +71,7 @@ export default function DashboardPage() {
 
         {showDateToolbar && (
           <div className="mt-5">
-            <DateToolbar compact={activeTab === 'overview'} />
+            <DateToolbar />
           </div>
         )}
 
@@ -88,6 +89,7 @@ export default function DashboardPage() {
           {activeTab === 'budget' && <BudgetManager />}
           {activeTab === 'analyzer' && <ExpenseAnalyzer />}
           {activeTab === 'habits' && <HabitImprover />}
+          {activeTab === 'settings' && <SettingsHub />}
         </div>
       </main>
     </div>

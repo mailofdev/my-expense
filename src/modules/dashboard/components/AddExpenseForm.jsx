@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
-import DisclosureToggle from '../../../shared/components/DisclosureToggle';
 import { formatINR } from '../../../core/utils/currency';
-import { getTodayString } from '../../../core/utils/date';
 import {
   addExpense,
   setDayFilter,
   selectFilterDate,
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
-  updateFinanceSettings,
 } from '../store/dashboardSlice';
 
 export default function AddExpenseForm({ onGoToWallet }) {
@@ -20,10 +17,6 @@ export default function AddExpenseForm({ onGoToWallet }) {
   const { categories, paymentModes, saving } = useSelector((state) => state.dashboard);
   const filterDate = useSelector(selectFilterDate);
   const isToday = useSelector(selectIsTodaySelected);
-  const [showDetails, setShowDetails] = useState(false);
-  const [newCategory, setNewCategory] = useState('');
-
-  const today = getTodayString();
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -36,7 +29,9 @@ export default function AddExpenseForm({ onGoToWallet }) {
   });
 
   const watchedDate = watch('date') || filterDate;
+  const watchedAmount = Number(watch('amount')) || 0;
   const expenseWallet = useSelector((state) => selectMonthWalletStatsByDate(state, watchedDate));
+  const projectedRemaining = expenseWallet.remaining - watchedAmount;
 
   useEffect(() => {
     setValue('date', filterDate);
@@ -72,7 +67,6 @@ export default function AddExpenseForm({ onGoToWallet }) {
           category: categories[0],
           paymentMode: paymentModes[0],
         });
-        setShowDetails(false);
       }
     });
   };
@@ -98,24 +92,6 @@ export default function AddExpenseForm({ onGoToWallet }) {
     submitExpense(data);
   };
 
-  const handleAddCustomCategory = () => {
-    const trimmed = newCategory.trim();
-    if (!trimmed || categories.includes(trimmed)) return;
-    const nextCategories = [...categories, trimmed];
-    dispatch(
-      updateFinanceSettings({
-        uid: user.uid,
-        updates: { categories: nextCategories },
-      })
-    );
-    setValue('category', trimmed);
-    setNewCategory('');
-  };
-
-  const watchedAmount = Number(watch('amount')) || 0;
-  const projectedRemaining = expenseWallet.remaining - watchedAmount;
-  const dateDiffersFromFilter = watchedDate !== filterDate;
-
   return (
     <section className="card">
       <h2 className="card-title">Add expense</h2>
@@ -125,27 +101,29 @@ export default function AddExpenseForm({ onGoToWallet }) {
           placeholder={isToday ? 'What did you spend on?' : 'Expense name'}
           {...register('title', { required: 'Enter a name' })}
         />
-        <div className="flex gap-2">
-          <input
-            className="input flex-1"
-            type="number"
-            placeholder="Amount in ₹"
-            min="1"
-            {...register('amount', {
-              required: 'Enter amount',
-              min: { value: 1, message: 'Min ₹1' },
-            })}
-          />
-          <button type="submit" className="btn-primary shrink-0 px-6" disabled={saving}>
-            {saving ? '…' : 'Add'}
-          </button>
-        </div>
 
-        {(errors.title || errors.amount) && (
-          <p className="text-xs text-red-300">
-            {errors.title?.message || errors.amount?.message}
-          </p>
-        )}
+        <select className="input" {...register('category')}>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+
+        <select className="input" {...register('paymentMode')}>
+          {paymentModes.map((mode) => (
+            <option key={mode} value={mode}>{mode}</option>
+          ))}
+        </select>
+
+        <input
+          className="input"
+          type="number"
+          placeholder="Amount in ₹"
+          min="1"
+          {...register('amount', {
+            required: 'Enter amount',
+            min: { value: 1, message: 'Min ₹1' },
+          })}
+        />
 
         {(expenseWallet.funded > 0 || watchedAmount > 0) && (
           <p
@@ -161,7 +139,11 @@ export default function AddExpenseForm({ onGoToWallet }) {
               <>
                 {expenseWallet.monthLabel} wallet not funded.{' '}
                 {onGoToWallet && (
-                  <button type="button" className="border-0 bg-transparent p-0 font-semibold text-primary underline" onClick={onGoToWallet}>
+                  <button
+                    type="button"
+                    className="border-0 bg-transparent p-0 font-semibold text-primary underline"
+                    onClick={onGoToWallet}
+                  >
                     Fund wallet
                   </button>
                 )}
@@ -169,75 +151,21 @@ export default function AddExpenseForm({ onGoToWallet }) {
             ) : (
               <>
                 {expenseWallet.monthLabel} wallet: {formatINR(Math.max(0, projectedRemaining))} left after this
-                {dateDiffersFromFilter && ' (different month)'}
               </>
             )}
           </p>
         )}
 
-        <DisclosureToggle
-          open={showDetails}
-          onToggle={() => setShowDetails((v) => !v)}
-          title="Category & date"
-          hintClosed="Tap to add category, payment & date"
-          controlsId="expense-extra-options"
-        />
+        <div className="flex justify-center">
+          <button type="submit" className="btn-primary px-10" disabled={saving}>
+            {saving ? '…' : 'Add'}
+          </button>
+        </div>
 
-        {showDetails && (
-          <div
-            id="expense-extra-options"
-            className="space-y-2 rounded-sm border border-edge/60 bg-surface-2/40 p-3"
-          >
-            <label className="label">
-              Category
-              <select className="input mt-1" {...register('category')}>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </label>
-            <div>
-              <p className="label">Add custom category</p>
-              <div className="flex gap-2">
-                <input
-                  className="input"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="e.g. Pets"
-                />
-                <button
-                  type="button"
-                  className="btn-outline shrink-0"
-                  onClick={handleAddCustomCategory}
-                  disabled={!newCategory.trim() || categories.includes(newCategory.trim()) || saving}
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-            <label className="label">
-              Payment
-              <select className="input mt-1" {...register('paymentMode')}>
-                {paymentModes.map((mode) => (
-                  <option key={mode} value={mode}>{mode}</option>
-                ))}
-              </select>
-            </label>
-            <label className="label">
-              Date
-              <input
-                type="date"
-                className="input mt-1"
-                max={today}
-                {...register('date', { required: true })}
-              />
-            </label>
-            {dateDiffersFromFilter && (
-              <p className="m-0 text-xs text-muted">
-                Expense will count toward {expenseWallet.monthLabel} wallet, not the day shown in the calendar above.
-              </p>
-            )}
-          </div>
+        {(errors.title || errors.amount) && (
+          <p className="text-center text-xs text-red-300">
+            {errors.title?.message || errors.amount?.message}
+          </p>
         )}
       </form>
     </section>

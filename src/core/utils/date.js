@@ -12,6 +12,12 @@ export const isInMonthYear = (dateStr, month, year) => {
   return d.month() + 1 === month && d.year() === year;
 };
 
+export const isInDateRange = (dateStr, startDate, endDate) => {
+  if (!dateStr || !startDate || !endDate) return false;
+  const d = dayjs(dateStr);
+  return !d.isBefore(dayjs(startDate), 'day') && !d.isAfter(dayjs(endDate), 'day');
+};
+
 export const isToday = (dateStr) => dayjs(dateStr).isSame(dayjs(), 'day');
 
 export const isCurrentMonth = (dateStr) => {

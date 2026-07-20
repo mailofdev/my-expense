@@ -5,6 +5,7 @@ const TABS = [
   // { id: 'budget', label: 'Budget' },
   { id: 'analyzer', label: 'Charts' },
   // { id: 'habits', label: 'Tips' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 export default function DashboardTabs({ activeTab, onTabChange }) {
