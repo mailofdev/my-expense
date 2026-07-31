@@ -77,11 +77,16 @@ export const walletService = {
     return monthlyWallets;
   },
 
-  async addFunds(uid, { amount, note, monthKey }) {
+  async addFunds(uid, { amount, note, monthKey, source = 'manual' }) {
     const parsedAmount = Number(amount);
     if (!monthKey || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       throw new Error('Enter a valid amount to add to your wallet');
     }
+
+    const isIncome = source === 'income';
+    const safeNote =
+      note?.trim() ||
+      (isIncome ? 'Salary' : 'Added to wallet');
 
     const result = await runTransaction(db, async (transaction) => {
       const userRef = doc(db, 'users', uid);
@@ -92,21 +97,36 @@ export const walletService = {
       const monthlyWallets = { ...(data.monthlyWallets || {}) };
       monthlyWallets[monthKey] = (monthlyWallets[monthKey] || 0) + parsedAmount;
 
+      const monthlyIncomes = { ...(data.monthlyIncomes || {}) };
+      if (isIncome) {
+        monthlyIncomes[monthKey] = (Number(monthlyIncomes[monthKey]) || 0) + parsedAmount;
+      }
+
       const txRef = doc(collection(db, 'users', uid, 'walletTransactions'));
-      transaction.update(userRef, {
+      const profileUpdate = {
         monthlyWallets,
         updatedAt: serverTimestamp(),
-      });
+      };
+      if (isIncome) {
+        profileUpdate.monthlyIncomes = monthlyIncomes;
+        // Keep legacy single field in sync for the funded month (used by older UI).
+        profileUpdate.monthlyIncome = monthlyIncomes[monthKey];
+      }
+
+      transaction.update(userRef, profileUpdate);
       transaction.set(txRef, {
         type: 'credit',
         amount: parsedAmount,
-        note: note || 'Added to wallet',
+        note: safeNote,
+        source: isIncome ? 'income' : 'manual',
         monthKey,
         createdAt: serverTimestamp(),
       });
 
       return {
         monthlyWallets,
+        monthlyIncomes,
+        monthlyIncome: isIncome ? monthlyIncomes[monthKey] : data.monthlyIncome ?? 0,
         txId: txRef.id,
       };
     });
@@ -116,10 +136,13 @@ export const walletService = {
         id: result.txId,
         type: 'credit',
         amount: parsedAmount,
-        note: note || 'Added to wallet',
+        note: safeNote,
+        source: isIncome ? 'income' : 'manual',
         monthKey,
       },
       monthlyWallets: result.monthlyWallets,
+      monthlyIncomes: result.monthlyIncomes,
+      monthlyIncome: result.monthlyIncome,
       monthKey,
       monthFunded: result.monthlyWallets[monthKey],
     };

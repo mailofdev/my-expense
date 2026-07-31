@@ -112,9 +112,9 @@ export const updateExpense = createAsyncThunk(
 
 export const addWalletFunds = createAsyncThunk(
   'dashboard/addWalletFunds',
-  async ({ uid, amount, note, monthKey }, { rejectWithValue }) => {
+  async ({ uid, amount, note, monthKey, source }, { rejectWithValue }) => {
     try {
-      const result = await walletService.addFunds(uid, { amount, note, monthKey });
+      const result = await walletService.addFunds(uid, { amount, note, monthKey, source });
       return result;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -579,6 +579,7 @@ const dashboardSlice = createSlice({
     filterYear: initialMonthYear.year,
     filterDate: getTodayString(),
     monthlyWallets: {},
+    monthlyIncomes: {},
     monthlyBudget: 0,
     monthlyIncome: 0,
     categoryBudgets: {},
@@ -617,6 +618,7 @@ const dashboardSlice = createSlice({
       state.filterYear = now.year;
       state.filterDate = getTodayString();
       state.monthlyWallets = {};
+      state.monthlyIncomes = {};
       state.monthlyBudget = 0;
       state.monthlyIncome = 0;
       state.categoryBudgets = {};
@@ -651,6 +653,7 @@ const dashboardSlice = createSlice({
         const { profile, expenses, walletTransactions, monthlyWallets } = action.payload;
         if (profile) {
           state.monthlyWallets = monthlyWallets ?? profile.monthlyWallets ?? {};
+          state.monthlyIncomes = profile.monthlyIncomes ?? {};
           state.monthlyBudget = profile.monthlyBudget ?? 0;
           state.monthlyIncome = profile.monthlyIncome ?? 0;
           state.categoryBudgets = profile.categoryBudgets ?? {};
@@ -710,6 +713,12 @@ const dashboardSlice = createSlice({
       .addCase(addWalletFunds.fulfilled, (state, action) => {
         state.saving = false;
         state.monthlyWallets = action.payload.monthlyWallets;
+        if (action.payload.monthlyIncomes) {
+          state.monthlyIncomes = action.payload.monthlyIncomes;
+        }
+        if (action.payload.monthlyIncome != null) {
+          state.monthlyIncome = action.payload.monthlyIncome;
+        }
         state.walletTransactions.unshift({
           ...action.payload.transaction,
           createdAt: new Date().toISOString(),
@@ -941,6 +950,27 @@ export const selectMonthWalletFunded = (state) => {
   return state.dashboard.monthlyWallets[key] || 0;
 };
 
+/** Income logged for the filtered month (from income credits). */
+export const selectMonthIncome = (state) => {
+  const key = selectFilterMonthKey(state);
+  const fromMap = Number(state.dashboard.monthlyIncomes?.[key]) || 0;
+  if (fromMap > 0) return fromMap;
+
+  // Fallback: sum income-tagged wallet credits for this month.
+  const fromTx = (state.dashboard.walletTransactions || [])
+    .filter(
+      (tx) =>
+        tx.type === 'credit' &&
+        tx.source === 'income' &&
+        tx.monthKey === key
+    )
+    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  if (fromTx > 0) return fromTx;
+
+  // Legacy profile field when no per-month income exists yet.
+  return Number(state.dashboard.monthlyIncome) || 0;
+};
+
 export const selectMonthWalletRemaining = (state) => {
   const funded = selectMonthWalletFunded(state);
   if (!funded) return 0;
@@ -1018,7 +1048,7 @@ export const selectCategoryLimitStatuses = (state) => {
 
 export const selectSavingsRate = (state) => {
   const spent = selectTotalSpent(state);
-  const income = state.dashboard.monthlyIncome;
+  const income = selectMonthIncome(state);
   if (!income) return 0;
   return Math.round(((income - spent) / income) * 100);
 };
@@ -1055,7 +1085,7 @@ export const selectTopCategories = (state) => {
 
 export const selectHabitInsights = (state) => {
   const spent = selectTotalSpent(state);
-  const income = state.dashboard.monthlyIncome;
+  const income = selectMonthIncome(state);
   const budget = state.dashboard.monthlyBudget;
   const byCategory = selectExpensesByCategory(state);
   const insights = [];
@@ -1140,7 +1170,7 @@ export const selectHabitInsights = (state) => {
     insights.push({
       type: 'action',
       icon: '👛',
-      text: `${monthLabel} has expenses but no wallet funded. Add your wallet amount to track remaining balance.`,
+      text: `${monthLabel} has expenses but no wallet funded. Add income to track remaining balance.`,
     });
   } else if (walletFunded > 0 && spent > walletFunded) {
     insights.push({
@@ -1311,7 +1341,7 @@ export const selectInAppReminders = (state) => {
       tone: 'info',
       action: 'wallet',
       text: selectIsFilterCurrentMonth(state)
-        ? 'Add your wallet amount for this month to start tracking spends.'
+        ? 'Add income for this month to fund your wallet and start tracking spends.'
         : `Fund your wallet for ${selectFilteredMonthLabel(state)} to track that month's balance.`,
     });
   } else if (walletFunded > 0 && walletRemaining < 0) {

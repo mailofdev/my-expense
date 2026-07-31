@@ -94,16 +94,7 @@ export default function OverviewHero({ onTabChange }) {
           </>
         ) : (
           <p className="m-0 mt-1 text-xs text-muted">
-            Not funded yet.{' '}
-            {onTabChange && (
-              <button
-                type="button"
-                className="border-0 bg-transparent p-0 font-semibold text-primary underline"
-                onClick={() => onTabChange('wallet')}
-              >
-                Add wallet amount
-              </button>
-            )}
+            Not funded yet — add income below to start the month.
           </p>
         )}
       </div>

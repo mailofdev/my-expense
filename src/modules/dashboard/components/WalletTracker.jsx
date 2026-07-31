@@ -11,6 +11,7 @@ import {
   selectMonthWalletRemaining,
   selectMonthWalletUsagePercent,
   selectMonthExpenses,
+  selectMonthIncome,
   selectIsFilterCurrentMonth,
 } from '../store/dashboardSlice';
 
@@ -24,6 +25,7 @@ export default function WalletTracker() {
   const monthRemaining = useSelector(selectMonthWalletRemaining);
   const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
   const monthExpenses = useSelector(selectMonthExpenses);
+  const monthIncome = useSelector(selectMonthIncome);
   const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
   const monthSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
   const filter = useSelector((state) => ({
@@ -31,20 +33,24 @@ export default function WalletTracker() {
     year: state.dashboard.filterYear,
   }));
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
-    defaultValues: { amount: '', note: '' },
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm({
+    defaultValues: { amount: '', note: '', asIncome: true },
   });
 
+  const asIncome = watch('asIncome');
+
   const onAddFunds = (data) => {
+    const isIncome = Boolean(data.asIncome);
     dispatch(
       addWalletFunds({
         uid: user.uid,
         amount: Number(data.amount),
-        note: data.note,
+        note: data.note?.trim() || (isIncome ? 'Salary' : 'Added to wallet'),
         monthKey,
+        source: isIncome ? 'income' : 'manual',
       })
     ).then((result) => {
-      if (!result.error) reset();
+      if (!result.error) reset({ amount: '', note: '', asIncome: true });
     });
   };
 
@@ -57,7 +63,7 @@ export default function WalletTracker() {
       id: `tx-${tx.id}`,
       type: tx.type,
       amount: tx.amount,
-      label: tx.note || 'Added money',
+      label: tx.source === 'income' ? tx.note || 'Income' : tx.note || 'Added money',
       date: tx.createdAt,
     })),
     ...monthExpenses.slice(0, 8).map((e) => ({
@@ -100,6 +106,10 @@ export default function WalletTracker() {
 
         <div className="mt-4 flex justify-center gap-6 text-sm">
           <div>
+            <p className="m-0 text-xs text-muted">Income</p>
+            <p className="m-0 font-semibold text-success">{formatINR(monthIncome)}</p>
+          </div>
+          <div>
             <p className="m-0 text-xs text-muted">Funded</p>
             <p className="m-0 font-semibold text-success">{formatINR(monthFunded)}</p>
           </div>
@@ -127,10 +137,13 @@ export default function WalletTracker() {
       <section className="card">
         <h2 className="card-title">Add money for {monthLabel}</h2>
         <p className="m-0 mb-3 text-xs text-muted">
-          Each month starts at ₹0. Last month&apos;s remaining balance does not carry over — add a fresh wallet amount for {monthLabel}.
-          {isCurrentMonth && ' You can add more anytime during the month.'}
+          Mark as income to count toward this month&apos;s earnings. Extra top-ups can stay as wallet only.
         </p>
         <form className="space-y-3" onSubmit={handleSubmit(onAddFunds)}>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-[#f0f4f2]">
+            <input type="checkbox" className="h-4 w-4" {...register('asIncome')} />
+            Count as income ({asIncome ? 'Salary / earnings' : 'Wallet top-up only'})
+          </label>
           <input
             className="input"
             type="number"
@@ -138,9 +151,13 @@ export default function WalletTracker() {
             min="1"
             {...register('amount', { required: 'Enter amount', min: { value: 1, message: 'Min ₹1' } })}
           />
-          <input className="input" placeholder="Note (optional)" {...register('note')} />
+          <input
+            className="input"
+            placeholder={asIncome ? 'e.g. Salary, Freelance' : 'Note (optional)'}
+            {...register('note')}
+          />
           <button type="submit" className="btn-primary btn-full" disabled={saving}>
-            {saving ? 'Adding…' : monthFunded > 0 ? 'Add more' : 'Add to wallet'}
+            {saving ? 'Adding…' : asIncome ? 'Add income' : monthFunded > 0 ? 'Add more' : 'Add to wallet'}
           </button>
         </form>
         {errors.amount && <p className="mt-2 text-xs text-red-300">{errors.amount.message}</p>}

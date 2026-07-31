@@ -10,6 +10,7 @@ import { CATEGORIES, DEFAULT_HABITS, DEFAULT_CATEGORY_COLORS } from '../../../co
 
 const defaultProfile = () => ({
   monthlyWallets: {},
+  monthlyIncomes: {},
   monthlyBudget: 0,
   monthlyIncome: 0,
   categoryBudgets: {},
