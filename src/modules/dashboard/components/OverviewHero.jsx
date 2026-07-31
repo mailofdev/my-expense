@@ -1,4 +1,4 @@
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { formatINR, formatINRCompact } from '../../../core/utils/currency';
 import {
   selectDayTotal,
@@ -11,10 +11,14 @@ import {
   selectMonthWalletUsagePercent,
   selectFilteredMonthLabel,
   selectTotalSpent,
+  applyDueRecurringExpenses,
+  selectDueRecurringExpenses,
 } from '../store/dashboardSlice';
 
 export default function OverviewHero({ onTabChange }) {
-  const { monthlyBudget } = useSelector((state) => state.dashboard);
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const { monthlyBudget, saving } = useSelector((state) => state.dashboard);
   const dayTotal = useSelector(selectDayTotal);
   const dayLabel = useSelector(selectFilteredDayLabel);
   const isToday = useSelector(selectIsTodaySelected);
@@ -25,12 +29,32 @@ export default function OverviewHero({ onTabChange }) {
   const monthSpent = useSelector(selectTotalSpent);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const reminders = useSelector(selectInAppReminders);
+  const dueRecurring = useSelector(selectDueRecurringExpenses);
 
   const walletBarPercent = walletFunded > 0 ? Math.min(100, walletUsagePercent) : 0;
+
+  const handleLogRecurring = () => {
+    if (!dueRecurring.length || !user?.uid) return;
+    const total = dueRecurring.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const names = dueRecurring.map((item) => item.title).join(', ');
+    const proceed = window.confirm(
+      `Log ${dueRecurring.length} due bill${dueRecurring.length > 1 ? 's' : ''} today?\n\n${names}\nTotal: ${formatINR(total)}`
+    );
+    if (!proceed) return;
+    dispatch(applyDueRecurringExpenses({ uid: user.uid }));
+  };
 
   const handleReminderClick = (reminder) => {
     if (reminder.action === 'wallet' && onTabChange) {
       onTabChange('wallet');
+      return;
+    }
+    if (reminder.action === 'log-recurring') {
+      handleLogRecurring();
+      return;
+    }
+    if (reminder.action === 'settings' && onTabChange) {
+      onTabChange('settings');
     }
   };
 
@@ -108,6 +132,7 @@ export default function OverviewHero({ onTabChange }) {
                       : 'border-edge bg-surface-2 text-muted'
                 }`}
                 onClick={() => handleReminderClick(reminder)}
+                disabled={reminder.action === 'log-recurring' && saving}
               >
                 {reminder.text}
               </button>

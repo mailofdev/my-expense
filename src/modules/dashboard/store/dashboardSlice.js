@@ -395,7 +395,9 @@ export const applyDueRecurringExpenses = createAsyncThunk(
           (!item.endDate || !dayjs(item.endDate).isBefore(today, 'day')) &&
           (!item.maxOccurrences || (item.runCount || 0) < item.maxOccurrences)
       );
-      if (!due.length) return { expenses: [], recurringExpenses: state.recurringExpenses };
+      if (!due.length) {
+        return { expenses: [], recurringExpenses: state.recurringExpenses, activity: [] };
+      }
 
       const createdExpenses = [];
       for (const template of due) {
@@ -450,6 +452,20 @@ export const updateRecurringTemplate = createAsyncThunk(
     try {
       const current = getState().dashboard.recurringExpenses;
       const next = current.map((item) => (item.id === templateId ? { ...item, ...updates } : item));
+      await userService.updateProfile(uid, { recurringExpenses: next });
+      return next;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const deleteRecurringTemplate = createAsyncThunk(
+  'dashboard/deleteRecurringTemplate',
+  async ({ uid, templateId }, { getState, rejectWithValue }) => {
+    try {
+      const current = getState().dashboard.recurringExpenses;
+      const next = current.filter((item) => item.id !== templateId);
       await userService.updateProfile(uid, { recurringExpenses: next });
       return next;
     } catch (error) {
@@ -733,16 +749,51 @@ const dashboardSlice = createSlice({
       .addCase(updateSettlement.fulfilled, (state, action) => {
         state.splitGroups = action.payload.splitGroups;
       })
+      .addCase(addRecurringExpenseTemplate.pending, (state) => {
+        state.saving = true;
+      })
       .addCase(addRecurringExpenseTemplate.fulfilled, (state, action) => {
+        state.saving = false;
         state.recurringExpenses.unshift(action.payload);
       })
+      .addCase(addRecurringExpenseTemplate.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(applyDueRecurringExpenses.pending, (state) => {
+        state.saving = true;
+      })
       .addCase(applyDueRecurringExpenses.fulfilled, (state, action) => {
+        state.saving = false;
         state.expenses = [...action.payload.expenses, ...state.expenses];
         state.recurringExpenses = action.payload.recurringExpenses;
-        state.activityLog = [...action.payload.activity, ...state.activityLog].slice(0, 100);
+        state.activityLog = [...(action.payload.activity || []), ...state.activityLog].slice(0, 100);
+      })
+      .addCase(applyDueRecurringExpenses.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(updateRecurringTemplate.pending, (state) => {
+        state.saving = true;
       })
       .addCase(updateRecurringTemplate.fulfilled, (state, action) => {
+        state.saving = false;
         state.recurringExpenses = action.payload;
+      })
+      .addCase(updateRecurringTemplate.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(deleteRecurringTemplate.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(deleteRecurringTemplate.fulfilled, (state, action) => {
+        state.saving = false;
+        state.recurringExpenses = action.payload;
+      })
+      .addCase(deleteRecurringTemplate.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
       })
       .addCase(renameCategory.fulfilled, (state, action) => {
         state.categories = action.payload.categories;
@@ -1176,9 +1227,19 @@ export const selectSplitOverview = (state) => {
   };
 };
 
+export const selectDueRecurringExpenses = (state) => {
+  const today = dayjs(getTodayString());
+  return (state.dashboard.recurringExpenses || []).filter(
+    (item) =>
+      item.enabled &&
+      !dayjs(item.nextDate).isAfter(today, 'day') &&
+      (!item.endDate || !dayjs(item.endDate).isBefore(today, 'day')) &&
+      (!item.maxOccurrences || (item.runCount || 0) < item.maxOccurrences)
+  );
+};
+
 export const selectInAppReminders = (state) => {
   const reminders = [];
-  const today = dayjs(getTodayString());
   const split = selectSplitOverview(state);
   const pendingCount = (state.dashboard.splitGroups || []).reduce(
     (sum, group) => sum + (group.settlements || []).filter((item) => item.status === 'pending').length,
@@ -1198,14 +1259,14 @@ export const selectInAppReminders = (state) => {
       text: `You owe ${split.youOwe.toLocaleString('en-IN')} in groups. Consider closing dues this week.`,
     });
   }
-  const dueRecurring = (state.dashboard.recurringExpenses || []).filter(
-    (item) => item.enabled && !dayjs(item.nextDate).isAfter(today, 'day')
-  );
+  const dueRecurring = selectDueRecurringExpenses(state);
   if (dueRecurring.length > 0) {
+    const total = dueRecurring.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     reminders.push({
       id: 'due-recurring',
-      tone: 'info',
-      text: `${dueRecurring.length} recurring expense${dueRecurring.length > 1 ? 's are' : ' is'} due today.`,
+      tone: 'warning',
+      action: 'log-recurring',
+      text: `${dueRecurring.length} bill${dueRecurring.length > 1 ? 's' : ''} due · ₹${total.toLocaleString('en-IN')} — tap to log`,
     });
   }
   if (state.dashboard.monthlyBudget > 0) {
