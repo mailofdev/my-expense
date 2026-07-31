@@ -5,9 +5,7 @@ import DashboardHeader from '../components/DashboardHeader';
 import DashboardTabs from '../components/DashboardTabs';
 import DateToolbar from '../components/DateToolbar';
 import OverviewHero from '../components/OverviewHero';
-import MonthSavingsSnapshot from '../components/MonthSavingsSnapshot';
 import AddExpenseForm from '../components/AddExpenseForm';
-import AddIncomeForm from '../components/AddIncomeForm';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
 import WalletTracker from '../components/WalletTracker';
 import BudgetManager from '../components/BudgetManager';
@@ -54,9 +52,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen min-h-dvh bg-bg">
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-lg px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-4 sm:max-w-xl sm:px-6 sm:pb-10">
+      <main className="mx-auto w-full max-w-lg px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 sm:max-w-xl sm:px-6 sm:pb-10">
         {error && (
-          <div className="alert-error mb-4 flex items-center justify-between gap-2">
+          <div className="alert-error mb-3 flex items-center justify-between gap-2">
             <span>{error}</span>
             <button
               type="button"
@@ -69,20 +67,20 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        <div className="dashboard-tabs-sticky">
+          <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        </div>
 
         {showDateToolbar && (
-          <div className="mt-5">
+          <div className="mt-4">
             <DateToolbar />
           </div>
         )}
 
-        <div className="mt-5 flex flex-col gap-5 sm:gap-6">
+        <div className="mt-4 flex flex-col gap-4 sm:gap-5">
           {activeTab === 'overview' && (
             <>
               <OverviewHero onTabChange={handleTabChange} />
-              <MonthSavingsSnapshot />
-              <AddIncomeForm onGoToWallet={() => handleTabChange('wallet')} />
               <AddExpenseForm onGoToWallet={() => handleTabChange('wallet')} />
               <DailyExpenseLedger />
             </>

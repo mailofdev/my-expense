@@ -12,7 +12,7 @@ import {
 
 const SOURCES = ['Salary', 'Freelance', 'Other'];
 
-export default function AddIncomeForm({ onGoToWallet }) {
+export default function AddIncomeForm() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { saving } = useSelector((state) => state.dashboard);
@@ -31,7 +31,7 @@ export default function AddIncomeForm({ onGoToWallet }) {
     setMessage('');
     const value = Number(amount);
     if (!value || value < 1) {
-      setMessage('Enter an amount of at least ₹1.');
+      setMessage('Enter at least ₹1.');
       return;
     }
 
@@ -46,7 +46,7 @@ export default function AddIncomeForm({ onGoToWallet }) {
     ).then((result) => {
       if (!result.error) {
         setAmount('');
-        setMessage(`${formatINR(value)} added to ${monthLabel} wallet.`);
+        setMessage(`+${formatINR(value)} added`);
       } else {
         setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add income.');
       }
@@ -55,35 +55,15 @@ export default function AddIncomeForm({ onGoToWallet }) {
 
   return (
     <section className="card">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="card-title mb-0">Add income</h2>
-          <p className="card-desc mb-0 mt-1">
-            Funds your {monthLabel} wallet
-            {monthIncome > 0 ? ` · ${formatINR(monthIncome)} in so far` : ''}.
-          </p>
-        </div>
-        {onGoToWallet && (
-          <button
-            type="button"
-            className="shrink-0 border-0 bg-transparent p-0 text-xs font-semibold text-primary underline"
-            onClick={onGoToWallet}
-          >
-            Wallet
-          </button>
-        )}
-      </div>
+      <h2 className="card-title mb-1">Add income</h2>
+      <p className="card-desc mb-3">
+        {monthLabel}
+        {monthIncome > 0 ? ` · ${formatINR(monthIncome)} in` : ''}
+        {!monthFunded ? ' · funds your wallet' : ''}
+      </p>
 
       {!isCurrentMonth && (
-        <p className="mb-3 mt-0 rounded-sm border border-edge/60 bg-surface-2/40 px-3 py-2 text-xs text-muted">
-          You&apos;re viewing {monthLabel}. Income will fund that month&apos;s wallet.
-        </p>
-      )}
-
-      {monthFunded === 0 && (
-        <p className="mb-3 mt-0 rounded-sm border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-yellow-100">
-          Wallet not funded yet — add salary or other income to start the month.
-        </p>
+        <p className="mb-3 mt-0 text-xs text-muted">Applies to {monthLabel}.</p>
       )}
 
       <form className="space-y-3" onSubmit={handleSubmit}>
@@ -92,10 +72,10 @@ export default function AddIncomeForm({ onGoToWallet }) {
             <button
               key={item}
               type="button"
-              className={`rounded-sm border px-3 py-1.5 text-sm transition-colors ${
+              className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
                 source === item
                   ? 'border-primary bg-primary/15 text-[#f0f4f2]'
-                  : 'border-edge/70 bg-surface text-muted hover:text-[#f0f4f2]'
+                  : 'border-edge/60 bg-transparent text-muted hover:text-[#f0f4f2]'
               }`}
               onClick={() => setSource(item)}
               aria-pressed={source === item}
@@ -110,7 +90,7 @@ export default function AddIncomeForm({ onGoToWallet }) {
           type="number"
           min="1"
           inputMode="numeric"
-          placeholder="Amount in ₹"
+          placeholder="Amount ₹"
           value={amount}
           onChange={(e) => {
             setAmount(e.target.value);

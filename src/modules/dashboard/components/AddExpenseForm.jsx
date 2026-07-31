@@ -145,7 +145,7 @@ export default function AddExpenseForm({ onGoToWallet }) {
 
   return (
     <section className="card">
-      <h2 className="card-title">Add expense</h2>
+      <h2 className="card-title mb-3">Add expense</h2>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <input
           className="input"

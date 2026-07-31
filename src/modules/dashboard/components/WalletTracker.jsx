@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
 import { isInMonthYear } from '../../../core/utils/date';
+import AddIncomeForm from './AddIncomeForm';
 import {
   addWalletFunds,
   selectFilterMonthKey,
@@ -12,7 +13,6 @@ import {
   selectMonthWalletUsagePercent,
   selectMonthExpenses,
   selectMonthIncome,
-  selectIsFilterCurrentMonth,
 } from '../store/dashboardSlice';
 
 export default function WalletTracker() {
@@ -26,36 +26,34 @@ export default function WalletTracker() {
   const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
   const monthExpenses = useSelector(selectMonthExpenses);
   const monthIncome = useSelector(selectMonthIncome);
-  const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
   const monthSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
   const filter = useSelector((state) => ({
     month: state.dashboard.filterMonth,
     year: state.dashboard.filterYear,
   }));
 
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm({
-    defaultValues: { amount: '', note: '', asIncome: true },
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    defaultValues: { amount: '', note: '' },
   });
 
-  const asIncome = watch('asIncome');
-
   const onAddFunds = (data) => {
-    const isIncome = Boolean(data.asIncome);
     dispatch(
       addWalletFunds({
         uid: user.uid,
         amount: Number(data.amount),
-        note: data.note?.trim() || (isIncome ? 'Salary' : 'Added to wallet'),
+        note: data.note?.trim() || 'Top-up',
         monthKey,
-        source: isIncome ? 'income' : 'manual',
+        source: 'manual',
       })
     ).then((result) => {
-      if (!result.error) reset({ amount: '', note: '', asIncome: true });
+      if (!result.error) reset({ amount: '', note: '' });
     });
   };
 
   const monthTransactions = walletTransactions.filter(
-    (tx) => tx.monthKey === monthKey || (!tx.monthKey && isInMonthYear(tx.createdAt?.slice(0, 10), filter.month, filter.year))
+    (tx) =>
+      tx.monthKey === monthKey ||
+      (!tx.monthKey && isInMonthYear(tx.createdAt?.slice(0, 10), filter.month, filter.year))
   );
 
   const recentActivity = [
@@ -63,7 +61,7 @@ export default function WalletTracker() {
       id: `tx-${tx.id}`,
       type: tx.type,
       amount: tx.amount,
-      label: tx.source === 'income' ? tx.note || 'Income' : tx.note || 'Added money',
+      label: tx.source === 'income' ? tx.note || 'Income' : tx.note || 'Top-up',
       date: tx.createdAt,
     })),
     ...monthExpenses.slice(0, 8).map((e) => ({
@@ -82,25 +80,36 @@ export default function WalletTracker() {
   return (
     <div className="feature-panel">
       <section className="card text-center">
-        <p className="section-label m-0">{monthLabel} wallet</p>
-        <p className={`text-glow m-0 mt-1 text-[clamp(1.75rem,8vw,2.5rem)] font-bold ${monthFunded > 0 && monthRemaining < 0 ? 'text-danger' : monthFunded > 0 ? 'text-primary' : 'text-muted'}`}>
+        <p className="section-label m-0">{monthLabel}</p>
+        <p
+          className={`text-glow m-0 mt-1 text-[clamp(1.75rem,8vw,2.5rem)] font-bold ${
+            monthFunded > 0 && monthRemaining < 0
+              ? 'text-danger'
+              : monthFunded > 0
+                ? 'text-primary'
+                : 'text-muted'
+          }`}
+        >
           {monthFunded > 0 ? formatINR(monthRemaining) : formatINR(0)}
         </p>
-        <p className="m-0 mt-2 text-sm text-muted">
-          {monthFunded > 0 ? 'Remaining this month' : 'Add this month\'s wallet amount to start'}
+        <p className="m-0 mt-1 text-sm text-muted">
+          {monthFunded > 0 ? 'left in wallet' : 'No funds yet'}
         </p>
 
         {monthFunded > 0 && (
           <div className="mx-auto mt-4 max-w-xs">
-            <div className="mb-2 h-2 overflow-hidden rounded-full bg-surface-2">
+            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
               <div
                 className={`h-full rounded-full transition-all ${
-                  monthRemaining < 0 ? 'bg-danger' : walletUsagePercent >= 80 ? 'bg-accent' : 'bg-primary'
+                  monthRemaining < 0
+                    ? 'bg-danger'
+                    : walletUsagePercent >= 80
+                      ? 'bg-accent'
+                      : 'bg-primary'
                 }`}
                 style={{ width: `${barPercent}%` }}
               />
             </div>
-            <p className="m-0 text-xs text-muted">{walletUsagePercent}% of wallet used</p>
           </div>
         )}
 
@@ -111,53 +120,34 @@ export default function WalletTracker() {
           </div>
           <div>
             <p className="m-0 text-xs text-muted">Funded</p>
-            <p className="m-0 font-semibold text-success">{formatINR(monthFunded)}</p>
+            <p className="m-0 font-semibold">{formatINR(monthFunded)}</p>
           </div>
           <div>
             <p className="m-0 text-xs text-muted">Spent</p>
             <p className="m-0 font-semibold">{formatINR(monthSpent)}</p>
           </div>
         </div>
-
-        {monthFunded === 0 && monthSpent === 0 && (
-          <p className="m-0 mt-4 rounded-sm border border-edge/60 bg-surface-2/40 px-3 py-2 text-xs text-muted">
-            {isCurrentMonth
-              ? 'Start the month by adding your wallet amount below.'
-              : `No wallet or expenses recorded for ${monthLabel}.`}
-          </p>
-        )}
-
-        {monthFunded === 0 && monthSpent > 0 && (
-          <p className="m-0 mt-4 rounded-sm border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-yellow-100">
-            {formatINR(monthSpent)} spent without a funded wallet. Add funds to track remaining balance.
-          </p>
-        )}
       </section>
 
+      <AddIncomeForm />
+
       <section className="card">
-        <h2 className="card-title">Add money for {monthLabel}</h2>
-        <p className="m-0 mb-3 text-xs text-muted">
-          Mark as income to count toward this month&apos;s earnings. Extra top-ups can stay as wallet only.
-        </p>
+        <h2 className="card-title mb-1">Top up</h2>
+        <p className="card-desc mb-3">Extra money that isn&apos;t salary.</p>
         <form className="space-y-3" onSubmit={handleSubmit(onAddFunds)}>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-[#f0f4f2]">
-            <input type="checkbox" className="h-4 w-4" {...register('asIncome')} />
-            Count as income ({asIncome ? 'Salary / earnings' : 'Wallet top-up only'})
-          </label>
           <input
             className="input"
             type="number"
-            placeholder="Amount (₹)"
+            placeholder="Amount ₹"
             min="1"
-            {...register('amount', { required: 'Enter amount', min: { value: 1, message: 'Min ₹1' } })}
+            {...register('amount', {
+              required: 'Enter amount',
+              min: { value: 1, message: 'Min ₹1' },
+            })}
           />
-          <input
-            className="input"
-            placeholder={asIncome ? 'e.g. Salary, Freelance' : 'Note (optional)'}
-            {...register('note')}
-          />
-          <button type="submit" className="btn-primary btn-full" disabled={saving}>
-            {saving ? 'Adding…' : asIncome ? 'Add income' : monthFunded > 0 ? 'Add more' : 'Add to wallet'}
+          <input className="input" placeholder="Note (optional)" {...register('note')} />
+          <button type="submit" className="btn-outline btn-full" disabled={saving}>
+            {saving ? 'Adding…' : 'Add to wallet'}
           </button>
         </form>
         {errors.amount && <p className="mt-2 text-xs text-red-300">{errors.amount.message}</p>}
@@ -165,12 +155,12 @@ export default function WalletTracker() {
 
       {recentActivity.length > 0 ? (
         <section className="card">
-          <h2 className="card-title">{monthLabel} activity</h2>
+          <h2 className="card-title">Activity</h2>
           <ul className="m-0 list-none space-y-0 p-0">
             {recentActivity.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between gap-3 border-t border-edge/60 py-3 first:border-0 first:pt-0"
+                className="flex items-center justify-between gap-3 border-t border-edge/50 py-3 first:border-0 first:pt-0"
               >
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate text-sm">{item.label}</p>
@@ -189,7 +179,7 @@ export default function WalletTracker() {
           </ul>
         </section>
       ) : (
-        <p className="empty-state-sm">No wallet activity for {monthLabel} yet.</p>
+        <p className="empty-state-sm">No activity yet.</p>
       )}
     </div>
   );
