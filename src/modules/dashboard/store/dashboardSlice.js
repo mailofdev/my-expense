@@ -1053,6 +1053,31 @@ export const selectSavingsRate = (state) => {
   return Math.round(((income - spent) / income) * 100);
 };
 
+/** Home snapshot: income vs spend vs savings goal for the filtered month. */
+export const selectMonthSavingsSnapshot = (state) => {
+  const income = selectMonthIncome(state);
+  const spent = selectTotalSpent(state);
+  const saved = income - spent;
+  const goalPercent = Number(state.dashboard.habits?.savingsGoalPercent) || 20;
+  const goalAmount = income > 0 ? Math.round((income * goalPercent) / 100) : 0;
+  const savingsRate = income > 0 ? Math.round((saved / income) * 100) : 0;
+  const progressTowardGoal =
+    goalAmount > 0 ? Math.min(100, Math.round((Math.max(0, saved) / goalAmount) * 100)) : 0;
+
+  return {
+    monthLabel: selectFilteredMonthLabel(state),
+    income,
+    spent,
+    saved,
+    savingsRate,
+    goalPercent,
+    goalAmount,
+    progressTowardGoal,
+    goalMet: income > 0 && saved >= goalAmount,
+    hasIncome: income > 0,
+  };
+};
+
 export const selectDailySpendTrend = (state) => {
   const { month, year } = selectFilter(state);
   const start = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);

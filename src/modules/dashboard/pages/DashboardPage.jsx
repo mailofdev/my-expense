@@ -5,6 +5,7 @@ import DashboardHeader from '../components/DashboardHeader';
 import DashboardTabs from '../components/DashboardTabs';
 import DateToolbar from '../components/DateToolbar';
 import OverviewHero from '../components/OverviewHero';
+import MonthSavingsSnapshot from '../components/MonthSavingsSnapshot';
 import AddExpenseForm from '../components/AddExpenseForm';
 import AddIncomeForm from '../components/AddIncomeForm';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
@@ -80,6 +81,7 @@ export default function DashboardPage() {
           {activeTab === 'overview' && (
             <>
               <OverviewHero onTabChange={handleTabChange} />
+              <MonthSavingsSnapshot />
               <AddIncomeForm onGoToWallet={() => handleTabChange('wallet')} />
               <AddExpenseForm onGoToWallet={() => handleTabChange('wallet')} />
               <DailyExpenseLedger />
