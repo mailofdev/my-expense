@@ -115,6 +115,34 @@
   .alert-success {
     @apply mb-4 rounded-sm border border-success/30 bg-success/15 px-4 py-3 text-sm text-green-300;
   }
+
+  .dashboard-tabs {
+    @apply w-full;
+  }
+
+  .dashboard-tabs__track {
+    @apply grid w-full grid-cols-4 overflow-hidden rounded-lg border border-edge/70 bg-surface-2/80 p-1;
+  }
+
+  .dashboard-tabs__tab {
+    @apply relative flex min-h-[44px] cursor-pointer items-center justify-center rounded-md border-0 bg-transparent px-1 py-2 text-sm font-medium text-muted transition-colors;
+  }
+
+  .dashboard-tabs__tab:hover:not(.is-active) {
+    @apply text-[#f0f4f2];
+  }
+
+  .dashboard-tabs__tab.is-active {
+    @apply bg-surface text-[#f0f4f2] shadow-sm;
+  }
+
+  .dashboard-tabs__tab.is-active .dashboard-tabs__label {
+    @apply font-semibold text-primary;
+  }
+
+  .dashboard-tabs__label {
+    @apply truncate;
+  }
 }
 
 @layer utilities {
