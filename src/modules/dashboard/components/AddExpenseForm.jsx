@@ -1,20 +1,35 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
+import {
+  getCategoryLimitLevel,
+  getCategoryLimitPercent,
+  getCategoryLimitWarningText,
+} from '../../../core/constants/finance';
 import {
   addExpense,
   setDayFilter,
   selectFilterDate,
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
+  selectCategorySpentByDate,
 } from '../store/dashboardSlice';
+
+const warnBannerClass = (level) => {
+  if (level >= 100) return 'border-danger/40 bg-danger/10 text-red-200';
+  if (level >= 90) return 'border-danger/30 bg-danger/10 text-red-100';
+  if (level >= 75) return 'border-accent/40 bg-accent/10 text-yellow-100';
+  return 'border-primary/30 bg-primary/10 text-[#d7efe6]';
+};
 
 export default function AddExpenseForm({ onGoToWallet }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { categories, paymentModes, saving } = useSelector((state) => state.dashboard);
+  const { categories, paymentModes, categoryBudgets, saving } = useSelector(
+    (state) => state.dashboard
+  );
   const filterDate = useSelector(selectFilterDate);
   const isToday = useSelector(selectIsTodaySelected);
 
@@ -30,20 +45,38 @@ export default function AddExpenseForm({ onGoToWallet }) {
 
   const watchedDate = watch('date') || filterDate;
   const watchedAmount = Number(watch('amount')) || 0;
+  const watchedCategory = watch('category') || categories[0];
   const expenseWallet = useSelector((state) => selectMonthWalletStatsByDate(state, watchedDate));
+  const categorySpent = useSelector((state) =>
+    selectCategorySpentByDate(state, watchedCategory, watchedDate)
+  );
   const projectedRemaining = expenseWallet.remaining - watchedAmount;
+
+  const categoryLimit = Number(categoryBudgets?.[watchedCategory]) || 0;
+  const projectedCategorySpent = categorySpent + watchedAmount;
+  const categoryLevel = useMemo(
+    () => getCategoryLimitLevel(projectedCategorySpent, categoryLimit),
+    [projectedCategorySpent, categoryLimit]
+  );
+  const categoryPercent = useMemo(
+    () => getCategoryLimitPercent(projectedCategorySpent, categoryLimit),
+    [projectedCategorySpent, categoryLimit]
+  );
 
   useEffect(() => {
     setValue('date', filterDate);
   }, [filterDate, setValue]);
 
   useEffect(() => {
-    if (categories?.length) {
+    if (!categories?.length) return;
+    // Keep the user's selection when it still exists; only fall back if removed.
+    if (!categories.includes(watchedCategory)) {
       setValue('category', categories[0]);
     }
-  }, [categories, setValue]);
+  }, [categories, watchedCategory, setValue]);
 
   const submitExpense = (data) => {
+    const expenseDate = data.date || filterDate;
     dispatch(
       addExpense({
         uid: user.uid,
@@ -51,20 +84,20 @@ export default function AddExpenseForm({ onGoToWallet }) {
           title: data.title,
           amount: Number(data.amount),
           category: data.category,
-          paymentMode: data.paymentMode,
-          date: data.date,
+          paymentMode: data.paymentMode || paymentModes[0],
+          date: expenseDate,
         },
       })
     ).then((result) => {
       if (!result.error) {
-        if (data.date !== filterDate) {
-          dispatch(setDayFilter({ date: data.date }));
+        if (expenseDate !== filterDate) {
+          dispatch(setDayFilter({ date: expenseDate }));
         }
         reset({
           title: '',
           amount: '',
-          date: data.date,
-          category: categories[0],
+          date: expenseDate,
+          category: categories.includes(data.category) ? data.category : categories[0],
           paymentMode: paymentModes[0],
         });
       }
@@ -72,9 +105,11 @@ export default function AddExpenseForm({ onGoToWallet }) {
   };
 
   const onSubmit = (data) => {
-    if (dayjs(data.date).isAfter(dayjs(), 'day')) return;
+    const expenseDate = data.date || filterDate;
+    if (dayjs(expenseDate).isAfter(dayjs(), 'day')) return;
 
     const amount = Number(data.amount);
+    const category = data.category || categories[0];
     const remainingAfter = expenseWallet.remaining - amount;
 
     if (expenseWallet.funded === 0) {
@@ -89,7 +124,23 @@ export default function AddExpenseForm({ onGoToWallet }) {
       if (!proceed) return;
     }
 
-    submitExpense(data);
+    const limit = Number(categoryBudgets?.[category]) || 0;
+    if (limit > 0) {
+      const currentSpent = categorySpent;
+      const after = currentSpent + amount;
+      const beforeLevel = getCategoryLimitLevel(currentSpent, limit);
+      const afterLevel = getCategoryLimitLevel(after, limit);
+
+      // Warn when crossing a new threshold, or when already at/over 100%.
+      if (afterLevel != null && (afterLevel !== beforeLevel || afterLevel >= 100)) {
+        const proceed = window.confirm(
+          `${getCategoryLimitWarningText(category, afterLevel, after, limit)}\n\nAdd expense anyway?`
+        );
+        if (!proceed) return;
+      }
+    }
+
+    submitExpense({ ...data, category, date: expenseDate });
   };
 
   return (
@@ -108,12 +159,6 @@ export default function AddExpenseForm({ onGoToWallet }) {
           ))}
         </select>
 
-        <select className="input" {...register('paymentMode')}>
-          {paymentModes.map((mode) => (
-            <option key={mode} value={mode}>{mode}</option>
-          ))}
-        </select>
-
         <input
           className="input"
           type="number"
@@ -124,6 +169,25 @@ export default function AddExpenseForm({ onGoToWallet }) {
             min: { value: 1, message: 'Min ₹1' },
           })}
         />
+
+        {categoryLimit > 0 && watchedAmount > 0 && categoryLevel != null && (
+          <p className={`m-0 rounded-sm border px-3 py-2 text-xs ${warnBannerClass(categoryLevel)}`}>
+            {getCategoryLimitWarningText(
+              watchedCategory,
+              categoryLevel,
+              projectedCategorySpent,
+              categoryLimit
+            )}{' '}
+            ({categoryPercent}% after this)
+          </p>
+        )}
+
+        {categoryLimit > 0 && watchedAmount > 0 && categoryLevel == null && (
+          <p className="m-0 rounded-sm border border-edge bg-surface-2 px-3 py-2 text-xs text-muted">
+            {watchedCategory}: {formatINR(projectedCategorySpent)} / {formatINR(categoryLimit)} after
+            this
+          </p>
+        )}
 
         {(expenseWallet.funded > 0 || watchedAmount > 0) && (
           <p

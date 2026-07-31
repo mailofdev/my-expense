@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
-import { getCategoryColor } from '../../../core/constants/finance';
+import {
+  getCategoryColor,
+  getCategoryLimitLevel,
+  getCategoryLimitWarningText,
+} from '../../../core/constants/finance';
 import {
   removeExpense,
   updateExpense,
@@ -13,12 +17,15 @@ import {
   selectFilteredDayLabel,
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
+  selectCategorySpentByDate,
 } from '../store/dashboardSlice';
 
 export default function DailyExpenseLedger() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { categories, paymentModes, saving, categoryColors } = useSelector((state) => state.dashboard);
+  const { categories, paymentModes, saving, categoryColors, categoryBudgets } = useSelector(
+    (state) => state.dashboard
+  );
   const filterDate = useSelector(selectFilterDate);
   const dayExpenses = useSelector(selectDayExpenses);
   const dayTotal = useSelector(selectDayTotal);
@@ -34,6 +41,9 @@ export default function DailyExpenseLedger() {
 
   const editWallet = useSelector((state) =>
     editingId ? selectMonthWalletStatsByDate(state, editDate || filterDate, editingId) : null
+  );
+  const editCategorySpent = useSelector((state) =>
+    editingId ? selectCategorySpentByDate(state, editCategory, editDate || filterDate) : 0
   );
 
   const startEdit = (expense) => {
@@ -78,6 +88,25 @@ export default function DailyExpenseLedger() {
         `This will exceed ${stats.monthLabel} wallet by ${formatINR(Math.abs(remainingAfter))}. Save anyway?`
       );
       if (!proceed) return;
+    }
+
+    const limit = Number(categoryBudgets?.[editCategory]) || 0;
+    if (limit > 0) {
+      const sameMonth =
+        dayjs(date).format('YYYY-MM') === dayjs(expense.date).format('YYYY-MM');
+      const sameBucket = sameMonth && expense.category === editCategory;
+      const baseSpent = sameBucket
+        ? Math.max(0, editCategorySpent - Number(expense.amount))
+        : editCategorySpent;
+      const after = baseSpent + amount;
+      const beforeLevel = getCategoryLimitLevel(baseSpent, limit);
+      const afterLevel = getCategoryLimitLevel(after, limit);
+      if (afterLevel != null && (afterLevel !== beforeLevel || afterLevel >= 100)) {
+        const proceed = window.confirm(
+          `${getCategoryLimitWarningText(editCategory, afterLevel, after, limit)}\n\nSave anyway?`
+        );
+        if (!proceed) return;
+      }
     }
 
     dispatch(
@@ -248,7 +277,7 @@ export default function DailyExpenseLedger() {
                   <div className="flex items-center gap-3">
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: getCategoryColor(expense.category, categoryColors) }}
+                      style={{ background: getCategoryColor(expense.category, categoryColors, categories) }}
                       aria-hidden="true"
                     />
                     <div className="min-w-0 flex-1">

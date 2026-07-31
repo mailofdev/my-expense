@@ -16,6 +16,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 export default function CategoryChart() {
   const expenses = useSelector((state) => state.dashboard.expenses);
   const categoryColors = useSelector((state) => state.dashboard.categoryColors);
+  const categories = useSelector((state) => state.dashboard.categories);
   const [period, setPeriod] = useState(DEFAULT_CHART_PERIOD);
   const periodMeta = getPeriodMeta(period);
 
@@ -27,7 +28,7 @@ export default function CategoryChart() {
   const chartData = useMemo(() => {
     const labels = Object.keys(expensesByCategory);
     const data = Object.values(expensesByCategory);
-    const colors = labels.map((label) => getCategoryColor(label, categoryColors));
+    const colors = labels.map((label) => getCategoryColor(label, categoryColors, categories));
 
     return {
       labels,
@@ -39,7 +40,7 @@ export default function CategoryChart() {
         },
       ],
     };
-  }, [expensesByCategory, categoryColors]);
+  }, [expensesByCategory, categoryColors, categories]);
 
   const hasData = chartData.labels.length > 0;
 

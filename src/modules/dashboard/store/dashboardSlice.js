@@ -5,7 +5,11 @@ import {
   PAYMENT_MODES,
   DEFAULT_HABITS,
   DEFAULT_CATEGORY_COLORS,
+  MAX_CATEGORIES,
   buildCategoryColors,
+  getCategoryLimitLevel,
+  getCategoryLimitPercent,
+  getCategoryLimitWarningText,
 } from '../../../core/constants/finance';
 import {
   getNowMonthYear,
@@ -48,18 +52,18 @@ export const fetchDashboardData = createAsyncThunk(
 
       let nextProfile = profile;
       if (profile) {
-        const categories = profile.categories?.length ? profile.categories : CATEGORIES;
-        const categoryColors = buildCategoryColors(categories, profile.categoryColors);
-        const savedKeys = Object.keys(profile.categoryColors || {});
-        const needsColorPersist =
-          categories.some((name) => !savedKeys.includes(name)) ||
-          savedKeys.some((key) => typeof profile.categoryColors[key] !== 'string');
+        const rawCategories = profile.categories?.length ? profile.categories : CATEGORIES;
+        const categories = rawCategories.slice(0, MAX_CATEGORIES);
+        const categoryColors = buildCategoryColors(categories);
+        const colorsChanged =
+          JSON.stringify(categoryColors) !== JSON.stringify(profile.categoryColors || {});
+        const categoriesTrimmed = categories.length !== rawCategories.length;
 
-        if (needsColorPersist) {
-          await userService.updateProfile(uid, { categoryColors });
-          nextProfile = { ...profile, categoryColors };
+        if (colorsChanged || categoriesTrimmed) {
+          await userService.updateProfile(uid, { categories, categoryColors });
+          nextProfile = { ...profile, categories, categoryColors };
         } else {
-          nextProfile = { ...profile, categoryColors };
+          nextProfile = { ...profile, categories, categoryColors };
         }
       }
 
@@ -122,8 +126,27 @@ export const updateFinanceSettings = createAsyncThunk(
   'dashboard/updateFinanceSettings',
   async ({ uid, updates }, { rejectWithValue }) => {
     try {
-      await userService.updateProfile(uid, updates);
-      return updates;
+      const next = { ...updates };
+      if (Array.isArray(next.categories)) {
+        const seen = new Set();
+        const categories = [];
+        for (const raw of next.categories) {
+          const trimmed = String(raw).trim();
+          if (!trimmed) continue;
+          const key = trimmed.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          categories.push(trimmed);
+          if (categories.length >= MAX_CATEGORIES) break;
+        }
+        if (categories.length === 0) {
+          throw new Error('Keep at least one category');
+        }
+        next.categories = categories;
+        next.categoryColors = buildCategoryColors(categories);
+      }
+      await userService.updateProfile(uid, next);
+      return next;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -459,15 +482,14 @@ export const renameCategory = createAsyncThunk(
       );
       const categoryBudgets = { ...state.categoryBudgets };
       if (categoryBudgets[oldName] !== undefined) {
-        categoryBudgets[trimmedNew] = (Number(categoryBudgets[trimmedNew]) || 0) + (Number(categoryBudgets[oldName]) || 0);
+        // Keep existing limit on the new name if both had values; otherwise move it.
+        if (categoryBudgets[trimmedNew] === undefined) {
+          categoryBudgets[trimmedNew] = categoryBudgets[oldName];
+        }
         delete categoryBudgets[oldName];
       }
 
-      const categoryColors = { ...state.categoryColors };
-      if (categoryColors[oldName]) {
-        categoryColors[trimmedNew] = categoryColors[oldName];
-        delete categoryColors[oldName];
-      }
+      const categoryColors = buildCategoryColors(categories);
 
       for (const expense of toUpdate) {
         await expenseService.update(uid, expense.id, { ...expense, category: trimmedNew });
@@ -487,27 +509,39 @@ export const deleteCategory = createAsyncThunk(
     try {
       const state = getState().dashboard;
       if (state.categories.length <= 1) throw new Error('At least one category is required');
-      const safeFallback = state.categories.includes(fallback) ? fallback : 'Other';
-      const categories = state.categories.filter((item) => item !== name);
-      if (!categories.includes(safeFallback)) categories.push(safeFallback);
 
+      const remaining = state.categories.filter((item) => item !== name);
+      if (!remaining.length) throw new Error('At least one category is required');
+
+      let safeFallback;
+      if (name === fallback || name === 'Other') {
+        // Deleting the fallback itself — reassign expenses to another existing category.
+        safeFallback = remaining[0];
+      } else if (remaining.includes(fallback)) {
+        safeFallback = fallback;
+      } else if (remaining.includes('Other')) {
+        safeFallback = 'Other';
+      } else if (remaining.length < MAX_CATEGORIES) {
+        remaining.push('Other');
+        safeFallback = 'Other';
+      } else {
+        safeFallback = remaining[0];
+      }
+
+      const categories = remaining;
       const toUpdate = state.expenses.filter((e) => e.category === name);
-      const expenses = state.expenses.map((e) => (e.category === name ? { ...e, category: safeFallback } : e));
+      const expenses = state.expenses.map((e) =>
+        e.category === name ? { ...e, category: safeFallback } : e
+      );
       const recurringExpenses = state.recurringExpenses.map((item) =>
         item.category === name ? { ...item, category: safeFallback } : item
       );
-      const categoryBudgets = { ...state.categoryBudgets };
-      if (categoryBudgets[name] !== undefined) {
-        categoryBudgets[safeFallback] =
-          (Number(categoryBudgets[safeFallback]) || 0) + (Number(categoryBudgets[name]) || 0);
-        delete categoryBudgets[name];
-      }
 
-      const categoryColors = { ...state.categoryColors };
-      delete categoryColors[name];
-      if (!categoryColors[safeFallback]) {
-        categoryColors[safeFallback] = DEFAULT_CATEGORY_COLORS[safeFallback] || '#6b7280';
-      }
+      // Drop the removed category's limit — do not merge into another category's limit.
+      const categoryBudgets = { ...state.categoryBudgets };
+      delete categoryBudgets[name];
+
+      const categoryColors = buildCategoryColors(categories);
 
       for (const expense of toUpdate) {
         await expenseService.update(uid, expense.id, { ...expense, category: safeFallback });
@@ -610,7 +644,7 @@ const dashboardSlice = createSlice({
           state.recurringExpenses = profile.recurringExpenses ?? [];
           state.onboardingSeen = profile.onboardingSeen ?? false;
           state.categories = profile.categories?.length ? profile.categories : CATEGORIES;
-          state.categoryColors = buildCategoryColors(state.categories, profile.categoryColors);
+          state.categoryColors = buildCategoryColors(state.categories);
         }
         state.expenses = expenses;
         state.walletTransactions = walletTransactions;
@@ -896,6 +930,41 @@ export const selectExpensesByCategory = (state) => {
   return grouped;
 };
 
+/** Spent in a category for the calendar month of `dateStr`. */
+export const selectCategorySpentByDate = (state, category, dateStr) => {
+  const d = dayjs(dateStr);
+  if (!d.isValid() || !category) return 0;
+  const month = d.month() + 1;
+  const year = d.year();
+  return state.dashboard.expenses
+    .filter((e) => e.category === category && isInMonthYear(e.date, month, year))
+    .reduce((sum, e) => sum + e.amount, 0);
+};
+
+/**
+ * Per-category limit progress for the filtered month.
+ * @returns {{ category: string, spent: number, limit: number, percent: number, level: null|number, color: string }[]}
+ */
+export const selectCategoryLimitStatuses = (state) => {
+  const { categories, categoryBudgets, categoryColors } = state.dashboard;
+  const spentByCategory = selectExpensesByCategory(state);
+  return (categories || [])
+    .map((category) => {
+      const limit = Number(categoryBudgets?.[category]) || 0;
+      if (limit <= 0) return null;
+      const spent = spentByCategory[category] || 0;
+      return {
+        category,
+        spent,
+        limit,
+        percent: getCategoryLimitPercent(spent, limit),
+        level: getCategoryLimitLevel(spent, limit),
+        color: categoryColors?.[category] || buildCategoryColors(categories)[category],
+      };
+    })
+    .filter(Boolean);
+};
+
 export const selectSavingsRate = (state) => {
   const spent = selectTotalSpent(state);
   const income = state.dashboard.monthlyIncome;
@@ -987,6 +1056,19 @@ export const selectHabitInsights = (state) => {
       text: 'Food spending is over 30% of income. Try meal planning to save more.',
     });
   }
+
+  const categoryLimitStatuses = selectCategoryLimitStatuses(state);
+  categoryLimitStatuses
+    .filter((item) => item.level != null)
+    .sort((a, b) => b.level - a.level)
+    .slice(0, 3)
+    .forEach((item) => {
+      insights.push({
+        type: item.level >= 100 ? 'danger' : item.level >= 90 ? 'warning' : 'tip',
+        icon: item.level >= 100 ? '⛔' : '📊',
+        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
+      });
+    });
 
   if (budget > 0 && spent > budget) {
     insights.push({
@@ -1136,6 +1218,29 @@ export const selectInAppReminders = (state) => {
       });
     }
   }
+
+  const categoryLimitStatuses = selectCategoryLimitStatuses(state);
+  categoryLimitStatuses
+    .filter((item) => item.level >= 100)
+    .slice(0, 2)
+    .forEach((item) => {
+      reminders.push({
+        id: `cat-limit-${item.category}`,
+        tone: 'danger',
+        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
+      });
+    });
+  categoryLimitStatuses
+    .filter((item) => item.level != null && item.level < 100 && item.level >= 75)
+    .slice(0, 2)
+    .forEach((item) => {
+      reminders.push({
+        id: `cat-warn-${item.category}`,
+        tone: 'warning',
+        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
+      });
+    });
+
   const walletFunded = selectMonthWalletFunded(state);
   const walletRemaining = selectMonthWalletRemaining(state);
   const monthSpent = selectTotalSpent(state);

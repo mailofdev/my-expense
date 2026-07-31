@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { formatINR } from '../../../core/utils/currency';
+import { getCategoryLimitLevel, getCategoryLimitPercent } from '../../../core/constants/finance';
 import {
   updateFinanceSettings,
   selectTotalSpent,
@@ -9,8 +10,17 @@ import {
   selectMonthWalletFunded,
   selectMonthWalletRemaining,
   selectMonthWalletUsagePercent,
+  selectExpensesByCategory,
 } from '../store/dashboardSlice';
 import DisclosureToggle from '../../../shared/components/DisclosureToggle';
+
+const levelBarClass = (level) => {
+  if (level >= 100) return 'bg-danger';
+  if (level >= 90) return 'bg-danger/80';
+  if (level >= 75) return 'bg-accent';
+  if (level >= 50) return 'bg-primary';
+  return 'bg-primary/70';
+};
 
 export default function BudgetManager() {
   const dispatch = useDispatch();
@@ -24,6 +34,7 @@ export default function BudgetManager() {
   const walletFunded = useSelector(selectMonthWalletFunded);
   const walletRemaining = useSelector(selectMonthWalletRemaining);
   const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
+  const spentByCategory = useSelector(selectExpensesByCategory);
 
   const [budget, setBudget] = useState(monthlyBudget || '');
   const [income, setIncome] = useState(monthlyIncome || '');
@@ -146,21 +157,50 @@ export default function BudgetManager() {
             id="category-limits-panel"
             className="mt-3 space-y-3 rounded-sm border border-edge/60 bg-surface-2/40 p-3"
           >
-            <div className="grid grid-cols-2 gap-3">
-              {categories.map((cat) => (
-                <label key={cat} className="label">
-                  {cat}
-                  <input
-                    className="input mt-1"
-                    type="number"
-                    placeholder="₹"
-                    value={categoryLimits[cat] ?? ''}
-                    onChange={(e) =>
-                      setCategoryLimits((prev) => ({ ...prev, [cat]: e.target.value }))
-                    }
-                  />
-                </label>
-              ))}
+            <p className="m-0 text-xs text-muted">
+              Warnings show at 50%, 75%, 90%, and 100% of each limit.
+            </p>
+            <div className="space-y-3">
+              {categories.map((cat) => {
+                const limitVal = Number(categoryLimits[cat]) || 0;
+                const spent = spentByCategory[cat] || 0;
+                const percent = getCategoryLimitPercent(spent, limitVal);
+                const level = getCategoryLimitLevel(spent, limitVal);
+                return (
+                  <div key={cat}>
+                    <label className="label">
+                      {cat}
+                      <input
+                        className="input mt-1"
+                        type="number"
+                        placeholder="₹"
+                        value={categoryLimits[cat] ?? ''}
+                        onChange={(e) =>
+                          setCategoryLimits((prev) => ({ ...prev, [cat]: e.target.value }))
+                        }
+                      />
+                    </label>
+                    {limitVal > 0 && (
+                      <div className="mt-1.5">
+                        <div className="mb-1 flex justify-between text-xs text-muted">
+                          <span>
+                            {formatINR(spent)} / {formatINR(limitVal)}
+                          </span>
+                          <span className={level >= 100 ? 'text-danger' : level >= 75 ? 'text-accent' : ''}>
+                            {percent}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-surface">
+                          <div
+                            className={`h-full rounded-full ${levelBarClass(level || 0)}`}
+                            style={{ width: `${Math.min(100, percent)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <button type="button" className="btn-outline btn-full" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving…' : 'Save limits'}

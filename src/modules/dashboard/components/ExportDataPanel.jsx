@@ -59,8 +59,6 @@ export default function ExportDataPanel() {
   return (
     <section className="card">
       <h2 className="card-title">Export data</h2>
-      <p className="card-desc">Download expenses for a date range as a spreadsheet file.</p>
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="label m-0">
           Start date
