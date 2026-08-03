@@ -29,6 +29,7 @@ import {
   mergeSettlements,
   sharesMatchTotal,
 } from '../../../core/utils/split';
+import { resolveMonthIncome, advanceRecurringNextDate } from '../utils/moneyFlows';
 
 const getErrorMessage = (error) =>
   error?.message || 'Something went wrong. Please try again.';
@@ -388,13 +389,17 @@ export const applyDueRecurringExpenses = createAsyncThunk(
     try {
       const state = getState().dashboard;
       const today = dayjs(getTodayString());
-      const due = state.recurringExpenses.filter(
-        (item) =>
-          item.enabled &&
-          !dayjs(item.nextDate).isAfter(today, 'day') &&
-          (!item.endDate || !dayjs(item.endDate).isBefore(today, 'day')) &&
-          (!item.maxOccurrences || (item.runCount || 0) < item.maxOccurrences)
-      );
+      const due = state.recurringExpenses.filter((item) => {
+        if (!item?.enabled || !item.nextDate) return false;
+        const next = dayjs(item.nextDate);
+        if (!next.isValid()) return false;
+        if (next.isAfter(today, 'day')) return false;
+        if (item.endDate && dayjs(item.endDate).isValid() && dayjs(item.endDate).isBefore(today, 'day')) {
+          return false;
+        }
+        if (item.maxOccurrences && (item.runCount || 0) >= item.maxOccurrences) return false;
+        return true;
+      });
       if (!due.length) {
         return { expenses: [], recurringExpenses: state.recurringExpenses, activity: [] };
       }
@@ -411,14 +416,12 @@ export const applyDueRecurringExpenses = createAsyncThunk(
         createdExpenses.push(created);
       }
 
+      const advanceNextDate = (fromDate, cadence) =>
+        advanceRecurringNextDate(dayjs(fromDate), cadence, today);
+
       const nextRecurring = state.recurringExpenses.map((item) => {
         if (!due.some((d) => d.id === item.id)) return item;
-        const base = dayjs(item.nextDate);
-        const nextDate = item.cadence === 'weekly'
-          ? base.add(1, 'week')
-          : item.cadence === 'yearly'
-            ? base.add(1, 'year')
-            : base.add(1, 'month');
+        const nextDate = advanceNextDate(item.nextDate, item.cadence);
         return {
           ...item,
           nextDate: nextDate.format('YYYY-MM-DD'),
@@ -953,22 +956,12 @@ export const selectMonthWalletFunded = (state) => {
 /** Income logged for the filtered month (from income credits). */
 export const selectMonthIncome = (state) => {
   const key = selectFilterMonthKey(state);
-  const fromMap = Number(state.dashboard.monthlyIncomes?.[key]) || 0;
-  if (fromMap > 0) return fromMap;
-
-  // Fallback: sum income-tagged wallet credits for this month.
-  const fromTx = (state.dashboard.walletTransactions || [])
-    .filter(
-      (tx) =>
-        tx.type === 'credit' &&
-        tx.source === 'income' &&
-        tx.monthKey === key
-    )
-    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
-  if (fromTx > 0) return fromTx;
-
-  // Legacy profile field when no per-month income exists yet.
-  return Number(state.dashboard.monthlyIncome) || 0;
+  return resolveMonthIncome({
+    monthKey: key,
+    monthlyIncomes: state.dashboard.monthlyIncomes,
+    walletTransactions: state.dashboard.walletTransactions,
+    legacyMonthlyIncome: state.dashboard.monthlyIncome,
+  });
 };
 
 export const selectMonthWalletRemaining = (state) => {
@@ -1284,36 +1277,23 @@ export const selectSplitOverview = (state) => {
 
 export const selectDueRecurringExpenses = (state) => {
   const today = dayjs(getTodayString());
-  return (state.dashboard.recurringExpenses || []).filter(
-    (item) =>
-      item.enabled &&
-      !dayjs(item.nextDate).isAfter(today, 'day') &&
-      (!item.endDate || !dayjs(item.endDate).isBefore(today, 'day')) &&
-      (!item.maxOccurrences || (item.runCount || 0) < item.maxOccurrences)
-  );
+  return (state.dashboard.recurringExpenses || []).filter((item) => {
+    if (!item?.enabled || !item.nextDate) return false;
+    const next = dayjs(item.nextDate);
+    if (!next.isValid()) return false;
+    if (next.isAfter(today, 'day')) return false;
+    if (item.endDate && dayjs(item.endDate).isValid() && dayjs(item.endDate).isBefore(today, 'day')) {
+      return false;
+    }
+    if (item.maxOccurrences && (item.runCount || 0) >= item.maxOccurrences) return false;
+    return true;
+  });
 };
 
 export const selectInAppReminders = (state) => {
   const reminders = [];
-  const split = selectSplitOverview(state);
-  const pendingCount = (state.dashboard.splitGroups || []).reduce(
-    (sum, group) => sum + (group.settlements || []).filter((item) => item.status === 'pending').length,
-    0
-  );
-  if (pendingCount > 0) {
-    reminders.push({
-      id: 'pending-settlements',
-      tone: 'warning',
-      text: `${pendingCount} settlement${pendingCount > 1 ? 's are' : ' is'} pending. Keep shared balances clean.`,
-    });
-  }
-  if (split.youOwe > 0) {
-    reminders.push({
-      id: 'you-owe',
-      tone: 'danger',
-      text: `You owe ${split.youOwe.toLocaleString('en-IN')} in groups. Consider closing dues this week.`,
-    });
-  }
+
+  // Highest priority for Home: bills due + wallet status.
   const dueRecurring = selectDueRecurringExpenses(state);
   if (dueRecurring.length > 0) {
     const total = dueRecurring.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -1324,38 +1304,6 @@ export const selectInAppReminders = (state) => {
       text: `${dueRecurring.length} bill${dueRecurring.length > 1 ? 's' : ''} due · ₹${total.toLocaleString('en-IN')} — tap to log`,
     });
   }
-  if (state.dashboard.monthlyBudget > 0) {
-    const remaining = selectBudgetRemaining(state);
-    if (remaining < 0) {
-      reminders.push({
-        id: 'budget-over',
-        tone: 'danger',
-        text: `Budget exceeded by ${Math.abs(remaining).toLocaleString('en-IN')}.`,
-      });
-    }
-  }
-
-  const categoryLimitStatuses = selectCategoryLimitStatuses(state);
-  categoryLimitStatuses
-    .filter((item) => item.level >= 100)
-    .slice(0, 2)
-    .forEach((item) => {
-      reminders.push({
-        id: `cat-limit-${item.category}`,
-        tone: 'danger',
-        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
-      });
-    });
-  categoryLimitStatuses
-    .filter((item) => item.level != null && item.level < 100 && item.level >= 75)
-    .slice(0, 2)
-    .forEach((item) => {
-      reminders.push({
-        id: `cat-warn-${item.category}`,
-        tone: 'warning',
-        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
-      });
-    });
 
   const walletFunded = selectMonthWalletFunded(state);
   const walletRemaining = selectMonthWalletRemaining(state);
@@ -1384,5 +1332,39 @@ export const selectInAppReminders = (state) => {
       text: `Only ${Math.max(0, walletRemaining).toLocaleString('en-IN')} left in this month's wallet.`,
     });
   }
+
+  const categoryLimitStatuses = selectCategoryLimitStatuses(state);
+  categoryLimitStatuses
+    .filter((item) => item.level >= 100)
+    .slice(0, 2)
+    .forEach((item) => {
+      reminders.push({
+        id: `cat-limit-${item.category}`,
+        tone: 'danger',
+        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
+      });
+    });
+  categoryLimitStatuses
+    .filter((item) => item.level != null && item.level < 100 && item.level >= 75)
+    .slice(0, 2)
+    .forEach((item) => {
+      reminders.push({
+        id: `cat-warn-${item.category}`,
+        tone: 'warning',
+        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
+      });
+    });
+
+  if (state.dashboard.monthlyBudget > 0) {
+    const remaining = selectBudgetRemaining(state);
+    if (remaining < 0) {
+      reminders.push({
+        id: 'budget-over',
+        tone: 'danger',
+        text: `Budget exceeded by ${Math.abs(remaining).toLocaleString('en-IN')}.`,
+      });
+    }
+  }
+
   return reminders.slice(0, 4);
 };

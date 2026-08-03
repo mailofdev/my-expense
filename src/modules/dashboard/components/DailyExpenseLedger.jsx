@@ -20,7 +20,7 @@ import {
   selectCategorySpentByDate,
 } from '../store/dashboardSlice';
 
-export default function DailyExpenseLedger() {
+export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { categories, paymentModes, saving, categoryColors, categoryBudgets } = useSelector(
@@ -311,6 +311,16 @@ export default function DailyExpenseLedger() {
             );
           })}
         </ul>
+      )}
+
+      {onFindExpenses && (
+        <button
+          type="button"
+          className="mt-3 w-full border-0 bg-transparent p-0 text-center text-xs font-semibold text-primary"
+          onClick={onFindExpenses}
+        >
+          Find past expenses
+        </button>
       )}
     </section>
   );

@@ -15,6 +15,7 @@ import SplitGroupsHub from '../components/SplitGroupsHub';
 import SettingsHub from '../components/SettingsHub';
 import { fetchDashboardData, clearDashboardError, setMonthFilter, setDayFilter } from '../store/dashboardSlice';
 import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
+import dayjs from 'dayjs';
 
 const DATE_TABS = ['overview', 'wallet', 'budget', 'analyzer', 'habits'];
 
@@ -31,6 +32,13 @@ export default function DashboardPage() {
       dispatch(setDayFilter({ date: getTodayString() }));
     }
     setActiveTab(tab);
+  };
+
+  const openExpenseDay = (dateStr) => {
+    const d = dayjs(dateStr);
+    if (!dateStr || !d.isValid()) return;
+    dispatch(setDayFilter({ date: d.format('YYYY-MM-DD') }));
+    setActiveTab('overview');
   };
 
   useEffect(() => {
@@ -82,14 +90,14 @@ export default function DashboardPage() {
             <>
               <OverviewHero onTabChange={handleTabChange} />
               <AddExpenseForm onGoToWallet={() => handleTabChange('wallet')} />
-              <DailyExpenseLedger />
+              <DailyExpenseLedger onFindExpenses={() => handleTabChange('analyzer')} />
             </>
           )}
 
           {activeTab === 'split' && <SplitGroupsHub />}
           {activeTab === 'wallet' && <WalletTracker />}
           {activeTab === 'budget' && <BudgetManager />}
-          {activeTab === 'analyzer' && <ExpenseAnalyzer />}
+          {activeTab === 'analyzer' && <ExpenseAnalyzer onOpenDay={openExpenseDay} />}
           {activeTab === 'habits' && <HabitImprover />}
           {activeTab === 'settings' && <SettingsHub />}
         </div>

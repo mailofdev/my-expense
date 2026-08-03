@@ -208,7 +208,7 @@ export default function AddExpenseForm({ onGoToWallet }) {
                     className="border-0 bg-transparent p-0 font-semibold text-primary underline"
                     onClick={onGoToWallet}
                   >
-                    Fund wallet
+                    Add income
                   </button>
                 )}
               </>
