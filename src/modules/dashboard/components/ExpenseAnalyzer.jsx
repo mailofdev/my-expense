@@ -6,7 +6,6 @@ import {
   selectFilteredMonthLabel,
 } from '../store/dashboardSlice';
 import CategoryChart from './CategoryChart';
-import MonthWiseDistribution from './MonthWiseDistribution';
 import MonthHistoryList from './MonthHistoryList';
 import FindExpenses from './FindExpenses';
 
@@ -20,13 +19,11 @@ export default function ExpenseAnalyzer({ onOpenDay }) {
     <div className="feature-panel">
       <div className="px-1">
         <p className="section-label m-0">{monthLabel}</p>
-        <p className="m-0 text-sm text-muted">Total spent</p>
+        <p className="m-0 text-sm text-muted">Spent</p>
         <p className="mt-1 text-2xl font-bold text-primary">{formatINR(totalSpent)}</p>
       </div>
 
       <FindExpenses onOpenDay={onOpenDay} />
-
-      <MonthWiseDistribution />
       <CategoryChart />
 
       {monthExpenses.length > 0 && <MonthHistoryList />}
@@ -35,7 +32,7 @@ export default function ExpenseAnalyzer({ onOpenDay }) {
         <p className="empty-state">
           {expenses.length === 0
             ? 'Add expenses on Home to see charts here.'
-            : `No expenses in ${monthLabel}. Search above or pick another month.`}
+            : `No expenses in ${monthLabel}.`}
         </p>
       )}
     </div>

@@ -1,34 +1,23 @@
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
-import {
-  getCategoryColor,
-  getCategoryLimitLevel,
-  getCategoryLimitWarningText,
-} from '../../../core/constants/finance';
+import { getCategoryColor } from '../../../core/constants/finance';
 import {
   removeExpense,
   updateExpense,
-  setDayFilter,
   selectDayExpenses,
   selectDayTotal,
   selectFilterDate,
   selectFilteredDayLabel,
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
-  selectCategorySpentByDate,
   selectAccounts,
   selectDefaultAccountId,
   selectVisibleCategories,
   selectMainCategories,
-  selectSubcategories,
 } from '../store/dashboardSlice';
 import { getAccountById } from '../utils/accounts';
 import {
-  collectExpenseTags,
-  getMainByName,
-  getSubcategoriesForMain,
   normalizeTags,
   resolveMainCategoryName,
 } from '../utils/categories';
@@ -36,12 +25,9 @@ import {
 export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { paymentModes, saving, categoryColors, categoryBudgets } = useSelector(
-    (state) => state.dashboard
-  );
+  const { paymentModes, saving, categoryColors } = useSelector((state) => state.dashboard);
   const categories = useSelector(selectVisibleCategories);
   const mainCategories = useSelector(selectMainCategories);
-  const subcategoriesMap = useSelector(selectSubcategories);
   const accounts = useSelector(selectAccounts);
   const defaultAccountId = useSelector(selectDefaultAccountId);
   const filterDate = useSelector(selectFilterDate);
@@ -54,31 +40,17 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const [editTitle, setEditTitle] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editCategory, setEditCategory] = useState('');
-  const [editSubcategory, setEditSubcategory] = useState('');
-  const [editTags, setEditTags] = useState('');
-  const [editDate, setEditDate] = useState('');
-  const [editPaymentMode, setEditPaymentMode] = useState('');
   const [editAccountId, setEditAccountId] = useState('');
 
   const editWallet = useSelector((state) =>
-    editingId ? selectMonthWalletStatsByDate(state, editDate || filterDate, editingId) : null
+    editingId ? selectMonthWalletStatsByDate(state, filterDate, editingId) : null
   );
-  const editCategorySpent = useSelector((state) =>
-    editingId ? selectCategorySpentByDate(state, editCategory, editDate || filterDate) : 0
-  );
-
-  const editMain = getMainByName(mainCategories, editCategory);
-  const editSubOptions = getSubcategoriesForMain(subcategoriesMap, editMain?.id);
 
   const startEdit = (expense) => {
     setEditingId(expense.id);
     setEditTitle(expense.title);
     setEditAmount(String(expense.amount));
     setEditCategory(resolveMainCategoryName(expense.category, mainCategories));
-    setEditSubcategory(expense.subcategory || '');
-    setEditTags((expense.tags || []).map((tag) => `#${tag}`).join(' '));
-    setEditDate(expense.date);
-    setEditPaymentMode(expense.paymentMode || paymentModes[0]);
     setEditAccountId(expense.accountId || defaultAccountId);
   };
 
@@ -87,56 +59,25 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     setEditTitle('');
     setEditAmount('');
     setEditCategory('');
-    setEditSubcategory('');
-    setEditTags('');
-    setEditDate('');
-    setEditPaymentMode('');
     setEditAccountId('');
   };
 
   const handleSave = (expense) => {
     const title = editTitle.trim();
     const amount = Number(editAmount);
-    const date = editDate;
+    const date = expense.date;
 
     if (!title) return;
     if (!amount || amount < 1) return;
-    if (!date) return;
-    if (dayjs(date).isAfter(dayjs(), 'day')) return;
 
-    const monthChanged = dayjs(date).format('YYYY-MM') !== dayjs(expense.date).format('YYYY-MM');
     const stats = editWallet || { remaining: 0, funded: 0, monthLabel: '' };
     const remainingAfter = stats.remaining - amount;
 
-    if (stats.funded === 0 && amount > 0) {
+    if (stats.funded > 0 && remainingAfter < 0) {
       const proceed = window.confirm(
-        `${stats.monthLabel} wallet is not funded. Save this expense anyway?`
+        `This goes ${formatINR(Math.abs(remainingAfter))} over your month. Save anyway?`
       );
       if (!proceed) return;
-    } else if (remainingAfter < 0) {
-      const proceed = window.confirm(
-        `This will exceed ${stats.monthLabel} wallet by ${formatINR(Math.abs(remainingAfter))}. Save anyway?`
-      );
-      if (!proceed) return;
-    }
-
-    const limit = Number(categoryBudgets?.[editCategory]) || 0;
-    if (limit > 0) {
-      const sameMonth =
-        dayjs(date).format('YYYY-MM') === dayjs(expense.date).format('YYYY-MM');
-      const sameBucket = sameMonth && expense.category === editCategory;
-      const baseSpent = sameBucket
-        ? Math.max(0, editCategorySpent - Number(expense.amount))
-        : editCategorySpent;
-      const after = baseSpent + amount;
-      const beforeLevel = getCategoryLimitLevel(baseSpent, limit);
-      const afterLevel = getCategoryLimitLevel(after, limit);
-      if (afterLevel != null && (afterLevel !== beforeLevel || afterLevel >= 100)) {
-        const proceed = window.confirm(
-          `${getCategoryLimitWarningText(editCategory, afterLevel, after, limit)}\n\nSave anyway?`
-        );
-        if (!proceed) return;
-      }
     }
 
     dispatch(
@@ -148,21 +89,15 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           title,
           amount,
           category: editCategory,
-          subcategory: editSubcategory || '',
-          tags: collectExpenseTags(title, editTags),
+          subcategory: expense.subcategory || '',
+          tags: normalizeTags(expense.tags),
           date,
-          paymentMode: editPaymentMode,
+          paymentMode: expense.paymentMode || paymentModes[0],
           accountId: editAccountId || defaultAccountId,
         },
       })
     ).then((result) => {
       if (!result.error) {
-        if (date !== filterDate) {
-          dispatch(setDayFilter({ date }));
-        }
-        if (monthChanged) {
-          window.alert(`Expense moved to ${stats.monthLabel} wallet.`);
-        }
         cancelEdit();
       }
     });
@@ -185,16 +120,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
       ? 'None yet'
       : `${dayExpenses.length} item${dayExpenses.length === 1 ? '' : 's'}`;
 
-  const canSave =
-    editTitle.trim() &&
-    Number(editAmount) >= 1 &&
-    editDate &&
-    !dayjs(editDate).isAfter(dayjs(), 'day');
-
-  const editAmountNum = Number(editAmount) || 0;
-  const editProjectedRemaining = editWallet ? editWallet.remaining - editAmountNum : 0;
-  const editMonthChanged =
-    editingId && editDate && dayjs(editDate).format('YYYY-MM') !== dayjs(filterDate).format('YYYY-MM');
+  const canSave = editTitle.trim() && Number(editAmount) >= 1;
 
   return (
     <section className="card">
@@ -214,6 +140,8 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
         <ul className="m-0 list-none space-y-1 p-0">
           {dayExpenses.map((expense) => {
             const isEditing = editingId === expense.id;
+            const category = resolveMainCategoryName(expense.category, mainCategories);
+            const tags = normalizeTags(expense.tags);
 
             return (
               <li
@@ -236,92 +164,33 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                       min="1"
                       value={editAmount}
                       onChange={(e) => setEditAmount(e.target.value)}
-                      placeholder="Amount in ₹"
+                      placeholder="Amount ₹"
                       aria-label="Expense amount"
                     />
-                    <select
-                      className="input py-2 text-sm"
-                      value={editCategory}
-                      onChange={(e) => {
-                        setEditCategory(e.target.value);
-                        setEditSubcategory('');
-                      }}
-                      aria-label="Category"
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="input py-2 text-sm"
-                      value={editSubcategory}
-                      onChange={(e) => setEditSubcategory(e.target.value)}
-                      aria-label="Subcategory"
-                    >
-                      <option value="">No subcategory</option>
-                      {editSubOptions.map((sub) => (
-                        <option key={sub} value={sub}>
-                          {sub}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      className="input py-2 text-sm"
-                      value={editTags}
-                      onChange={(e) => setEditTags(e.target.value)}
-                      placeholder="Tags — #family"
-                      aria-label="Tags"
-                    />
-                    <select
-                      className="input py-2 text-sm"
-                      value={editPaymentMode}
-                      onChange={(e) => setEditPaymentMode(e.target.value)}
-                      aria-label="Payment method"
-                    >
-                      {paymentModes.map((mode) => (
-                        <option key={mode} value={mode}>
-                          {mode}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="input py-2 text-sm"
-                      value={editAccountId}
-                      onChange={(e) => setEditAccountId(e.target.value)}
-                      aria-label="Paid from account"
-                    >
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          From {account.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      className="input py-2 text-sm"
-                      type="date"
-                      max={dayjs().format('YYYY-MM-DD')}
-                      value={editDate}
-                      onChange={(e) => setEditDate(e.target.value)}
-                      aria-label="Date"
-                    />
-                    {editWallet && editAmountNum > 0 && (
-                      <p
-                        className={`m-0 rounded-sm border px-2 py-1.5 text-xs ${
-                          editProjectedRemaining < 0
-                            ? 'border-danger/40 bg-danger/10 text-red-200'
-                            : editWallet.funded === 0
-                              ? 'border-accent/40 bg-accent/10 text-yellow-100'
-                              : 'border-edge bg-surface-2 text-muted'
-                        }`}
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        className="input py-2 text-sm"
+                        value={editCategory}
+                        onChange={(e) => setEditCategory(e.target.value)}
+                        aria-label="Category"
                       >
-                        {editWallet.funded === 0
-                          ? `${editWallet.monthLabel} wallet not funded`
-                          : `${editWallet.monthLabel} wallet: ${formatINR(Math.max(0, editProjectedRemaining))} left after save`}
-                        {editMonthChanged && ' · affects different month'}
-                      </p>
-                    )}
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="input py-2 text-sm"
+                        value={editAccountId}
+                        onChange={(e) => setEditAccountId(e.target.value)}
+                        aria-label="Paid from"
+                      >
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="flex justify-end gap-2 pt-1">
                       <button
                         type="button"
@@ -346,23 +215,17 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
                       style={{
-                        background: getCategoryColor(
-                          resolveMainCategoryName(expense.category, mainCategories),
-                          categoryColors,
-                          categories
-                        ),
+                        background: getCategoryColor(category, categoryColors, categories),
                       }}
                       aria-hidden="true"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="m-0 truncate text-sm font-medium">{expense.title}</p>
                       <p className="m-0 text-xs text-muted">
-                        {resolveMainCategoryName(expense.category, mainCategories)}
+                        {category}
                         {expense.subcategory ? ` · ${expense.subcategory}` : ''}
-                        {normalizeTags(expense.tags).length
-                          ? ` · ${normalizeTags(expense.tags)
-                              .map((tag) => `#${tag}`)
-                              .join(' ')}`
+                        {tags.length
+                          ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}`
                           : ''}
                         {(() => {
                           const name = getAccountById(

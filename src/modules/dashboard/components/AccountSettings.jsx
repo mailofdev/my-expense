@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { formatINR } from '../../../core/utils/currency';
 import {
   MAX_ACCOUNTS,
   createAccountId,

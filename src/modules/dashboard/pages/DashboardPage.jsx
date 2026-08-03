@@ -8,16 +8,13 @@ import OverviewHero from '../components/OverviewHero';
 import AddExpenseForm from '../components/AddExpenseForm';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
 import WalletTracker from '../components/WalletTracker';
-import BudgetManager from '../components/BudgetManager';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
-import HabitImprover from '../components/HabitImprover';
-import SplitGroupsHub from '../components/SplitGroupsHub';
 import SettingsHub from '../components/SettingsHub';
 import { fetchDashboardData, clearDashboardError, setMonthFilter, setDayFilter } from '../store/dashboardSlice';
 import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
 import dayjs from 'dayjs';
 
-const DATE_TABS = ['overview', 'wallet', 'budget', 'analyzer', 'habits'];
+const DATE_TABS = ['overview', 'wallet', 'analyzer'];
 
 export default function DashboardPage() {
   const dispatch = useDispatch();
@@ -94,11 +91,8 @@ export default function DashboardPage() {
             </>
           )}
 
-          {activeTab === 'split' && <SplitGroupsHub />}
           {activeTab === 'wallet' && <WalletTracker />}
-          {activeTab === 'budget' && <BudgetManager />}
           {activeTab === 'analyzer' && <ExpenseAnalyzer onOpenDay={openExpenseDay} />}
-          {activeTab === 'habits' && <HabitImprover />}
           {activeTab === 'settings' && <SettingsHub />}
         </div>
       </main>

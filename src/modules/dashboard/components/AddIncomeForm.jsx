@@ -11,17 +11,9 @@ import {
   selectFilteredMonthLabel,
   selectMonthIncome,
   selectMonthIncomeEntries,
-  selectMonthWalletFunded,
   selectIsFilterCurrentMonth,
   selectAccounts,
 } from '../store/dashboardSlice';
-
-const SOURCES = ['Salary', 'Freelance', 'Other'];
-
-const resolveSourceType = (note) => {
-  if (SOURCES.includes(note)) return note;
-  return 'Other';
-};
 
 export default function AddIncomeForm() {
   const dispatch = useDispatch();
@@ -31,7 +23,6 @@ export default function AddIncomeForm() {
   const monthKey = useSelector(selectFilterMonthKey);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const monthIncome = useSelector(selectMonthIncome);
-  const monthFunded = useSelector(selectMonthWalletFunded);
   const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
   const incomeEntries = useSelector(selectMonthIncomeEntries);
 
@@ -40,15 +31,13 @@ export default function AddIncomeForm() {
     accounts.find((a) => a.kind === 'salary')?.id || defaultAccountId;
 
   const [amount, setAmount] = useState('');
-  const [sourceType, setSourceType] = useState('Salary');
-  const [customSource, setCustomSource] = useState('');
+  const [note, setNote] = useState('');
   const [accountId, setAccountId] = useState(salaryAccountId);
   const [message, setMessage] = useState('');
 
   const [editingId, setEditingId] = useState(null);
   const [editAmount, setEditAmount] = useState('');
-  const [editSourceType, setEditSourceType] = useState('Salary');
-  const [editCustomSource, setEditCustomSource] = useState('');
+  const [editNote, setEditNote] = useState('');
   const [editAccountId, setEditAccountId] = useState(salaryAccountId);
 
   useEffect(() => {
@@ -58,30 +47,10 @@ export default function AddIncomeForm() {
     });
   }, [accounts, salaryAccountId]);
 
-  const isOther = sourceType === 'Other';
-  const resolvedSource = isOther ? customSource.trim() : sourceType;
-  const submitLabel = resolvedSource
-    ? `Add ${resolvedSource.toLowerCase()}`
-    : 'Add income';
-
-  const editIsOther = editSourceType === 'Other';
-  const editResolvedSource = editIsOther ? editCustomSource.trim() : editSourceType;
-
-  const handleSourceChange = (item) => {
-    setSourceType(item);
-    setMessage('');
-    if (item === 'Salary') {
-      setAccountId(salaryAccountId);
-    }
-  };
-
   const startEdit = (entry) => {
-    const note = entry.note || 'Salary';
-    const type = resolveSourceType(note);
     setEditingId(entry.id);
     setEditAmount(String(entry.amount));
-    setEditSourceType(type);
-    setEditCustomSource(type === 'Other' ? note : '');
+    setEditNote(entry.note || '');
     setEditAccountId(entry.accountId || defaultAccountId);
     setMessage('');
   };
@@ -89,8 +58,7 @@ export default function AddIncomeForm() {
   const cancelEdit = () => {
     setEditingId(null);
     setEditAmount('');
-    setEditSourceType('Salary');
-    setEditCustomSource('');
+    setEditNote('');
     setEditAccountId(salaryAccountId);
   };
 
@@ -100,42 +68,37 @@ export default function AddIncomeForm() {
       setMessage('Enter at least ₹1.');
       return;
     }
-    if (editIsOther && !editResolvedSource) {
-      setMessage('Enter a source name.');
-      return;
-    }
 
     dispatch(
       updateWalletCredit({
         uid: user.uid,
         txId: entry.id,
         amount: value,
-        note: editResolvedSource,
+        note: editNote.trim() || 'Income',
         accountId: editAccountId || defaultAccountId,
       })
     ).then((result) => {
       if (!result.error) {
         cancelEdit();
-        setMessage('Income updated.');
+        setMessage('Updated.');
       } else {
-        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not update income.');
+        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not update.');
       }
     });
   };
 
   const handleDelete = (entry) => {
-    const label = entry.note || 'Income';
     const proceed = window.confirm(
-      `Remove ${label} (${formatINR(entry.amount)})?\n\nThis also reduces this month’s wallet funding.`
+      `Remove ${entry.note || 'income'} (${formatINR(entry.amount)})?`
     );
     if (!proceed) return;
 
     if (editingId === entry.id) cancelEdit();
     dispatch(removeWalletCredit({ uid: user.uid, txId: entry.id })).then((result) => {
       if (!result.error) {
-        setMessage('Income removed.');
+        setMessage('Removed.');
       } else {
-        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not remove income.');
+        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not remove.');
       }
     });
   };
@@ -148,16 +111,12 @@ export default function AddIncomeForm() {
       setMessage('Enter at least ₹1.');
       return;
     }
-    if (isOther && !resolvedSource) {
-      setMessage('Enter a source name.');
-      return;
-    }
 
     dispatch(
       addWalletFunds({
         uid: user.uid,
         amount: value,
-        note: resolvedSource,
+        note: note.trim() || 'Income',
         monthKey,
         source: 'income',
         accountId: accountId || defaultAccountId,
@@ -165,26 +124,21 @@ export default function AddIncomeForm() {
     ).then((result) => {
       if (!result.error) {
         setAmount('');
-        if (isOther) setCustomSource('');
+        setNote('');
         const accountName = accounts.find((a) => a.id === accountId)?.name || 'account';
         setMessage(`+${formatINR(value)} → ${accountName}`);
       } else {
-        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add income.');
+        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add money.');
       }
     });
   };
 
-  const canSaveEdit =
-    Number(editAmount) >= 1 &&
-    (!editIsOther || Boolean(editResolvedSource));
-
   return (
     <section className="card">
-      <h2 className="card-title mb-1">Add income</h2>
+      <h2 className="card-title mb-1">Add money</h2>
       <p className="card-desc mb-3">
         {monthLabel}
-        {monthIncome > 0 ? ` · ${formatINR(monthIncome)} in` : ''}
-        {!monthFunded ? ' · funds your spend wallet' : ''}
+        {monthIncome > 0 ? ` · ${formatINR(monthIncome)} so far` : ''}
       </p>
 
       {!isCurrentMonth && (
@@ -192,38 +146,19 @@ export default function AddIncomeForm() {
       )}
 
       <form className="space-y-3" onSubmit={handleSubmit}>
-        <div className="flex flex-wrap gap-2">
-          {SOURCES.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                sourceType === item
-                  ? 'border-primary bg-primary/15 text-[#f0f4f2]'
-                  : 'border-edge/60 bg-transparent text-muted hover:text-[#f0f4f2]'
-              }`}
-              onClick={() => handleSourceChange(item)}
-              aria-pressed={sourceType === item}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-
-        {isOther && (
-          <input
-            className="input"
-            type="text"
-            value={customSource}
-            onChange={(e) => {
-              setCustomSource(e.target.value);
-              setMessage('');
-            }}
-            placeholder="e.g. Gift, Bonus, Rent back"
-            aria-label="Custom income source"
-            autoFocus
-          />
-        )}
+        <input
+          className="input"
+          type="number"
+          min="1"
+          inputMode="numeric"
+          placeholder="Amount ₹"
+          value={amount}
+          onChange={(e) => {
+            setAmount(e.target.value);
+            setMessage('');
+          }}
+          aria-label="Amount"
+        />
 
         <select
           className="input"
@@ -243,157 +178,121 @@ export default function AddIncomeForm() {
 
         <input
           className="input"
-          type="number"
-          min="1"
-          inputMode="numeric"
-          placeholder="Amount ₹"
-          value={amount}
+          type="text"
+          value={note}
           onChange={(e) => {
-            setAmount(e.target.value);
+            setNote(e.target.value);
             setMessage('');
           }}
-          aria-label="Income amount"
+          placeholder="Note (optional) — Salary, freelance…"
+          aria-label="Note"
         />
 
         <button type="submit" className="btn-primary btn-full" disabled={saving || editingId}>
-          {saving && !editingId ? 'Adding…' : submitLabel}
+          {saving && !editingId ? 'Adding…' : 'Add money'}
         </button>
       </form>
 
       {incomeEntries.length > 0 && (
-        <div className="mt-4 border-t border-edge/50 pt-3">
-          <p className="mb-2 mt-0 text-xs font-semibold uppercase tracking-wide text-muted">
-            This month’s income
-          </p>
-          <ul className="m-0 list-none space-y-1 p-0">
-            {incomeEntries.map((entry) => {
-              const isEditing = editingId === entry.id;
-              const accountName = getAccountById(
-                accounts,
-                entry.accountId || defaultAccountId
-              )?.name;
+        <ul className="m-0 mt-4 list-none space-y-1 border-t border-edge/50 p-0 pt-3">
+          {incomeEntries.map((entry) => {
+            const isEditing = editingId === entry.id;
+            const accountName = getAccountById(
+              accounts,
+              entry.accountId || defaultAccountId
+            )?.name;
 
-              return (
-                <li key={entry.id} className="rounded-sm py-2.5">
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {SOURCES.map((item) => (
-                          <button
-                            key={item}
-                            type="button"
-                            className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                              editSourceType === item
-                                ? 'border-primary bg-primary/15 text-[#f0f4f2]'
-                                : 'border-edge/60 bg-transparent text-muted'
-                            }`}
-                            onClick={() => {
-                              setEditSourceType(item);
-                              if (item === 'Salary') setEditAccountId(salaryAccountId);
-                              setMessage('');
-                            }}
-                            aria-pressed={editSourceType === item}
-                          >
-                            {item}
-                          </button>
-                        ))}
-                      </div>
-                      {editIsOther && (
-                        <input
-                          className="input py-2 text-sm"
-                          value={editCustomSource}
-                          onChange={(e) => {
-                            setEditCustomSource(e.target.value);
-                            setMessage('');
-                          }}
-                          placeholder="Source name"
-                          aria-label="Edit income source"
-                          autoFocus
-                        />
-                      )}
-                      <select
-                        className="input py-2 text-sm"
-                        value={editAccountId}
-                        onChange={(e) => setEditAccountId(e.target.value)}
-                        aria-label="Edit deposit account"
-                      >
-                        {accounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            Into {account.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        className="input py-2 text-sm"
-                        type="number"
-                        min="1"
-                        value={editAmount}
-                        onChange={(e) => {
-                          setEditAmount(e.target.value);
-                          setMessage('');
-                        }}
-                        aria-label="Edit income amount"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          className="btn-outline btn-sm"
-                          onClick={cancelEdit}
-                          disabled={saving}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-primary btn-sm"
-                          onClick={() => handleSaveEdit(entry)}
-                          disabled={saving || !canSaveEdit}
-                        >
-                          {saving ? '…' : 'Save'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="m-0 truncate text-sm font-medium">
-                          {entry.note || 'Income'}
-                        </p>
-                        <p className="m-0 text-xs text-muted">
-                          {accountName ? `${accountName} · ` : ''}
-                          {entry.createdAt
-                            ? dayjs(entry.createdAt).format('D MMM')
-                            : monthLabel}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-sm font-semibold text-success">
-                        +{formatINR(entry.amount)}
-                      </span>
+            return (
+              <li key={entry.id} className="rounded-sm py-2">
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input
+                      className="input py-2 text-sm"
+                      type="number"
+                      min="1"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      aria-label="Edit amount"
+                      autoFocus
+                    />
+                    <select
+                      className="input py-2 text-sm"
+                      value={editAccountId}
+                      onChange={(e) => setEditAccountId(e.target.value)}
+                      aria-label="Edit account"
+                    >
+                      {accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          Into {account.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="input py-2 text-sm"
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                      placeholder="Note"
+                      aria-label="Edit note"
+                    />
+                    <div className="flex justify-end gap-2">
                       <button
                         type="button"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-sm text-muted hover:bg-primary/10 hover:text-primary"
-                        disabled={saving || editingId !== null}
-                        onClick={() => startEdit(entry)}
-                        aria-label={`Edit ${entry.note || 'income'}`}
+                        className="btn-outline btn-sm"
+                        onClick={cancelEdit}
+                        disabled={saving}
                       >
-                        ✎
+                        Cancel
                       </button>
                       <button
                         type="button"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-lg text-muted hover:bg-danger/10 hover:text-danger"
-                        disabled={saving || editingId !== null}
-                        onClick={() => handleDelete(entry)}
-                        aria-label={`Remove ${entry.note || 'income'}`}
+                        className="btn-primary btn-sm"
+                        onClick={() => handleSaveEdit(entry)}
+                        disabled={saving || !(Number(editAmount) >= 1)}
                       >
-                        ×
+                        {saving ? '…' : 'Save'}
                       </button>
                     </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 truncate text-sm font-medium">
+                        {entry.note || 'Income'}
+                      </p>
+                      <p className="m-0 text-xs text-muted">
+                        {accountName ? `${accountName} · ` : ''}
+                        {entry.createdAt
+                          ? dayjs(entry.createdAt).format('D MMM')
+                          : monthLabel}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold text-success">
+                      +{formatINR(entry.amount)}
+                    </span>
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-sm text-muted hover:bg-primary/10 hover:text-primary"
+                      disabled={saving || editingId !== null}
+                      onClick={() => startEdit(entry)}
+                      aria-label={`Edit ${entry.note || 'income'}`}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-lg text-muted hover:bg-danger/10 hover:text-danger"
+                      disabled={saving || editingId !== null}
+                      onClick={() => handleDelete(entry)}
+                      aria-label={`Remove ${entry.note || 'income'}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {message && (

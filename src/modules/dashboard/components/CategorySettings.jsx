@@ -196,7 +196,7 @@ export default function CategorySettings() {
         <div className="min-w-0">
           <h2 className="card-title mb-0">Categories</h2>
           <p className="card-desc mb-0 mt-1">
-            Rename or hide mains, manage subcategories, set monthly limits.
+            Tap a category to rename, hide, or add subcategories.
           </p>
         </div>
         <p className="m-0 shrink-0 rounded-sm bg-surface-2 px-2 py-1 text-xs text-muted">

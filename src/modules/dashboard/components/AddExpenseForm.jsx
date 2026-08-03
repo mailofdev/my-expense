@@ -1,46 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
-import {
-  getCategoryLimitLevel,
-  getCategoryLimitPercent,
-  getCategoryLimitWarningText,
-} from '../../../core/constants/finance';
 import {
   addExpense,
   setDayFilter,
   selectFilterDate,
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
-  selectCategorySpentByDate,
   selectAccounts,
   selectDefaultAccountId,
   selectVisibleCategories,
   selectMainCategories,
   selectSubcategories,
-  updateFinanceSettings,
 } from '../store/dashboardSlice';
 import {
   collectExpenseTags,
   getMainByName,
   getSubcategoriesForMain,
-  MAX_SUBCATEGORIES_PER_MAIN,
   suggestCategoryFromTitle,
 } from '../utils/categories';
-
-const warnBannerClass = (level) => {
-  if (level >= 100) return 'border-danger/40 bg-danger/10 text-red-200';
-  if (level >= 90) return 'border-danger/30 bg-danger/10 text-red-100';
-  if (level >= 75) return 'border-accent/40 bg-accent/10 text-yellow-100';
-  return 'border-primary/30 bg-primary/10 text-[#d7efe6]';
-};
 
 export default function AddExpenseForm({ onGoToWallet }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { paymentModes, categoryBudgets, saving } = useSelector((state) => state.dashboard);
+  const { paymentModes, saving } = useSelector((state) => state.dashboard);
   const categories = useSelector(selectVisibleCategories);
   const mainCategories = useSelector(selectMainCategories);
   const subcategoriesMap = useSelector(selectSubcategories);
@@ -51,8 +36,6 @@ export default function AddExpenseForm({ onGoToWallet }) {
 
   const categoryTouchedRef = useRef(false);
   const [showMore, setShowMore] = useState(false);
-  const [suggestionHint, setSuggestionHint] = useState('');
-  const [newSubName, setNewSubName] = useState('');
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -70,34 +53,13 @@ export default function AddExpenseForm({ onGoToWallet }) {
   const watchedDate = watch('date') || filterDate;
   const watchedAmount = Number(watch('amount')) || 0;
   const watchedCategory = watch('category') || categories[0];
-  const watchedSubcategory = watch('subcategory') || '';
   const watchedTitle = watch('title') || '';
   const watchedAccountId = watch('accountId');
   const expenseWallet = useSelector((state) => selectMonthWalletStatsByDate(state, watchedDate));
-  const categorySpent = useSelector((state) =>
-    selectCategorySpentByDate(state, watchedCategory, watchedDate)
-  );
   const projectedRemaining = expenseWallet.remaining - watchedAmount;
 
-  const categoryLimit = Number(categoryBudgets?.[watchedCategory]) || 0;
-  const projectedCategorySpent = categorySpent + watchedAmount;
-  const categoryLevel = useMemo(
-    () => getCategoryLimitLevel(projectedCategorySpent, categoryLimit),
-    [projectedCategorySpent, categoryLimit]
-  );
-  const categoryPercent = useMemo(
-    () => getCategoryLimitPercent(projectedCategorySpent, categoryLimit),
-    [projectedCategorySpent, categoryLimit]
-  );
-
-  const selectedMain = useMemo(
-    () => getMainByName(mainCategories, watchedCategory),
-    [mainCategories, watchedCategory]
-  );
-  const subcategoryOptions = useMemo(
-    () => getSubcategoriesForMain(subcategoriesMap, selectedMain?.id),
-    [subcategoriesMap, selectedMain]
-  );
+  const selectedMain = getMainByName(mainCategories, watchedCategory);
+  const subcategoryOptions = getSubcategoriesForMain(subcategoriesMap, selectedMain?.id);
 
   useEffect(() => {
     setValue('date', filterDate);
@@ -119,75 +81,26 @@ export default function AddExpenseForm({ onGoToWallet }) {
     }
   }, [accounts, defaultAccountId, setValue, watchedAccountId]);
 
-  // Smart category suggestion from title keywords (only until user picks manually).
   useEffect(() => {
-    if (categoryTouchedRef.current) {
-      setSuggestionHint('');
-      return;
-    }
+    if (categoryTouchedRef.current) return;
     const suggestion = suggestCategoryFromTitle(
       watchedTitle,
       mainCategories,
       subcategoriesMap
     );
-    if (!suggestion) {
-      setSuggestionHint('');
-      return;
-    }
+    if (!suggestion) return;
     if (suggestion.category !== watchedCategory) {
       setValue('category', suggestion.category);
     }
     if (suggestion.subcategory) {
       setValue('subcategory', suggestion.subcategory);
     }
-    setSuggestionHint(
-      suggestion.subcategory
-        ? `Suggested: ${suggestion.category} · ${suggestion.subcategory}`
-        : `Suggested: ${suggestion.category}`
-    );
   }, [watchedTitle, mainCategories, subcategoriesMap, watchedCategory, setValue]);
-
-  useEffect(() => {
-    if (!watchedSubcategory) return;
-    if (!subcategoryOptions.includes(watchedSubcategory)) {
-      setValue('subcategory', '');
-    }
-  }, [subcategoryOptions, watchedSubcategory, setValue]);
 
   const handleCategoryChange = (event) => {
     categoryTouchedRef.current = true;
-    setSuggestionHint('');
     setValue('category', event.target.value);
     setValue('subcategory', '');
-  };
-
-  const handleCreateSubcategory = () => {
-    const trimmed = newSubName.trim();
-    if (!trimmed || !selectedMain || !user?.uid) return;
-    if (subcategoryOptions.length >= MAX_SUBCATEGORIES_PER_MAIN) return;
-    if (subcategoryOptions.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
-      setValue('subcategory', subcategoryOptions.find(
-        (item) => item.toLowerCase() === trimmed.toLowerCase()
-      ));
-      setNewSubName('');
-      return;
-    }
-
-    const nextSubs = {
-      ...subcategoriesMap,
-      [selectedMain.id]: [...subcategoryOptions, trimmed],
-    };
-    dispatch(
-      updateFinanceSettings({
-        uid: user.uid,
-        updates: { mainCategories, subcategories: nextSubs },
-      })
-    ).then((result) => {
-      if (!result.error) {
-        setValue('subcategory', trimmed);
-        setNewSubName('');
-      }
-    });
   };
 
   const submitExpense = (data) => {
@@ -213,9 +126,7 @@ export default function AddExpenseForm({ onGoToWallet }) {
           dispatch(setDayFilter({ date: expenseDate }));
         }
         categoryTouchedRef.current = false;
-        setSuggestionHint('');
         setShowMore(false);
-        setNewSubName('');
         reset({
           title: '',
           amount: '',
@@ -240,29 +151,14 @@ export default function AddExpenseForm({ onGoToWallet }) {
 
     if (expenseWallet.funded === 0) {
       const proceed = window.confirm(
-        `${expenseWallet.monthLabel} wallet is not funded yet.\n\nAdd this expense anyway? You can fund the wallet later from the Wallet tab.`
+        `No money added for ${expenseWallet.monthLabel} yet.\n\nAdd this expense anyway?`
       );
       if (!proceed) return;
     } else if (remainingAfter < 0) {
       const proceed = window.confirm(
-        `This will exceed your ${expenseWallet.monthLabel} wallet by ${formatINR(Math.abs(remainingAfter))}.\n\nAdd expense anyway?`
+        `This goes ${formatINR(Math.abs(remainingAfter))} over your month.\n\nAdd anyway?`
       );
       if (!proceed) return;
-    }
-
-    const limit = Number(categoryBudgets?.[category]) || 0;
-    if (limit > 0) {
-      const currentSpent = categorySpent;
-      const after = currentSpent + amount;
-      const beforeLevel = getCategoryLimitLevel(currentSpent, limit);
-      const afterLevel = getCategoryLimitLevel(after, limit);
-
-      if (afterLevel != null && (afterLevel !== beforeLevel || afterLevel >= 100)) {
-        const proceed = window.confirm(
-          `${getCategoryLimitWarningText(category, afterLevel, after, limit)}\n\nAdd expense anyway?`
-        );
-        if (!proceed) return;
-      }
     }
 
     submitExpense({ ...data, category, date: expenseDate });
@@ -274,14 +170,14 @@ export default function AddExpenseForm({ onGoToWallet }) {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <input
           className="input"
-          placeholder={isToday ? 'What did you spend on? (try “tea” or #family)' : 'Expense name'}
+          placeholder={isToday ? 'What did you buy?' : 'Expense name'}
           {...register('title', { required: 'Enter a name' })}
         />
 
         <input
           className="input"
           type="number"
-          placeholder="Amount in ₹"
+          placeholder="Amount ₹"
           min="1"
           {...register('amount', {
             required: 'Enter amount',
@@ -289,67 +185,25 @@ export default function AddExpenseForm({ onGoToWallet }) {
           })}
         />
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div>
-            <select
-              className="input"
-              value={watchedCategory}
-              onChange={handleCategoryChange}
-              aria-label="Category"
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            {suggestionHint && (
-              <p className="mb-0 mt-1 text-[11px] text-muted">{suggestionHint}</p>
-            )}
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className="input"
+            value={watchedCategory}
+            onChange={handleCategoryChange}
+            aria-label="Category"
+          >
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
 
-          <select className="input" {...register('accountId')} aria-label="Paid from account">
+          <select className="input" {...register('accountId')} aria-label="Paid from">
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
-                From {account.name}
+                {account.name}
               </option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <select
-            className="input"
-            {...register('subcategory')}
-            aria-label="Subcategory (optional)"
-          >
-            <option value="">No subcategory</option>
-            {subcategoryOptions.map((sub) => (
-              <option key={sub} value={sub}>{sub}</option>
-            ))}
-          </select>
-          <div className="mt-2 flex gap-2">
-            <input
-              className="input py-2 text-sm"
-              value={newSubName}
-              onChange={(e) => setNewSubName(e.target.value)}
-              placeholder="New subcategory"
-              aria-label="Create subcategory"
-              disabled={saving || subcategoryOptions.length >= MAX_SUBCATEGORIES_PER_MAIN}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleCreateSubcategory();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="btn-outline shrink-0"
-              onClick={handleCreateSubcategory}
-              disabled={!newSubName.trim() || saving}
-            >
-              Add
-            </button>
-          </div>
         </div>
 
         <button
@@ -357,14 +211,26 @@ export default function AddExpenseForm({ onGoToWallet }) {
           className="border-0 bg-transparent p-0 text-xs font-semibold text-primary"
           onClick={() => setShowMore((prev) => !prev)}
         >
-          {showMore ? 'Hide tags & date' : 'Tags & date'}
+          {showMore ? 'Less' : 'More options'}
         </button>
 
         {showMore && (
           <div className="space-y-2">
+            {subcategoryOptions.length > 0 && (
+              <select
+                className="input"
+                {...register('subcategory')}
+                aria-label="Subcategory"
+              >
+                <option value="">No subcategory</option>
+                {subcategoryOptions.map((sub) => (
+                  <option key={sub} value={sub}>{sub}</option>
+                ))}
+              </select>
+            )}
             <input
               className="input"
-              placeholder="Tags — #family #friend"
+              placeholder="Tags — #family"
               {...register('tags')}
               aria-label="Tags"
             />
@@ -378,61 +244,34 @@ export default function AddExpenseForm({ onGoToWallet }) {
           </div>
         )}
 
-        {categoryLimit > 0 && watchedAmount > 0 && categoryLevel != null && (
-          <p className={`m-0 rounded-sm border px-3 py-2 text-xs ${warnBannerClass(categoryLevel)}`}>
-            {getCategoryLimitWarningText(
-              watchedCategory,
-              categoryLevel,
-              projectedCategorySpent,
-              categoryLimit
-            )}{' '}
-            ({categoryPercent}% after this)
-          </p>
-        )}
-
-        {categoryLimit > 0 && watchedAmount > 0 && categoryLevel == null && (
-          <p className="m-0 rounded-sm border border-edge bg-surface-2 px-3 py-2 text-xs text-muted">
-            {watchedCategory}: {formatINR(projectedCategorySpent)} / {formatINR(categoryLimit)} after
-            this
-          </p>
-        )}
-
-        {(expenseWallet.funded > 0 || watchedAmount > 0) && (
+        {expenseWallet.funded > 0 && watchedAmount > 0 && (
           <p
             className={`m-0 rounded-sm border px-3 py-2 text-xs ${
               projectedRemaining < 0
                 ? 'border-danger/40 bg-danger/10 text-red-200'
-                : expenseWallet.funded === 0
-                  ? 'border-accent/40 bg-accent/10 text-yellow-100'
-                  : 'border-edge bg-surface-2 text-muted'
+                : 'border-edge bg-surface-2 text-muted'
             }`}
           >
-            {expenseWallet.funded === 0 ? (
-              <>
-                {expenseWallet.monthLabel} wallet not funded.{' '}
-                {onGoToWallet && (
-                  <button
-                    type="button"
-                    className="border-0 bg-transparent p-0 font-semibold text-primary underline"
-                    onClick={onGoToWallet}
-                  >
-                    Add income
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                {expenseWallet.monthLabel} wallet: {formatINR(Math.max(0, projectedRemaining))} left after this
-              </>
-            )}
+            {formatINR(Math.max(0, projectedRemaining))} left this month after this
           </p>
         )}
 
-        <div className="flex justify-center">
-          <button type="submit" className="btn-primary px-10" disabled={saving}>
-            {saving ? '…' : 'Add'}
-          </button>
-        </div>
+        {expenseWallet.funded === 0 && watchedAmount > 0 && onGoToWallet && (
+          <p className="m-0 rounded-sm border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-yellow-100">
+            Month not funded yet.{' '}
+            <button
+              type="button"
+              className="border-0 bg-transparent p-0 font-semibold text-primary underline"
+              onClick={onGoToWallet}
+            >
+              Add money
+            </button>
+          </p>
+        )}
+
+        <button type="submit" className="btn-primary btn-full" disabled={saving}>
+          {saving ? '…' : 'Add'}
+        </button>
 
         {(errors.title || errors.amount) && (
           <p className="text-center text-xs text-red-300">

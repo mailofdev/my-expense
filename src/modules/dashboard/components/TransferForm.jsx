@@ -75,12 +75,7 @@ export default function TransferForm() {
   if (accounts.length < 2) return null;
 
   return (
-    <section className="card">
-      <h2 className="card-title mb-1">Transfer</h2>
-      <p className="card-desc mb-3">
-        Move money between your accounts. Does not count as income or expense.
-      </p>
-
+    <div>
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
           <div>
@@ -170,6 +165,6 @@ export default function TransferForm() {
           {message}
         </p>
       )}
-    </section>
+    </div>
   );
 }
