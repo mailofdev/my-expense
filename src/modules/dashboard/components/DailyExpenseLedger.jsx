@@ -18,14 +18,32 @@ import {
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
   selectCategorySpentByDate,
+  selectAccounts,
+  selectDefaultAccountId,
+  selectVisibleCategories,
+  selectMainCategories,
+  selectSubcategories,
 } from '../store/dashboardSlice';
+import { getAccountById } from '../utils/accounts';
+import {
+  collectExpenseTags,
+  getMainByName,
+  getSubcategoriesForMain,
+  normalizeTags,
+  resolveMainCategoryName,
+} from '../utils/categories';
 
 export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { categories, paymentModes, saving, categoryColors, categoryBudgets } = useSelector(
+  const { paymentModes, saving, categoryColors, categoryBudgets } = useSelector(
     (state) => state.dashboard
   );
+  const categories = useSelector(selectVisibleCategories);
+  const mainCategories = useSelector(selectMainCategories);
+  const subcategoriesMap = useSelector(selectSubcategories);
+  const accounts = useSelector(selectAccounts);
+  const defaultAccountId = useSelector(selectDefaultAccountId);
   const filterDate = useSelector(selectFilterDate);
   const dayExpenses = useSelector(selectDayExpenses);
   const dayTotal = useSelector(selectDayTotal);
@@ -36,8 +54,11 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const [editTitle, setEditTitle] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editCategory, setEditCategory] = useState('');
+  const [editSubcategory, setEditSubcategory] = useState('');
+  const [editTags, setEditTags] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editPaymentMode, setEditPaymentMode] = useState('');
+  const [editAccountId, setEditAccountId] = useState('');
 
   const editWallet = useSelector((state) =>
     editingId ? selectMonthWalletStatsByDate(state, editDate || filterDate, editingId) : null
@@ -46,13 +67,19 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     editingId ? selectCategorySpentByDate(state, editCategory, editDate || filterDate) : 0
   );
 
+  const editMain = getMainByName(mainCategories, editCategory);
+  const editSubOptions = getSubcategoriesForMain(subcategoriesMap, editMain?.id);
+
   const startEdit = (expense) => {
     setEditingId(expense.id);
     setEditTitle(expense.title);
     setEditAmount(String(expense.amount));
-    setEditCategory(expense.category);
+    setEditCategory(resolveMainCategoryName(expense.category, mainCategories));
+    setEditSubcategory(expense.subcategory || '');
+    setEditTags((expense.tags || []).map((tag) => `#${tag}`).join(' '));
     setEditDate(expense.date);
     setEditPaymentMode(expense.paymentMode || paymentModes[0]);
+    setEditAccountId(expense.accountId || defaultAccountId);
   };
 
   const cancelEdit = () => {
@@ -60,8 +87,11 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     setEditTitle('');
     setEditAmount('');
     setEditCategory('');
+    setEditSubcategory('');
+    setEditTags('');
     setEditDate('');
     setEditPaymentMode('');
+    setEditAccountId('');
   };
 
   const handleSave = (expense) => {
@@ -118,8 +148,11 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           title,
           amount,
           category: editCategory,
+          subcategory: editSubcategory || '',
+          tags: collectExpenseTags(title, editTags),
           date,
           paymentMode: editPaymentMode,
+          accountId: editAccountId || defaultAccountId,
         },
       })
     ).then((result) => {
@@ -209,7 +242,10 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                     <select
                       className="input py-2 text-sm"
                       value={editCategory}
-                      onChange={(e) => setEditCategory(e.target.value)}
+                      onChange={(e) => {
+                        setEditCategory(e.target.value);
+                        setEditSubcategory('');
+                      }}
                       aria-label="Category"
                     >
                       {categories.map((cat) => (
@@ -220,6 +256,26 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                     </select>
                     <select
                       className="input py-2 text-sm"
+                      value={editSubcategory}
+                      onChange={(e) => setEditSubcategory(e.target.value)}
+                      aria-label="Subcategory"
+                    >
+                      <option value="">No subcategory</option>
+                      {editSubOptions.map((sub) => (
+                        <option key={sub} value={sub}>
+                          {sub}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="input py-2 text-sm"
+                      value={editTags}
+                      onChange={(e) => setEditTags(e.target.value)}
+                      placeholder="Tags — #family"
+                      aria-label="Tags"
+                    />
+                    <select
+                      className="input py-2 text-sm"
                       value={editPaymentMode}
                       onChange={(e) => setEditPaymentMode(e.target.value)}
                       aria-label="Payment method"
@@ -227,6 +283,18 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                       {paymentModes.map((mode) => (
                         <option key={mode} value={mode}>
                           {mode}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="input py-2 text-sm"
+                      value={editAccountId}
+                      onChange={(e) => setEditAccountId(e.target.value)}
+                      aria-label="Paid from account"
+                    >
+                      {accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          From {account.name}
                         </option>
                       ))}
                     </select>
@@ -277,12 +345,33 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                   <div className="flex items-center gap-3">
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: getCategoryColor(expense.category, categoryColors, categories) }}
+                      style={{
+                        background: getCategoryColor(
+                          resolveMainCategoryName(expense.category, mainCategories),
+                          categoryColors,
+                          categories
+                        ),
+                      }}
                       aria-hidden="true"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="m-0 truncate text-sm font-medium">{expense.title}</p>
-                      <p className="m-0 text-xs text-muted">{expense.category}</p>
+                      <p className="m-0 text-xs text-muted">
+                        {resolveMainCategoryName(expense.category, mainCategories)}
+                        {expense.subcategory ? ` · ${expense.subcategory}` : ''}
+                        {normalizeTags(expense.tags).length
+                          ? ` · ${normalizeTags(expense.tags)
+                              .map((tag) => `#${tag}`)
+                              .join(' ')}`
+                          : ''}
+                        {(() => {
+                          const name = getAccountById(
+                            accounts,
+                            expense.accountId || defaultAccountId
+                          )?.name;
+                          return name ? ` · ${name}` : '';
+                        })()}
+                      </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold">
                       {formatINR(expense.amount)}

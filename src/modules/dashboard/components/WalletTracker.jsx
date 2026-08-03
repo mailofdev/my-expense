@@ -3,7 +3,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
 import { isInMonthYear } from '../../../core/utils/date';
+import { getAccountById, getDefaultAccountId } from '../utils/accounts';
 import AddIncomeForm from './AddIncomeForm';
+import TransferForm from './TransferForm';
 import {
   addWalletFunds,
   selectFilterMonthKey,
@@ -13,12 +15,16 @@ import {
   selectMonthWalletUsagePercent,
   selectMonthExpenses,
   selectMonthIncome,
+  selectAccountsWithBalances,
+  selectAccounts,
 } from '../store/dashboardSlice';
 
 export default function WalletTracker() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { walletTransactions, saving } = useSelector((state) => state.dashboard);
+  const accounts = useSelector(selectAccounts);
+  const { accounts: accountsWithBal, total: accountsTotal } = useSelector(selectAccountsWithBalances);
   const monthKey = useSelector(selectFilterMonthKey);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const monthFunded = useSelector(selectMonthWalletFunded);
@@ -31,9 +37,10 @@ export default function WalletTracker() {
     month: state.dashboard.filterMonth,
     year: state.dashboard.filterYear,
   }));
+  const defaultAccountId = getDefaultAccountId(accounts);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
-    defaultValues: { amount: '', note: '' },
+    defaultValues: { amount: '', note: '', accountId: defaultAccountId },
   });
 
   const onAddFunds = (data) => {
@@ -44,33 +51,55 @@ export default function WalletTracker() {
         note: data.note?.trim() || 'Top-up',
         monthKey,
         source: 'manual',
+        accountId: data.accountId || defaultAccountId,
       })
     ).then((result) => {
-      if (!result.error) reset({ amount: '', note: '' });
+      if (!result.error) reset({ amount: '', note: '', accountId: defaultAccountId });
     });
   };
 
-  const monthTransactions = walletTransactions.filter(
-    (tx) =>
+  const monthTransactions = walletTransactions.filter((tx) => {
+    const dateStr = tx.createdAt?.slice(0, 10);
+    return (
       tx.monthKey === monthKey ||
-      (!tx.monthKey && isInMonthYear(tx.createdAt?.slice(0, 10), filter.month, filter.year))
-  );
+      (!tx.monthKey && isInMonthYear(dateStr, filter.month, filter.year))
+    );
+  });
 
   const recentActivity = [
-    ...monthTransactions.map((tx) => ({
-      id: `tx-${tx.id}`,
-      type: tx.type,
-      amount: tx.amount,
-      label: tx.source === 'income' ? tx.note || 'Income' : tx.note || 'Top-up',
-      date: tx.createdAt,
-    })),
-    ...monthExpenses.slice(0, 8).map((e) => ({
-      id: `exp-${e.id}`,
-      type: 'debit',
-      amount: e.amount,
-      label: e.title,
-      date: e.date,
-    })),
+    ...monthTransactions.map((tx) => {
+      if (tx.type === 'transfer') {
+        const from = getAccountById(accounts, tx.fromAccountId)?.name || 'Account';
+        const to = getAccountById(accounts, tx.toAccountId)?.name || 'Account';
+        return {
+          id: `tx-${tx.id}`,
+          type: 'transfer',
+          amount: tx.amount,
+          label: `${from} → ${to}${tx.note ? ` · ${tx.note}` : ''}`,
+          date: tx.createdAt,
+        };
+      }
+      const accountName = getAccountById(accounts, tx.accountId || defaultAccountId)?.name;
+      return {
+        id: `tx-${tx.id}`,
+        type: tx.type,
+        amount: tx.amount,
+        label: `${tx.source === 'income' ? tx.note || 'Income' : tx.note || 'Top-up'}${
+          accountName ? ` · ${accountName}` : ''
+        }`,
+        date: tx.createdAt,
+      };
+    }),
+    ...monthExpenses.slice(0, 8).map((e) => {
+      const accountName = getAccountById(accounts, e.accountId || defaultAccountId)?.name;
+      return {
+        id: `exp-${e.id}`,
+        type: 'debit',
+        amount: e.amount,
+        label: `${e.title}${accountName ? ` · ${accountName}` : ''}`,
+        date: e.date,
+      };
+    }),
   ]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 12);
@@ -79,10 +108,45 @@ export default function WalletTracker() {
 
   return (
     <div className="feature-panel">
+      <section className="card">
+        <p className="section-label m-0">Your accounts</p>
+        <p className="text-glow m-0 mt-1 text-[clamp(1.75rem,8vw,2.5rem)] font-bold text-primary">
+          {formatINR(accountsTotal)}
+        </p>
+        <p className="m-0 mt-1 text-sm text-muted">across banks</p>
+
+        <ul className="m-0 mt-4 list-none space-y-0 p-0">
+          {accountsWithBal.map((account) => (
+            <li
+              key={account.id}
+              className="flex items-center justify-between gap-3 border-t border-edge/50 py-3 first:border-0 first:pt-0"
+            >
+              <div>
+                <p className="m-0 text-sm font-medium">{account.name}</p>
+                <p className="m-0 text-xs text-muted">
+                  {account.kind === 'salary'
+                    ? 'Salary account'
+                    : account.kind === 'savings'
+                      ? 'Savings account'
+                      : 'Account'}
+                </p>
+              </div>
+              <span
+                className={`text-sm font-semibold ${
+                  account.balance < 0 ? 'text-danger' : 'text-[#f0f4f2]'
+                }`}
+              >
+                {formatINR(account.balance)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section className="card text-center">
-        <p className="section-label m-0">{monthLabel}</p>
+        <p className="section-label m-0">{monthLabel} spend wallet</p>
         <p
-          className={`text-glow m-0 mt-1 text-[clamp(1.75rem,8vw,2.5rem)] font-bold ${
+          className={`text-glow m-0 mt-1 text-[clamp(1.5rem,7vw,2rem)] font-bold ${
             monthFunded > 0 && monthRemaining < 0
               ? 'text-danger'
               : monthFunded > 0
@@ -93,7 +157,7 @@ export default function WalletTracker() {
           {monthFunded > 0 ? formatINR(monthRemaining) : formatINR(0)}
         </p>
         <p className="m-0 mt-1 text-sm text-muted">
-          {monthFunded > 0 ? 'left in wallet' : 'No funds yet'}
+          {monthFunded > 0 ? 'left to spend this month' : 'Fund via income below'}
         </p>
 
         {monthFunded > 0 && (
@@ -130,11 +194,19 @@ export default function WalletTracker() {
       </section>
 
       <AddIncomeForm />
+      <TransferForm />
 
       <section className="card">
         <h2 className="card-title mb-1">Top up</h2>
-        <p className="card-desc mb-3">Extra money that isn&apos;t salary.</p>
+        <p className="card-desc mb-3">Extra money that isn&apos;t salary — still funds this month.</p>
         <form className="space-y-3" onSubmit={handleSubmit(onAddFunds)}>
+          <select className="input" {...register('accountId')}>
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
           <input
             className="input"
             type="number"
@@ -168,10 +240,14 @@ export default function WalletTracker() {
                 </div>
                 <span
                   className={`shrink-0 text-sm font-semibold ${
-                    item.type === 'credit' ? 'text-success' : 'text-[#f0f4f2]'
+                    item.type === 'credit'
+                      ? 'text-success'
+                      : item.type === 'transfer'
+                        ? 'text-muted'
+                        : 'text-[#f0f4f2]'
                   }`}
                 >
-                  {item.type === 'credit' ? '+' : '−'}
+                  {item.type === 'credit' ? '+' : item.type === 'transfer' ? '↔' : '−'}
                   {formatINR(item.amount)}
                 </span>
               </li>

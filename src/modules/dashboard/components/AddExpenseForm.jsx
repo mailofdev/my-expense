@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
@@ -15,7 +15,20 @@ import {
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
   selectCategorySpentByDate,
+  selectAccounts,
+  selectDefaultAccountId,
+  selectVisibleCategories,
+  selectMainCategories,
+  selectSubcategories,
+  updateFinanceSettings,
 } from '../store/dashboardSlice';
+import {
+  collectExpenseTags,
+  getMainByName,
+  getSubcategoriesForMain,
+  MAX_SUBCATEGORIES_PER_MAIN,
+  suggestCategoryFromTitle,
+} from '../utils/categories';
 
 const warnBannerClass = (level) => {
   if (level >= 100) return 'border-danger/40 bg-danger/10 text-red-200';
@@ -27,25 +40,39 @@ const warnBannerClass = (level) => {
 export default function AddExpenseForm({ onGoToWallet }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { categories, paymentModes, categoryBudgets, saving } = useSelector(
-    (state) => state.dashboard
-  );
+  const { paymentModes, categoryBudgets, saving } = useSelector((state) => state.dashboard);
+  const categories = useSelector(selectVisibleCategories);
+  const mainCategories = useSelector(selectMainCategories);
+  const subcategoriesMap = useSelector(selectSubcategories);
+  const accounts = useSelector(selectAccounts);
+  const defaultAccountId = useSelector(selectDefaultAccountId);
   const filterDate = useSelector(selectFilterDate);
   const isToday = useSelector(selectIsTodaySelected);
+
+  const categoryTouchedRef = useRef(false);
+  const [showMore, setShowMore] = useState(false);
+  const [suggestionHint, setSuggestionHint] = useState('');
+  const [newSubName, setNewSubName] = useState('');
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
       title: '',
       amount: '',
       date: filterDate,
-      category: categories[0],
+      category: categories[0] || 'Miscellaneous',
+      subcategory: '',
+      tags: '',
       paymentMode: paymentModes[0],
+      accountId: defaultAccountId,
     },
   });
 
   const watchedDate = watch('date') || filterDate;
   const watchedAmount = Number(watch('amount')) || 0;
   const watchedCategory = watch('category') || categories[0];
+  const watchedSubcategory = watch('subcategory') || '';
+  const watchedTitle = watch('title') || '';
+  const watchedAccountId = watch('accountId');
   const expenseWallet = useSelector((state) => selectMonthWalletStatsByDate(state, watchedDate));
   const categorySpent = useSelector((state) =>
     selectCategorySpentByDate(state, watchedCategory, watchedDate)
@@ -63,20 +90,109 @@ export default function AddExpenseForm({ onGoToWallet }) {
     [projectedCategorySpent, categoryLimit]
   );
 
+  const selectedMain = useMemo(
+    () => getMainByName(mainCategories, watchedCategory),
+    [mainCategories, watchedCategory]
+  );
+  const subcategoryOptions = useMemo(
+    () => getSubcategoriesForMain(subcategoriesMap, selectedMain?.id),
+    [subcategoriesMap, selectedMain]
+  );
+
   useEffect(() => {
     setValue('date', filterDate);
   }, [filterDate, setValue]);
 
   useEffect(() => {
     if (!categories?.length) return;
-    // Keep the user's selection when it still exists; only fall back if removed.
     if (!categories.includes(watchedCategory)) {
       setValue('category', categories[0]);
+      setValue('subcategory', '');
+      categoryTouchedRef.current = false;
     }
   }, [categories, watchedCategory, setValue]);
 
+  useEffect(() => {
+    if (!accounts.length) return;
+    if (!accounts.some((a) => a.id === watchedAccountId)) {
+      setValue('accountId', defaultAccountId);
+    }
+  }, [accounts, defaultAccountId, setValue, watchedAccountId]);
+
+  // Smart category suggestion from title keywords (only until user picks manually).
+  useEffect(() => {
+    if (categoryTouchedRef.current) {
+      setSuggestionHint('');
+      return;
+    }
+    const suggestion = suggestCategoryFromTitle(
+      watchedTitle,
+      mainCategories,
+      subcategoriesMap
+    );
+    if (!suggestion) {
+      setSuggestionHint('');
+      return;
+    }
+    if (suggestion.category !== watchedCategory) {
+      setValue('category', suggestion.category);
+    }
+    if (suggestion.subcategory) {
+      setValue('subcategory', suggestion.subcategory);
+    }
+    setSuggestionHint(
+      suggestion.subcategory
+        ? `Suggested: ${suggestion.category} · ${suggestion.subcategory}`
+        : `Suggested: ${suggestion.category}`
+    );
+  }, [watchedTitle, mainCategories, subcategoriesMap, watchedCategory, setValue]);
+
+  useEffect(() => {
+    if (!watchedSubcategory) return;
+    if (!subcategoryOptions.includes(watchedSubcategory)) {
+      setValue('subcategory', '');
+    }
+  }, [subcategoryOptions, watchedSubcategory, setValue]);
+
+  const handleCategoryChange = (event) => {
+    categoryTouchedRef.current = true;
+    setSuggestionHint('');
+    setValue('category', event.target.value);
+    setValue('subcategory', '');
+  };
+
+  const handleCreateSubcategory = () => {
+    const trimmed = newSubName.trim();
+    if (!trimmed || !selectedMain || !user?.uid) return;
+    if (subcategoryOptions.length >= MAX_SUBCATEGORIES_PER_MAIN) return;
+    if (subcategoryOptions.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
+      setValue('subcategory', subcategoryOptions.find(
+        (item) => item.toLowerCase() === trimmed.toLowerCase()
+      ));
+      setNewSubName('');
+      return;
+    }
+
+    const nextSubs = {
+      ...subcategoriesMap,
+      [selectedMain.id]: [...subcategoryOptions, trimmed],
+    };
+    dispatch(
+      updateFinanceSettings({
+        uid: user.uid,
+        updates: { mainCategories, subcategories: nextSubs },
+      })
+    ).then((result) => {
+      if (!result.error) {
+        setValue('subcategory', trimmed);
+        setNewSubName('');
+      }
+    });
+  };
+
   const submitExpense = (data) => {
     const expenseDate = data.date || filterDate;
+    const tags = collectExpenseTags(data.title, data.tags);
     dispatch(
       addExpense({
         uid: user.uid,
@@ -84,7 +200,10 @@ export default function AddExpenseForm({ onGoToWallet }) {
           title: data.title,
           amount: Number(data.amount),
           category: data.category,
+          subcategory: data.subcategory || '',
+          tags,
           paymentMode: data.paymentMode || paymentModes[0],
+          accountId: data.accountId || defaultAccountId,
           date: expenseDate,
         },
       })
@@ -93,12 +212,19 @@ export default function AddExpenseForm({ onGoToWallet }) {
         if (expenseDate !== filterDate) {
           dispatch(setDayFilter({ date: expenseDate }));
         }
+        categoryTouchedRef.current = false;
+        setSuggestionHint('');
+        setShowMore(false);
+        setNewSubName('');
         reset({
           title: '',
           amount: '',
           date: expenseDate,
           category: categories.includes(data.category) ? data.category : categories[0],
+          subcategory: '',
+          tags: '',
           paymentMode: paymentModes[0],
+          accountId: data.accountId || defaultAccountId,
         });
       }
     });
@@ -131,7 +257,6 @@ export default function AddExpenseForm({ onGoToWallet }) {
       const beforeLevel = getCategoryLimitLevel(currentSpent, limit);
       const afterLevel = getCategoryLimitLevel(after, limit);
 
-      // Warn when crossing a new threshold, or when already at/over 100%.
       if (afterLevel != null && (afterLevel !== beforeLevel || afterLevel >= 100)) {
         const proceed = window.confirm(
           `${getCategoryLimitWarningText(category, afterLevel, after, limit)}\n\nAdd expense anyway?`
@@ -149,15 +274,9 @@ export default function AddExpenseForm({ onGoToWallet }) {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <input
           className="input"
-          placeholder={isToday ? 'What did you spend on?' : 'Expense name'}
+          placeholder={isToday ? 'What did you spend on? (try “tea” or #family)' : 'Expense name'}
           {...register('title', { required: 'Enter a name' })}
         />
-
-        <select className="input" {...register('category')}>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
 
         <input
           className="input"
@@ -169,6 +288,95 @@ export default function AddExpenseForm({ onGoToWallet }) {
             min: { value: 1, message: 'Min ₹1' },
           })}
         />
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div>
+            <select
+              className="input"
+              value={watchedCategory}
+              onChange={handleCategoryChange}
+              aria-label="Category"
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            {suggestionHint && (
+              <p className="mb-0 mt-1 text-[11px] text-muted">{suggestionHint}</p>
+            )}
+          </div>
+
+          <select className="input" {...register('accountId')} aria-label="Paid from account">
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                From {account.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <select
+            className="input"
+            {...register('subcategory')}
+            aria-label="Subcategory (optional)"
+          >
+            <option value="">No subcategory</option>
+            {subcategoryOptions.map((sub) => (
+              <option key={sub} value={sub}>{sub}</option>
+            ))}
+          </select>
+          <div className="mt-2 flex gap-2">
+            <input
+              className="input py-2 text-sm"
+              value={newSubName}
+              onChange={(e) => setNewSubName(e.target.value)}
+              placeholder="New subcategory"
+              aria-label="Create subcategory"
+              disabled={saving || subcategoryOptions.length >= MAX_SUBCATEGORIES_PER_MAIN}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCreateSubcategory();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn-outline shrink-0"
+              onClick={handleCreateSubcategory}
+              disabled={!newSubName.trim() || saving}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="border-0 bg-transparent p-0 text-xs font-semibold text-primary"
+          onClick={() => setShowMore((prev) => !prev)}
+        >
+          {showMore ? 'Hide tags & date' : 'Tags & date'}
+        </button>
+
+        {showMore && (
+          <div className="space-y-2">
+            <input
+              className="input"
+              placeholder="Tags — #family #friend"
+              {...register('tags')}
+              aria-label="Tags"
+            />
+            <input
+              className="input"
+              type="date"
+              max={dayjs().format('YYYY-MM-DD')}
+              {...register('date')}
+              aria-label="Date"
+            />
+          </div>
+        )}
 
         {categoryLimit > 0 && watchedAmount > 0 && categoryLevel != null && (
           <p className={`m-0 rounded-sm border px-3 py-2 text-xs ${warnBannerClass(categoryLevel)}`}>

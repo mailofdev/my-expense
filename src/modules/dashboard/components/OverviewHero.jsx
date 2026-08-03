@@ -11,6 +11,7 @@ import {
   selectFilteredMonthLabel,
   selectTotalSpent,
   selectMonthSavingsSnapshot,
+  selectAccountsWithBalances,
   applyDueRecurringExpenses,
   selectDueRecurringExpenses,
 } from '../store/dashboardSlice';
@@ -28,6 +29,7 @@ export default function OverviewHero({ onTabChange }) {
   const monthSpent = useSelector(selectTotalSpent);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const savings = useSelector(selectMonthSavingsSnapshot);
+  const { accounts: banks, total: banksTotal } = useSelector(selectAccountsWithBalances);
   const reminders = useSelector(selectInAppReminders).slice(0, 2);
   const dueRecurring = useSelector(selectDueRecurringExpenses);
 
@@ -66,6 +68,39 @@ export default function OverviewHero({ onTabChange }) {
       </p>
 
       <div className="mt-4 space-y-2">
+        <div className="rounded-lg bg-surface-2/40 px-3 py-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="m-0 text-xs text-muted">Banks</p>
+            <p className="m-0 text-sm font-semibold tabular-nums text-[#f0f4f2]">
+              {formatINRCompact(banksTotal)}
+            </p>
+          </div>
+          {banks.length > 0 ? (
+            <ul className="m-0 mt-2 list-none space-y-1.5 p-0">
+              {banks.map((bank) => (
+                <li key={bank.id} className="flex items-center justify-between gap-3">
+                  <span className="truncate text-sm text-[#f0f4f2]">{bank.name}</span>
+                  <span
+                    className={`shrink-0 text-sm tabular-nums ${
+                      bank.balance < 0 ? 'text-danger' : 'text-muted'
+                    }`}
+                  >
+                    {formatINRCompact(bank.balance)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <button
+              type="button"
+              className="mt-2 border-0 bg-transparent p-0 text-sm font-semibold text-primary"
+              onClick={() => onTabChange?.('settings')}
+            >
+              Add banks in Settings
+            </button>
+          )}
+        </div>
+
         <div className="rounded-lg bg-surface-2/40 px-3 py-3">
           <div className="flex items-baseline justify-between gap-2">
             <p className="m-0 text-xs text-muted">Wallet</p>

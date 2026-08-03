@@ -2,7 +2,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { getCategoryColor } from '../../../core/constants/finance';
 import { formatINR } from '../../../core/utils/currency';
-import { removeExpense, selectMonthExpenses, selectFilteredMonthLabel } from '../store/dashboardSlice';
+import {
+  removeExpense,
+  selectMonthExpenses,
+  selectFilteredMonthLabel,
+  selectVisibleCategories,
+  selectMainCategories,
+} from '../store/dashboardSlice';
+import { normalizeTags, resolveMainCategoryName } from '../utils/categories';
 
 export default function RecentExpenses({ limit }) {
   const dispatch = useDispatch();
@@ -11,7 +18,8 @@ export default function RecentExpenses({ limit }) {
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const saving = useSelector((state) => state.dashboard.saving);
   const categoryColors = useSelector((state) => state.dashboard.categoryColors);
-  const categories = useSelector((state) => state.dashboard.categories);
+  const categories = useSelector(selectVisibleCategories);
+  const mainCategories = useSelector(selectMainCategories);
 
   const list = limit ? monthExpenses.slice(0, limit) : monthExpenses;
 
@@ -22,39 +30,46 @@ export default function RecentExpenses({ limit }) {
         <p className="empty-state">No expenses for this month. Add one or change the filter.</p>
       ) : (
         <ul className="expense-list">
-          {list.map((expense) => (
-            <li key={expense.id} className="expense-list__item">
-              <span
-                className="expense-list__dot"
-                style={{ background: getCategoryColor(expense.category, categoryColors, categories) }}
-              />
-              <div className="expense-list__info">
-                <strong>{expense.title}</strong>
-                <span>
-                  {expense.category} · {expense.paymentMode} ·{' '}
-                  {dayjs(expense.date).format('D MMM')}
-                </span>
-              </div>
-              <span className="expense-list__amount">-{formatINR(expense.amount)}</span>
-              <button
-                type="button"
-                className="expense-list__delete"
-                disabled={saving}
-                onClick={() =>
-                  dispatch(
-                    removeExpense({
-                      uid: user.uid,
-                      expenseId: expense.id,
-                      amount: expense.amount,
-                    })
-                  )
-                }
-                aria-label={`Delete ${expense.title}`}
-              >
-                ×
-              </button>
-            </li>
-          ))}
+          {list.map((expense) => {
+            const category = resolveMainCategoryName(expense.category, mainCategories);
+            const tags = normalizeTags(expense.tags);
+            return (
+              <li key={expense.id} className="expense-list__item">
+                <span
+                  className="expense-list__dot"
+                  style={{ background: getCategoryColor(category, categoryColors, categories) }}
+                />
+                <div className="expense-list__info">
+                  <strong>{expense.title}</strong>
+                  <span>
+                    {category}
+                    {expense.subcategory ? ` · ${expense.subcategory}` : ''}
+                    {tags.length ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}` : ''}
+                    {' · '}
+                    {expense.paymentMode} · {dayjs(expense.date).format('D MMM')}
+                  </span>
+                </div>
+                <span className="expense-list__amount">-{formatINR(expense.amount)}</span>
+                <button
+                  type="button"
+                  className="expense-list__delete"
+                  disabled={saving}
+                  onClick={() =>
+                    dispatch(
+                      removeExpense({
+                        uid: user.uid,
+                        expenseId: expense.id,
+                        amount: expense.amount,
+                      })
+                    )
+                  }
+                  aria-label={`Delete ${expense.title}`}
+                >
+                  ×
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

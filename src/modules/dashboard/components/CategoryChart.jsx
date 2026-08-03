@@ -10,20 +10,29 @@ import {
   groupExpensesByCategory,
 } from '../utils/chartPeriods';
 import ChartPeriodSelector from './ChartPeriodSelector';
+import {
+  selectMainCategories,
+  selectVisibleCategories,
+} from '../store/dashboardSlice';
+import { resolveMainCategoryName } from '../utils/categories';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function CategoryChart() {
   const expenses = useSelector((state) => state.dashboard.expenses);
   const categoryColors = useSelector((state) => state.dashboard.categoryColors);
-  const categories = useSelector((state) => state.dashboard.categories);
+  const categories = useSelector(selectVisibleCategories);
+  const mainCategories = useSelector(selectMainCategories);
   const [period, setPeriod] = useState(DEFAULT_CHART_PERIOD);
   const periodMeta = getPeriodMeta(period);
 
   const expensesByCategory = useMemo(() => {
-    const filtered = filterExpensesByPeriod(expenses, period);
+    const filtered = filterExpensesByPeriod(expenses, period).map((expense) => ({
+      ...expense,
+      category: resolveMainCategoryName(expense.category, mainCategories),
+    }));
     return groupExpensesByCategory(filtered);
-  }, [expenses, period]);
+  }, [expenses, period, mainCategories]);
 
   const chartData = useMemo(() => {
     const labels = Object.keys(expensesByCategory);

@@ -11,7 +11,9 @@ import {
   selectMonthWalletRemaining,
   selectMonthWalletUsagePercent,
   selectExpensesByCategory,
+  selectMainCategories,
 } from '../store/dashboardSlice';
+import { getAllCategoryNames } from '../utils/categories';
 import DisclosureToggle from '../../../shared/components/DisclosureToggle';
 
 const levelBarClass = (level) => {
@@ -25,9 +27,11 @@ const levelBarClass = (level) => {
 export default function BudgetManager() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { monthlyBudget, monthlyIncome, categoryBudgets, categories, saving } = useSelector(
+  const { monthlyBudget, monthlyIncome, categoryBudgets, saving } = useSelector(
     (state) => state.dashboard
   );
+  const mainCategories = useSelector(selectMainCategories);
+  const categories = getAllCategoryNames(mainCategories);
   const totalSpent = useSelector(selectTotalSpent);
   const remaining = useSelector(selectBudgetRemaining);
   const monthLabel = useSelector(selectFilteredMonthLabel);
@@ -59,8 +63,9 @@ export default function BudgetManager() {
           monthlyBudget: Number(budget) || 0,
           monthlyIncome: Number(income) || 0,
           categoryBudgets: Object.fromEntries(
-            Object.entries(categoryLimits).map(([k, v]) => [k, Number(v) || 0])
+            categories.map((cat) => [cat, Number(categoryLimits[cat]) || 0])
           ),
+          mainCategories,
         },
       })
     );

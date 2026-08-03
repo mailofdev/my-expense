@@ -5,8 +5,11 @@ const COLUMNS = [
   { key: 'date', label: 'Date' },
   { key: 'title', label: 'Title' },
   { key: 'category', label: 'Category' },
+  { key: 'subcategory', label: 'Subcategory' },
+  { key: 'tags', label: 'Tags' },
   { key: 'amount', label: 'Amount' },
   { key: 'paymentMode', label: 'Payment mode' },
+  { key: 'accountId', label: 'Account' },
 ];
 
 const escapeCsvCell = (value) => {
@@ -27,6 +30,10 @@ export const buildExpenseCsv = (expenses) => {
   const rows = expenses.map((expense) =>
     COLUMNS.map((col) => {
       if (col.key === 'amount') return escapeCsvCell(Number(expense.amount) || 0);
+      if (col.key === 'tags') {
+        const tags = Array.isArray(expense.tags) ? expense.tags : [];
+        return escapeCsvCell(tags.map((tag) => `#${tag}`).join(' '));
+      }
       return escapeCsvCell(expense[col.key] ?? '');
     }).join(',')
   );

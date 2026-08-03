@@ -4,12 +4,19 @@ import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
 import { getCategoryColor } from '../../../core/constants/finance';
 import { searchExpenses } from '../utils/searchExpenses';
+import { normalizeTags, resolveMainCategoryName } from '../utils/categories';
+import {
+  selectMainCategories,
+  selectVisibleCategories,
+} from '../store/dashboardSlice';
 
 const RESULT_LIMIT = 40;
 
 export default function FindExpenses({ onOpenDay }) {
   const expenses = useSelector((state) => state.dashboard.expenses);
-  const { categoryColors, categories } = useSelector((state) => state.dashboard);
+  const categoryColors = useSelector((state) => state.dashboard.categoryColors);
+  const categories = useSelector(selectVisibleCategories);
+  const mainCategories = useSelector(selectMainCategories);
   const [query, setQuery] = useState('');
 
   const results = useMemo(
@@ -23,21 +30,21 @@ export default function FindExpenses({ onOpenDay }) {
   return (
     <section className="card">
       <h2 className="card-title mb-1">Find expenses</h2>
-      <p className="card-desc mb-3">Search by name, category, or amount.</p>
+      <p className="card-desc mb-3">Search by name, category, tag, or amount.</p>
 
       <input
         className="input"
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="e.g. Uber, Food, 350"
+        placeholder="e.g. Uber, #family, 350"
         aria-label="Search expenses"
         autoComplete="off"
       />
 
       {!trimmed ? (
         <p className="mb-0 mt-3 text-xs text-muted">
-          Tip: try a merchant name or category.
+          Tip: try a merchant, category, or #tag.
         </p>
       ) : results.length === 0 ? (
         <p className="empty-state-sm mt-3 mb-0">No matches for “{trimmed}”.</p>
@@ -53,6 +60,8 @@ export default function FindExpenses({ onOpenDay }) {
               const dateLabel = dayjs(expense.date).isValid()
                 ? dayjs(expense.date).format('D MMM YYYY')
                 : 'Unknown date';
+              const category = resolveMainCategoryName(expense.category, mainCategories);
+              const tags = normalizeTags(expense.tags);
               return (
                 <li key={expense.id} className="border-t border-edge/50 first:border-0">
                   <button
@@ -67,7 +76,7 @@ export default function FindExpenses({ onOpenDay }) {
                       className="h-2.5 w-2.5 shrink-0 rounded-sm"
                       style={{
                         background: getCategoryColor(
-                          expense.category,
+                          category,
                           categoryColors,
                           categories
                         ),
@@ -79,7 +88,11 @@ export default function FindExpenses({ onOpenDay }) {
                         {expense.title || 'Untitled'}
                       </p>
                       <p className="m-0 truncate text-xs text-muted">
-                        {expense.category || 'Other'} · {dateLabel}
+                        {category}
+                        {expense.subcategory ? ` · ${expense.subcategory}` : ''}
+                        {tags.length ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}` : ''}
+                        {' · '}
+                        {dateLabel}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold tabular-nums">

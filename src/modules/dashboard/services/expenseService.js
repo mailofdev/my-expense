@@ -36,10 +36,22 @@ export const expenseService = {
     await deleteDoc(doc(db, 'users', uid, 'expenses', expenseId));
   },
 
-  async update(uid, expenseId, { title, amount, category, date, paymentMode }) {
-    const ref = doc(db, 'users', uid, 'expenses', expenseId);
+  async update(uid, expenseId, {
+    title,
+    amount,
+    category,
+    subcategory,
+    tags,
+    date,
+    paymentMode,
+    accountId,
+  }) {
+    const expenseRef = doc(db, 'users', uid, 'expenses', expenseId);
     const updates = { title, amount, category, date, paymentMode };
-    await updateDoc(ref, updates);
+    if (accountId) updates.accountId = accountId;
+    if (subcategory !== undefined) updates.subcategory = subcategory || '';
+    if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : [];
+    await updateDoc(expenseRef, updates);
     return { id: expenseId, ...updates };
   },
 };

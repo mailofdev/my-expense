@@ -1,17 +1,18 @@
 export const MAX_CATEGORIES = 15;
+export const MAX_SUBCATEGORIES_PER_MAIN = 20;
 
 /** Fixed palette — color #N is used for the Nth category (1-based). */
 export const CATEGORY_PALETTE = [
-  '#f59e0b', // 1
-  '#3b82f6', // 2
-  '#8b5cf6', // 3
-  '#ec4899', // 4
-  '#10b981', // 5
-  '#06b6d4', // 6
-  '#ef4444', // 7
-  '#16a34a', // 8
-  '#22c55e', // 9
-  '#6b7280', // 10
+  '#f59e0b', // 1 Food & Groceries
+  '#3b82f6', // 2 Household & Living
+  '#8b5cf6', // 3 Transport & Fuel
+  '#ec4899', // 4 Shopping & Lifestyle
+  '#10b981', // 5 Bills & EMIs
+  '#06b6d4', // 6 Family & Transfers
+  '#ef4444', // 7 Personal & Gifts
+  '#6b7280', // 8 Miscellaneous
+  '#16a34a', // 9
+  '#22c55e', // 10
   '#f97316', // 11
   '#6366f1', // 12
   '#14b8a6', // 13
@@ -21,20 +22,100 @@ export const CATEGORY_PALETTE = [
 
 export const CATEGORY_LIMIT_THRESHOLDS = [50, 75, 90, 100];
 
-export const CATEGORY_CONFIG = {
-  Food: { color: CATEGORY_PALETTE[0], icon: '🍔' },
-  Travel: { color: CATEGORY_PALETTE[1], icon: '✈️' },
-  Housing: { color: CATEGORY_PALETTE[2], icon: '🏠' },
-  Shopping: { color: CATEGORY_PALETTE[3], icon: '🛍️' },
-  Bills: { color: CATEGORY_PALETTE[4], icon: '📄' },
-  Entertainment: { color: CATEGORY_PALETTE[5], icon: '🎬' },
-  Health: { color: CATEGORY_PALETTE[6], icon: '💊' },
-  Investment: { color: CATEGORY_PALETTE[7], icon: '📈' },
-  Savings: { color: CATEGORY_PALETTE[8], icon: '💰' },
-  Other: { color: CATEGORY_PALETTE[9], icon: '📦' },
-};
+/**
+ * Fixed main categories. Users can rename/hide but not delete or add mains.
+ * Keywords drive smart category suggestions from expense titles.
+ */
+export const SYSTEM_MAIN_CATEGORIES = [
+  {
+    id: 'food_groceries',
+    name: 'Food & Groceries',
+    color: CATEGORY_PALETTE[0],
+    icon: '🛒',
+    keywords: [
+      'tea', 'coffee', 'chai', 'lunch', 'dinner', 'breakfast', 'brunch',
+      'grocery', 'groceries', 'food', 'restaurant', 'cafe', 'milk', 'bread',
+      'snack', 'snacks', 'swiggy', 'zomato', 'biryani', 'pizza', 'burger',
+      'fruit', 'vegetables', 'veggie', 'meal', 'tiffin',
+    ],
+  },
+  {
+    id: 'household_living',
+    name: 'Household & Living',
+    color: CATEGORY_PALETTE[1],
+    icon: '🏠',
+    keywords: [
+      'rent', 'maid', 'electricity', 'water bill', 'cooking gas', 'lpg',
+      'maintenance', 'furniture', 'cleaning', 'home', 'household', 'society',
+      'plumber', 'electrician', 'repair',
+    ],
+  },
+  {
+    id: 'transport_fuel',
+    name: 'Transport & Fuel',
+    color: CATEGORY_PALETTE[2],
+    icon: '⛽',
+    keywords: [
+      'petrol', 'diesel', 'fuel', 'uber', 'ola', 'rapido', 'metro', 'bus',
+      'train', 'auto', 'parking', 'cab', 'taxi', 'travel', 'flight', 'toll',
+      'irctc', 'fastag',
+    ],
+  },
+  {
+    id: 'shopping_lifestyle',
+    name: 'Shopping & Lifestyle',
+    color: CATEGORY_PALETTE[3],
+    icon: '🛍️',
+    keywords: [
+      'clothes', 'shopping', 'amazon', 'flipkart', 'myntra', 'movie',
+      'entertainment', 'subscription', 'netflix', 'spotify', 'shoes', 'mall',
+      'lifestyle', 'apparel', 'gadgets',
+    ],
+  },
+  {
+    id: 'bills_emis',
+    name: 'Bills & EMIs',
+    color: CATEGORY_PALETTE[4],
+    icon: '📄',
+    keywords: [
+      'emi', 'bill', 'recharge', 'mobile', 'internet', 'wifi', 'broadband',
+      'insurance', 'loan', 'credit card', 'utility', 'dth', 'premium',
+    ],
+  },
+  {
+    id: 'family_transfers',
+    name: 'Family & Transfers',
+    color: CATEGORY_PALETTE[5],
+    icon: '🎁',
+    keywords: [
+      'family', 'mom', 'dad', 'mummy', 'papa', 'parents', 'transfer',
+      'sister', 'brother', 'sent to', 'upi to',
+    ],
+  },
+  {
+    id: 'personal_gifts',
+    name: 'Personal & Gifts',
+    color: CATEGORY_PALETTE[6],
+    icon: '💝',
+    keywords: [
+      'gift', 'medicine', 'doctor', 'hospital', 'pharmacy', 'salon',
+      'personal', 'health', 'gym', 'haircut', 'cosmetics', 'birthday',
+    ],
+  },
+  {
+    id: 'miscellaneous',
+    name: 'Miscellaneous',
+    color: CATEGORY_PALETTE[7],
+    icon: '📦',
+    keywords: ['misc', 'other', 'general', 'miscellaneous'],
+  },
+];
 
-export const CATEGORIES = Object.keys(CATEGORY_CONFIG);
+export const CATEGORY_CONFIG = Object.fromEntries(
+  SYSTEM_MAIN_CATEGORIES.map(({ name, color, icon }) => [name, { color, icon }])
+);
+
+export const CATEGORIES = SYSTEM_MAIN_CATEGORIES.map((item) => item.name);
 
 export const DEFAULT_CATEGORY_COLORS = Object.fromEntries(
   CATEGORIES.map((name, index) => [name, CATEGORY_PALETTE[index]])
@@ -44,7 +125,7 @@ export const PAYMENT_MODES = ['UPI', 'Cash', 'Card', 'Bank'];
 
 /** Color for category position (0-based index). */
 export function getCategoryColorByIndex(index) {
-  if (index < 0 || index >= CATEGORY_PALETTE.length) return CATEGORY_PALETTE[9];
+  if (index < 0 || index >= CATEGORY_PALETTE.length) return CATEGORY_PALETTE[7];
   return CATEGORY_PALETTE[index];
 }
 
@@ -64,7 +145,7 @@ export function getCategoryColor(category, categoryColors, categories) {
     if (index >= 0) return getCategoryColorByIndex(index);
   }
   if (categoryColors?.[category]) return categoryColors[category];
-  return DEFAULT_CATEGORY_COLORS[category] || CATEGORY_CONFIG[category]?.color || CATEGORY_PALETTE[9];
+  return DEFAULT_CATEGORY_COLORS[category] || CATEGORY_CONFIG[category]?.color || CATEGORY_PALETTE[7];
 }
 
 /**

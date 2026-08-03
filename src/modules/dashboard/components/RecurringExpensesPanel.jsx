@@ -9,6 +9,7 @@ import {
   updateRecurringTemplate,
   deleteRecurringTemplate,
   selectDueRecurringExpenses,
+  selectVisibleCategories,
 } from '../store/dashboardSlice';
 
 const CADENCE_OPTIONS = [
@@ -23,14 +24,15 @@ const cadenceLabel = (value) =>
 export default function RecurringExpensesPanel() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { categories, paymentModes, recurringExpenses, saving } = useSelector(
+  const { paymentModes, recurringExpenses, saving } = useSelector(
     (state) => state.dashboard
   );
+  const categories = useSelector(selectVisibleCategories);
   const dueItems = useSelector(selectDueRecurringExpenses);
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState(categories[0] || 'Other');
+  const [category, setCategory] = useState(categories[0] || 'Miscellaneous');
   const [nextDate, setNextDate] = useState(getTodayString());
   const [cadence, setCadence] = useState('monthly');
   const [message, setMessage] = useState('');
@@ -55,7 +57,7 @@ export default function RecurringExpensesPanel() {
   const resetForm = () => {
     setTitle('');
     setAmount('');
-    setCategory(categories[0] || 'Other');
+    setCategory(categories[0] || 'Miscellaneous');
     setNextDate(getTodayString());
     setCadence('monthly');
   };
@@ -83,7 +85,7 @@ export default function RecurringExpensesPanel() {
         template: {
           title: trimmed,
           amount: value,
-          category: category || categories[0] || 'Other',
+          category: category || categories[0] || 'Miscellaneous',
           paymentMode: paymentModes[0] || 'UPI',
           cadence,
           nextDate,

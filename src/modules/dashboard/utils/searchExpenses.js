@@ -17,6 +17,10 @@ export function searchExpenses(expenses = [], query = '', { limit = 40 } = {}) {
     .filter((expense) => {
       const title = String(expense.title || '').toLowerCase();
       const category = String(expense.category || '').toLowerCase();
+      const subcategory = String(expense.subcategory || '').toLowerCase();
+      const tags = Array.isArray(expense.tags)
+        ? expense.tags.map((tag) => `#${tag}`.toLowerCase()).join(' ')
+        : '';
       const paymentMode = String(expense.paymentMode || '').toLowerCase();
       const amountStr = String(expense.amount ?? '');
       const dateRaw = String(expense.date || '');
@@ -24,7 +28,15 @@ export function searchExpenses(expenses = [], query = '', { limit = 40 } = {}) {
         ? dayjs(dateRaw).format('D MMM YYYY').toLowerCase()
         : '';
 
-      if (title.includes(q) || category.includes(q) || paymentMode.includes(q)) return true;
+      if (
+        title.includes(q) ||
+        category.includes(q) ||
+        subcategory.includes(q) ||
+        tags.includes(q) ||
+        paymentMode.includes(q)
+      ) {
+        return true;
+      }
       // Readable dates: require 3+ chars so "2" / "1" don't match every day number.
       if (q.length >= 3 && dateLabel.includes(q)) return true;
       // ISO date strings: only longer or dashed queries (avoid "2" hitting every YYYY-MM-DD).

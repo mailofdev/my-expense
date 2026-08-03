@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../../core/config/firebase';
 import { CATEGORIES, DEFAULT_HABITS, DEFAULT_CATEGORY_COLORS } from '../../../core/constants/finance';
+import { DEFAULT_MAIN_CATEGORIES } from '../../dashboard/utils/categories';
 
 const defaultProfile = () => ({
   monthlyWallets: {},
@@ -15,8 +16,15 @@ const defaultProfile = () => ({
   monthlyIncome: 0,
   categoryBudgets: {},
   categories: CATEGORIES,
+  mainCategories: DEFAULT_MAIN_CATEGORIES.map((item) => ({ ...item })),
+  subcategories: Object.fromEntries(DEFAULT_MAIN_CATEGORIES.map((item) => [item.id, []])),
   categoryColors: { ...DEFAULT_CATEGORY_COLORS },
   habits: { ...DEFAULT_HABITS },
+  accounts: [
+    { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+    { id: 'acc_savings', name: 'Savings', kind: 'savings' },
+  ],
+  accountOpenings: {},
   splitGroups: [],
   recurringExpenses: [],
   activityLog: [],

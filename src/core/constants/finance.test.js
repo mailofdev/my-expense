@@ -15,9 +15,9 @@ describe('category palette', () => {
   });
 
   test('assigns colors by category order', () => {
-    const colors = buildCategoryColors(['Food', 'Travel', 'Pets']);
-    expect(colors.Food).toBe(CATEGORY_PALETTE[0]);
-    expect(colors.Travel).toBe(CATEGORY_PALETTE[1]);
+    const colors = buildCategoryColors(['Food & Groceries', 'Transport & Fuel', 'Pets']);
+    expect(colors['Food & Groceries']).toBe(CATEGORY_PALETTE[0]);
+    expect(colors['Transport & Fuel']).toBe(CATEGORY_PALETTE[1]);
     expect(colors.Pets).toBe(CATEGORY_PALETTE[2]);
   });
 
@@ -59,7 +59,7 @@ describe('category limit thresholds', () => {
   });
 
   test('warning text for over and under 100', () => {
-    expect(getCategoryLimitWarningText('Food', 100, 3100, 3000)).toContain('limit reached');
-    expect(getCategoryLimitWarningText('Food', 75, 2250, 3000)).toContain('75%');
+    expect(getCategoryLimitWarningText('Food & Groceries', 100, 3100, 3000)).toContain('limit reached');
+    expect(getCategoryLimitWarningText('Food & Groceries', 75, 2250, 3000)).toContain('75%');
   });
 });
