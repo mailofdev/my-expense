@@ -12,3 +12,17 @@ export const formatINRCompact = (amount) => {
   if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
   return formatINR(value);
 };
+
+/** Amount text color: income green, expense red, transfer sky. */
+export const ledgerAmountClass = (type) => {
+  if (type === 'credit' || type === 'income') return 'text-success';
+  if (type === 'transfer') return 'text-info';
+  return 'text-danger';
+};
+
+/** Softer label color matching the amount type. */
+export const ledgerTypeLabelClass = (type) => {
+  if (type === 'credit' || type === 'income') return 'text-success/80';
+  if (type === 'transfer') return 'text-info/80';
+  return 'text-danger/80';
+};

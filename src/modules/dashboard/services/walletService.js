@@ -9,9 +9,10 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../../core/config/firebase';
-import { getMonthKey, getNowMonthYear, isInMonthYear } from '../../../core/utils/date';
+import { getMonthKey, getNowMonthYear, getTodayString, isInMonthYear } from '../../../core/utils/date';
 import { userService } from '../../auth/services/userService';
 import { ensureAccounts, getDefaultAccountId } from '../utils/accounts';
+import { monthKeyFromDate, normalizeLedgerDate } from '../utils/moneyFlows';
 
 const clampNonNegative = (value) => Math.max(0, Number(value) || 0);
 
@@ -23,11 +24,19 @@ export const walletService = {
       limit(max)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate?.()?.toISOString?.() || null,
-    }));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      const createdAt = data.createdAt?.toDate?.()?.toISOString?.() || null;
+      const date =
+        (data.date && String(data.date).slice(0, 10)) ||
+        (createdAt ? createdAt.slice(0, 10) : null);
+      return {
+        id: d.id,
+        ...data,
+        date,
+        createdAt,
+      };
+    });
   },
 
   async migrateLegacyBalance(uid, profile, expenses = [], walletTransactions = []) {
@@ -48,7 +57,12 @@ export const walletService = {
       await userService.updateProfile(uid, { monthlyWallets, walletBalance: 0 });
     }
 
-    monthlyWallets = await this.cleanupMistakenCarryOver(uid, monthlyWallets, expenses, walletTransactions);
+    monthlyWallets = await this.cleanupMistakenCarryOver(
+      uid,
+      monthlyWallets,
+      expenses,
+      walletTransactions
+    );
 
     return monthlyWallets;
   },
@@ -96,9 +110,11 @@ export const walletService = {
     return monthlyWallets;
   },
 
-  async addFunds(uid, { amount, note, monthKey, source = 'manual', accountId }) {
+  async addFunds(uid, { amount, note, monthKey, source = 'manual', accountId, date }) {
     const parsedAmount = Number(amount);
-    if (!monthKey || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    const resolvedDate = normalizeLedgerDate(date || getTodayString());
+    const resolvedMonthKey = monthKeyFromDate(resolvedDate) || monthKey;
+    if (!resolvedMonthKey || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       throw new Error('Enter a valid amount to add to your wallet');
     }
 
@@ -120,11 +136,12 @@ export const walletService = {
       }
 
       const monthlyWallets = { ...(data.monthlyWallets || {}) };
-      monthlyWallets[monthKey] = (monthlyWallets[monthKey] || 0) + parsedAmount;
+      monthlyWallets[resolvedMonthKey] = (monthlyWallets[resolvedMonthKey] || 0) + parsedAmount;
 
       const monthlyIncomes = { ...(data.monthlyIncomes || {}) };
       if (isIncome) {
-        monthlyIncomes[monthKey] = (Number(monthlyIncomes[monthKey]) || 0) + parsedAmount;
+        monthlyIncomes[resolvedMonthKey] =
+          (Number(monthlyIncomes[resolvedMonthKey]) || 0) + parsedAmount;
       }
 
       const txRef = doc(collection(db, 'users', uid, 'walletTransactions'));
@@ -135,7 +152,7 @@ export const walletService = {
       };
       if (isIncome) {
         profileUpdate.monthlyIncomes = monthlyIncomes;
-        profileUpdate.monthlyIncome = monthlyIncomes[monthKey];
+        profileUpdate.monthlyIncome = monthlyIncomes[resolvedMonthKey];
       }
 
       transaction.update(userRef, profileUpdate);
@@ -145,14 +162,15 @@ export const walletService = {
         note: safeNote,
         source: isIncome ? 'income' : 'manual',
         accountId: resolvedAccountId,
-        monthKey,
+        date: resolvedDate,
+        monthKey: resolvedMonthKey,
         createdAt: serverTimestamp(),
       });
 
       return {
         monthlyWallets,
         monthlyIncomes,
-        monthlyIncome: isIncome ? monthlyIncomes[monthKey] : data.monthlyIncome ?? 0,
+        monthlyIncome: isIncome ? monthlyIncomes[resolvedMonthKey] : data.monthlyIncome ?? 0,
         accounts,
         accountId: resolvedAccountId,
         txId: txRef.id,
@@ -167,21 +185,23 @@ export const walletService = {
         note: safeNote,
         source: isIncome ? 'income' : 'manual',
         accountId: result.accountId,
-        monthKey,
+        date: resolvedDate,
+        monthKey: resolvedMonthKey,
+        createdAt: new Date().toISOString(),
       },
       monthlyWallets: result.monthlyWallets,
       monthlyIncomes: result.monthlyIncomes,
       monthlyIncome: result.monthlyIncome,
       accounts: result.accounts,
-      monthKey,
-      monthFunded: result.monthlyWallets[monthKey],
+      monthKey: resolvedMonthKey,
+      monthFunded: result.monthlyWallets[resolvedMonthKey],
     };
   },
 
   /**
    * Update a credit (income or top-up). Adjusts wallet / income totals by the amount delta.
    */
-  async updateCredit(uid, txId, { amount, note, accountId }) {
+  async updateCredit(uid, txId, { amount, note, accountId, date }) {
     if (!txId) throw new Error('Missing transaction');
     const parsedAmount = Number(amount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -209,21 +229,50 @@ export const walletService = {
         throw new Error('Choose a valid account');
       }
 
-      const monthKey = existing.monthKey;
-      if (!monthKey) throw new Error('This entry cannot be edited');
+      const oldMonthKey = existing.monthKey;
+      if (!oldMonthKey) throw new Error('This entry cannot be edited');
 
       const oldAmount = Number(existing.amount) || 0;
-      const delta = parsedAmount - oldAmount;
       const isIncome = existing.source === 'income';
       const safeNote =
         note?.trim() ||
         existing.note ||
         (isIncome ? 'Salary' : 'Added to wallet');
 
-      const monthlyWallets = { ...(data.monthlyWallets || {}) };
-      monthlyWallets[monthKey] = clampNonNegative((monthlyWallets[monthKey] || 0) + delta);
+      const existingDate =
+        existing.date ||
+        existing.createdAt?.toDate?.()?.toISOString?.()?.slice(0, 10) ||
+        getTodayString();
+      const resolvedDate = normalizeLedgerDate(date || existingDate);
+      const newMonthKey = monthKeyFromDate(resolvedDate);
 
+      const monthlyWallets = { ...(data.monthlyWallets || {}) };
       const monthlyIncomes = { ...(data.monthlyIncomes || {}) };
+
+      if (newMonthKey === oldMonthKey) {
+        const delta = parsedAmount - oldAmount;
+        monthlyWallets[oldMonthKey] = clampNonNegative(
+          (monthlyWallets[oldMonthKey] || 0) + delta
+        );
+        if (isIncome) {
+          monthlyIncomes[oldMonthKey] = clampNonNegative(
+            (Number(monthlyIncomes[oldMonthKey]) || 0) + delta
+          );
+        }
+      } else {
+        monthlyWallets[oldMonthKey] = clampNonNegative(
+          (monthlyWallets[oldMonthKey] || 0) - oldAmount
+        );
+        monthlyWallets[newMonthKey] = (monthlyWallets[newMonthKey] || 0) + parsedAmount;
+        if (isIncome) {
+          monthlyIncomes[oldMonthKey] = clampNonNegative(
+            (Number(monthlyIncomes[oldMonthKey]) || 0) - oldAmount
+          );
+          monthlyIncomes[newMonthKey] =
+            (Number(monthlyIncomes[newMonthKey]) || 0) + parsedAmount;
+        }
+      }
+
       const profileUpdate = {
         monthlyWallets,
         accounts,
@@ -231,11 +280,8 @@ export const walletService = {
       };
 
       if (isIncome) {
-        monthlyIncomes[monthKey] = clampNonNegative(
-          (Number(monthlyIncomes[monthKey]) || 0) + delta
-        );
         profileUpdate.monthlyIncomes = monthlyIncomes;
-        profileUpdate.monthlyIncome = monthlyIncomes[monthKey];
+        profileUpdate.monthlyIncome = monthlyIncomes[newMonthKey];
       }
 
       transaction.update(userRef, profileUpdate);
@@ -243,13 +289,15 @@ export const walletService = {
         amount: parsedAmount,
         note: safeNote,
         accountId: resolvedAccountId,
+        date: resolvedDate,
+        monthKey: newMonthKey,
       });
 
       return {
         monthlyWallets,
         monthlyIncomes: isIncome ? monthlyIncomes : data.monthlyIncomes || {},
         monthlyIncome: isIncome
-          ? monthlyIncomes[monthKey]
+          ? monthlyIncomes[newMonthKey]
           : data.monthlyIncome ?? 0,
         accounts,
         transaction: {
@@ -259,7 +307,8 @@ export const walletService = {
           note: safeNote,
           source: existing.source || 'manual',
           accountId: resolvedAccountId,
-          monthKey,
+          date: resolvedDate,
+          monthKey: newMonthKey,
           createdAt: existing.createdAt?.toDate?.()?.toISOString?.() || null,
         },
         touchedIncome: isIncome,
@@ -331,7 +380,7 @@ export const walletService = {
   /**
    * Move money between own accounts. Does not change monthly wallet, income, or spend.
    */
-  async transferFunds(uid, { amount, fromAccountId, toAccountId, note }) {
+  async transferFunds(uid, { amount, fromAccountId, toAccountId, note, date }) {
     const parsedAmount = Number(amount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       throw new Error('Enter a valid transfer amount');
@@ -342,6 +391,9 @@ export const walletService = {
     if (fromAccountId === toAccountId) {
       throw new Error('Pick two different accounts');
     }
+
+    const resolvedDate = normalizeLedgerDate(date || getTodayString());
+    const resolvedMonthKey = monthKeyFromDate(resolvedDate);
 
     const result = await runTransaction(db, async (transaction) => {
       const userRef = doc(db, 'users', uid);
@@ -367,6 +419,8 @@ export const walletService = {
         note: safeNote,
         fromAccountId,
         toAccountId,
+        date: resolvedDate,
+        monthKey: resolvedMonthKey,
         createdAt: serverTimestamp(),
       });
 
@@ -385,8 +439,109 @@ export const walletService = {
         note: result.note,
         fromAccountId,
         toAccountId,
+        date: resolvedDate,
+        monthKey: resolvedMonthKey,
+        createdAt: new Date().toISOString(),
       },
       accounts: result.accounts,
     };
+  },
+
+  /** Update a transfer's amount, banks, note, or date. Does not touch month budget. */
+  async updateTransfer(uid, txId, { amount, fromAccountId, toAccountId, note, date }) {
+    if (!txId) throw new Error('Missing transfer');
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      throw new Error('Enter a valid transfer amount');
+    }
+    if (!fromAccountId || !toAccountId) {
+      throw new Error('Pick both accounts');
+    }
+    if (fromAccountId === toAccountId) {
+      throw new Error('Pick two different accounts');
+    }
+
+    const resolvedDate = normalizeLedgerDate(date || getTodayString());
+    const resolvedMonthKey = monthKeyFromDate(resolvedDate);
+
+    const result = await runTransaction(db, async (transaction) => {
+      const userRef = doc(db, 'users', uid);
+      const txRef = doc(db, 'users', uid, 'walletTransactions', txId);
+      const userSnap = await transaction.get(userRef);
+      const txSnap = await transaction.get(txRef);
+
+      if (!userSnap.exists()) throw new Error('User profile not found');
+      if (!txSnap.exists()) throw new Error('Transfer not found');
+
+      const existing = txSnap.data();
+      if (existing.type !== 'transfer') {
+        throw new Error('Only transfers can be edited here');
+      }
+
+      const data = userSnap.data();
+      const accounts = ensureAccounts(data.accounts);
+      const fromOk = accounts.some((a) => a.id === fromAccountId);
+      const toOk = accounts.some((a) => a.id === toAccountId);
+      if (!fromOk || !toOk) throw new Error('Choose valid accounts');
+
+      const safeNote = note?.trim() || existing.note || 'Transfer';
+
+      transaction.update(userRef, {
+        accounts,
+        updatedAt: serverTimestamp(),
+      });
+      transaction.update(txRef, {
+        amount: parsedAmount,
+        note: safeNote,
+        fromAccountId,
+        toAccountId,
+        date: resolvedDate,
+        monthKey: resolvedMonthKey,
+      });
+
+      return {
+        accounts,
+        transaction: {
+          id: txId,
+          type: 'transfer',
+          amount: parsedAmount,
+          note: safeNote,
+          fromAccountId,
+          toAccountId,
+          date: resolvedDate,
+          monthKey: resolvedMonthKey,
+          createdAt: existing.createdAt?.toDate?.()?.toISOString?.() || null,
+        },
+      };
+    });
+
+    return result;
+  },
+
+  /** Delete a transfer. Does not touch month budget. */
+  async removeTransfer(uid, txId) {
+    if (!txId) throw new Error('Missing transfer');
+
+    const result = await runTransaction(db, async (transaction) => {
+      const userRef = doc(db, 'users', uid);
+      const txRef = doc(db, 'users', uid, 'walletTransactions', txId);
+      const userSnap = await transaction.get(userRef);
+      const txSnap = await transaction.get(txRef);
+
+      if (!userSnap.exists()) throw new Error('User profile not found');
+      if (!txSnap.exists()) throw new Error('Transfer not found');
+
+      const existing = txSnap.data();
+      if (existing.type !== 'transfer') {
+        throw new Error('Only transfers can be removed here');
+      }
+
+      transaction.update(userRef, { updatedAt: serverTimestamp() });
+      transaction.delete(txRef);
+
+      return { txId };
+    });
+
+    return result;
   },
 };

@@ -18,7 +18,14 @@ export const expenseService = {
       orderBy('date', 'desc')
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString?.() || data.createdAt || null,
+      };
+    });
   },
 
   async create(uid, expense) {
@@ -29,7 +36,12 @@ export const expenseService = {
       createdAt: serverTimestamp(),
     };
     const ref = await addDoc(col, payload);
-    return { id: ref.id, ...expense, date: payload.date };
+    return {
+      id: ref.id,
+      ...expense,
+      date: payload.date,
+      createdAt: new Date().toISOString(),
+    };
   },
 
   async remove(uid, expenseId) {

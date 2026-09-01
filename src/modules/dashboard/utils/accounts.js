@@ -52,30 +52,29 @@ export function computeAccountBalances({
     balances[account.id] = Number(accountOpenings?.[account.id]) || 0;
   });
 
+  const resolveBalanceId = (accountId) =>
+    accountId && balances[accountId] !== undefined ? accountId : defaultId;
+
   (walletTransactions || []).forEach((tx) => {
     const amount = Number(tx.amount) || 0;
     if (amount <= 0) return;
 
     if (tx.type === 'transfer') {
-      const fromId = tx.fromAccountId;
-      const toId = tx.toAccountId;
-      if (fromId && balances[fromId] !== undefined) balances[fromId] -= amount;
-      if (toId && balances[toId] !== undefined) balances[toId] += amount;
+      // Unknown / deleted banks fold into the default so cash isn't lost.
+      if (tx.fromAccountId) balances[resolveBalanceId(tx.fromAccountId)] -= amount;
+      if (tx.toAccountId) balances[resolveBalanceId(tx.toAccountId)] += amount;
       return;
     }
 
     if (tx.type === 'credit') {
-      const accountId = tx.accountId || defaultId;
-      if (balances[accountId] !== undefined) balances[accountId] += amount;
+      balances[resolveBalanceId(tx.accountId)] += amount;
     }
   });
 
   (expenses || []).forEach((expense) => {
     const amount = Number(expense.amount) || 0;
     if (amount <= 0) return;
-    const accountId = expense.accountId || defaultId;
-    if (balances[accountId] === undefined) return;
-    balances[accountId] -= amount;
+    balances[resolveBalanceId(expense.accountId)] -= amount;
   });
 
   return balances;

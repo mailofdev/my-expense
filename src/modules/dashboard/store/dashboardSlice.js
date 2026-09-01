@@ -22,12 +22,6 @@ import {
 import { expenseService } from '../services/expenseService';
 import { walletService } from '../services/walletService';
 import { userService } from '../../auth/services/userService';
-import {
-  calculateGroupDebts,
-  computeSplitShares,
-  mergeSettlements,
-  sharesMatchTotal,
-} from '../../../core/utils/split';
 import { resolveMonthIncome, advanceRecurringNextDate } from '../utils/moneyFlows';
 import {
   computeAccountBalances,
@@ -51,8 +45,6 @@ const getErrorMessage = (error) =>
   error?.message || 'Something went wrong. Please try again.';
 
 const generateId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-const normalizeMemberName = (name) => name.trim();
 
 export const fetchDashboardData = createAsyncThunk(
   'dashboard/fetchAll',
@@ -180,7 +172,7 @@ export const updateExpense = createAsyncThunk(
 
 export const addWalletFunds = createAsyncThunk(
   'dashboard/addWalletFunds',
-  async ({ uid, amount, note, monthKey, source, accountId }, { rejectWithValue }) => {
+  async ({ uid, amount, note, monthKey, source, accountId, date }, { rejectWithValue }) => {
     try {
       const result = await walletService.addFunds(uid, {
         amount,
@@ -188,6 +180,7 @@ export const addWalletFunds = createAsyncThunk(
         monthKey,
         source,
         accountId,
+        date,
       });
       return result;
     } catch (error) {
@@ -198,9 +191,9 @@ export const addWalletFunds = createAsyncThunk(
 
 export const updateWalletCredit = createAsyncThunk(
   'dashboard/updateWalletCredit',
-  async ({ uid, txId, amount, note, accountId }, { rejectWithValue }) => {
+  async ({ uid, txId, amount, note, accountId, date }, { rejectWithValue }) => {
     try {
-      return await walletService.updateCredit(uid, txId, { amount, note, accountId });
+      return await walletService.updateCredit(uid, txId, { amount, note, accountId, date });
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -220,14 +213,46 @@ export const removeWalletCredit = createAsyncThunk(
 
 export const transferBetweenAccounts = createAsyncThunk(
   'dashboard/transferBetweenAccounts',
-  async ({ uid, amount, fromAccountId, toAccountId, note }, { rejectWithValue }) => {
+  async ({ uid, amount, fromAccountId, toAccountId, note, date }, { rejectWithValue }) => {
     try {
       return await walletService.transferFunds(uid, {
         amount,
         fromAccountId,
         toAccountId,
         note,
+        date,
       });
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const updateWalletTransfer = createAsyncThunk(
+  'dashboard/updateWalletTransfer',
+  async (
+    { uid, txId, amount, fromAccountId, toAccountId, note, date },
+    { rejectWithValue }
+  ) => {
+    try {
+      return await walletService.updateTransfer(uid, txId, {
+        amount,
+        fromAccountId,
+        toAccountId,
+        note,
+        date,
+      });
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const removeWalletTransfer = createAsyncThunk(
+  'dashboard/removeWalletTransfer',
+  async ({ uid, txId }, { rejectWithValue }) => {
+    try {
+      return await walletService.removeTransfer(uid, txId);
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -310,208 +335,6 @@ export const updateFinanceSettings = createAsyncThunk(
     }
   }
 );
-export const markWeeklyReview = createAsyncThunk(
-  'dashboard/markWeeklyReview',
-  async ({ uid, habits }, { rejectWithValue }) => {
-    try {
-      const updatedHabits = {
-        ...habits,
-        lastWeeklyReview: dayjs().format('YYYY-MM-DD'),
-      };
-      await userService.updateProfile(uid, { habits: updatedHabits });
-      return updatedHabits;
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const createSplitGroup = createAsyncThunk(
-  'dashboard/createSplitGroup',
-  async ({ uid, group }, { getState, rejectWithValue }) => {
-    try {
-      const groups = getState().dashboard.splitGroups;
-      const normalizedMembers = Array.from(
-        new Set((group.members || []).map(normalizeMemberName).filter(Boolean))
-      );
-      if (!normalizedMembers.includes('You')) normalizedMembers.unshift('You');
-      const debtState = calculateGroupDebts({ members: normalizedMembers, expenses: [] });
-      const newGroup = {
-        id: generateId('group'),
-        name: group.name?.trim() || 'Untitled Group',
-        members: normalizedMembers,
-        expenses: [],
-        balances: debtState.balances,
-        settlements: debtState.simplifiedDebts,
-        updatedAt: debtState.updatedAt,
-        createdAt: new Date().toISOString(),
-      };
-      const updates = { splitGroups: [newGroup, ...groups] };
-      await userService.updateProfile(uid, updates);
-      return newGroup;
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const addSplitGroupExpense = createAsyncThunk(
-  'dashboard/addSplitGroupExpense',
-  async ({ uid, groupId, expenseInput }, { getState, rejectWithValue }) => {
-    try {
-      const state = getState().dashboard;
-      const group = state.splitGroups.find((item) => item.id === groupId);
-      if (!group) throw new Error('Group not found');
-
-      const amount = Number(expenseInput.amount) || 0;
-      if (amount <= 0) throw new Error('Enter a valid amount');
-
-      const participants = (expenseInput.participants?.length
-        ? expenseInput.participants
-        : group.members
-      ).map(normalizeMemberName);
-
-      const paidBy = normalizeMemberName(expenseInput.paidBy || 'You');
-      if (!participants.includes(paidBy)) {
-        throw new Error('Payer must be included in the split');
-      }
-
-      const splitType = expenseInput.splitType || 'equal';
-      const shares = computeSplitShares(amount, participants, splitType, expenseInput.splitConfig || {});
-
-      if (!sharesMatchTotal(shares, amount)) {
-        throw new Error('Split amounts must add up to the expense total');
-      }
-
-      const expense = {
-        id: generateId('gexp'),
-        title: expenseInput.title?.trim() || 'Shared expense',
-        amount,
-        paidBy,
-        splitType,
-        participants,
-        shares,
-        createdAt: new Date().toISOString(),
-      };
-
-      const nextGroups = state.splitGroups.map((item) => {
-        if (item.id !== groupId) return item;
-        const withExpense = { ...item, expenses: [expense, ...(item.expenses || [])] };
-        const debtState = calculateGroupDebts(withExpense);
-        const settlements = mergeSettlements(item.settlements, debtState.simplifiedDebts).map(
-          (settlement) => ({
-            ...settlement,
-            dueDate: settlement.dueDate || dayjs().add(7, 'day').format('YYYY-MM-DD'),
-          })
-        );
-        return {
-          ...withExpense,
-          balances: debtState.balances,
-          settlements,
-          updatedAt: debtState.updatedAt,
-        };
-      });
-
-      const activityEntry = {
-        id: generateId('act'),
-        type: 'split_expense_added',
-        text: `${expense.paidBy} added ${expense.title} in ${group.name}`,
-        amount: expense.amount,
-        createdAt: new Date().toISOString(),
-      };
-      const updates = {
-        splitGroups: nextGroups,
-        activityLog: [activityEntry, ...state.activityLog].slice(0, 100),
-      };
-      await userService.updateProfile(uid, updates);
-      return { groupId, expense, updates };
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const markSettlementPaid = createAsyncThunk(
-  'dashboard/markSettlementPaid',
-  async ({ uid, groupId, settlementId }, { getState, rejectWithValue }) => {
-    try {
-      const state = getState().dashboard;
-      const nextGroups = state.splitGroups.map((group) => {
-        if (group.id !== groupId) return group;
-
-        const settlement = (group.settlements || []).find((item) => item.id === settlementId);
-        if (!settlement || settlement.status === 'paid') return group;
-
-        const payments = [
-          ...(group.payments || []),
-          {
-            id: generateId('pay'),
-            from: settlement.from,
-            to: settlement.to,
-            amount: settlement.amount,
-            paidAt: new Date().toISOString(),
-          },
-        ];
-
-        const withPayments = { ...group, payments };
-        const debtState = calculateGroupDebts(withPayments);
-        const settlements = mergeSettlements(
-          group.settlements.map((item) =>
-            item.id === settlementId
-              ? { ...item, status: 'paid', paidAt: new Date().toISOString() }
-              : item
-          ),
-          debtState.simplifiedDebts
-        );
-
-        return {
-          ...withPayments,
-          balances: debtState.balances,
-          settlements,
-          updatedAt: debtState.updatedAt,
-        };
-      });
-      const updates = { splitGroups: nextGroups };
-      await userService.updateProfile(uid, updates);
-      return updates;
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const updateSettlement = createAsyncThunk(
-  'dashboard/updateSettlement',
-  async ({ uid, groupId, settlementId, patch }, { getState, rejectWithValue }) => {
-    try {
-      const state = getState().dashboard;
-      const nowIso = new Date().toISOString();
-      const nextGroups = state.splitGroups.map((group) => {
-        if (group.id !== groupId) return group;
-        const settlements = (group.settlements || []).map((settlement) => {
-          if (settlement.id !== settlementId) return settlement;
-          const paidAmount = Math.max(0, Number(patch.paidAmount ?? settlement.paidAmount ?? 0));
-          const totalAmount = Number(settlement.amount) || 0;
-          const status = paidAmount >= totalAmount ? 'paid' : patch.status || settlement.status;
-          return {
-            ...settlement,
-            ...patch,
-            paidAmount,
-            status,
-            paidAt: status === 'paid' ? nowIso : settlement.paidAt,
-            updatedAt: nowIso,
-          };
-        });
-        return { ...group, settlements };
-      });
-      await userService.updateProfile(uid, { splitGroups: nextGroups });
-      return { splitGroups: nextGroups };
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
 export const addRecurringExpenseTemplate = createAsyncThunk(
   'dashboard/addRecurringExpenseTemplate',
   async ({ uid, template }, { getState, rejectWithValue }) => {
@@ -557,7 +380,7 @@ export const applyDueRecurringExpenses = createAsyncThunk(
         return true;
       });
       if (!due.length) {
-        return { expenses: [], recurringExpenses: state.recurringExpenses, activity: [] };
+        return { expenses: [], recurringExpenses: state.recurringExpenses };
       }
 
       const createdExpenses = [];
@@ -587,20 +410,9 @@ export const applyDueRecurringExpenses = createAsyncThunk(
         };
       });
 
-      const activity = due.map((item) => ({
-        id: generateId('act'),
-        type: 'recurring_applied',
-        text: `Applied recurring expense: ${item.title}`,
-        amount: item.amount,
-        createdAt: new Date().toISOString(),
-      }));
-
-      const updates = {
-        recurringExpenses: nextRecurring,
-        activityLog: [...activity, ...state.activityLog].slice(0, 100),
-      };
+      const updates = { recurringExpenses: nextRecurring };
       await userService.updateProfile(uid, updates);
-      return { expenses: createdExpenses, recurringExpenses: nextRecurring, activity };
+      return { expenses: createdExpenses, recurringExpenses: nextRecurring };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -747,12 +559,6 @@ export const setMainCategoryHidden = createAsyncThunk(
   }
 );
 
-/** Main categories cannot be deleted — hide them instead. */
-export const deleteCategory = createAsyncThunk(
-  'dashboard/deleteCategory',
-  async (_, { rejectWithValue }) =>
-    rejectWithValue('Main categories cannot be deleted. Hide them instead.')
-);
 const initialMonthYear = getNowMonthYear();
 
 const dashboardSlice = createSlice({
@@ -763,7 +569,6 @@ const dashboardSlice = createSlice({
     filterDate: getTodayString(),
     monthlyWallets: {},
     monthlyIncomes: {},
-    monthlyBudget: 0,
     monthlyIncome: 0,
     categoryBudgets: {},
     habits: { ...DEFAULT_HABITS },
@@ -771,10 +576,7 @@ const dashboardSlice = createSlice({
     accountOpenings: {},
     expenses: [],
     walletTransactions: [],
-    splitGroups: [],
-    activityLog: [],
     recurringExpenses: [],
-    onboardingSeen: false,
     categories: CATEGORIES,
     mainCategories: DEFAULT_MAIN_CATEGORIES.map((item) => ({ ...item })),
     subcategories: Object.fromEntries(DEFAULT_MAIN_CATEGORIES.map((item) => [item.id, []])),
@@ -806,7 +608,6 @@ const dashboardSlice = createSlice({
       state.filterDate = getTodayString();
       state.monthlyWallets = {};
       state.monthlyIncomes = {};
-      state.monthlyBudget = 0;
       state.monthlyIncome = 0;
       state.categoryBudgets = {};
       state.habits = { ...DEFAULT_HABITS };
@@ -814,10 +615,7 @@ const dashboardSlice = createSlice({
       state.accountOpenings = {};
       state.expenses = [];
       state.walletTransactions = [];
-      state.splitGroups = [];
-      state.activityLog = [];
       state.recurringExpenses = [];
-      state.onboardingSeen = false;
       state.categories = CATEGORIES;
       state.mainCategories = DEFAULT_MAIN_CATEGORIES.map((item) => ({ ...item }));
       state.subcategories = Object.fromEntries(
@@ -831,9 +629,6 @@ const dashboardSlice = createSlice({
     },
     clearDashboardError(state) {
       state.error = null;
-    },
-    markOnboardingSeen(state) {
-      state.onboardingSeen = true;
     },
   },
   extraReducers: (builder) => {
@@ -849,15 +644,11 @@ const dashboardSlice = createSlice({
         if (profile) {
           state.monthlyWallets = monthlyWallets ?? profile.monthlyWallets ?? {};
           state.monthlyIncomes = profile.monthlyIncomes ?? {};
-          state.monthlyBudget = profile.monthlyBudget ?? 0;
           state.monthlyIncome = profile.monthlyIncome ?? 0;
           state.habits = profile.habits ?? { ...DEFAULT_HABITS };
           state.accounts = ensureAccounts(profile.accounts);
           state.accountOpenings = profile.accountOpenings ?? {};
-          state.splitGroups = profile.splitGroups ?? [];
-          state.activityLog = profile.activityLog ?? [];
           state.recurringExpenses = profile.recurringExpenses ?? [];
-          state.onboardingSeen = profile.onboardingSeen ?? false;
           const normalized = normalizeCategoryProfile(profile);
           state.mainCategories = normalized.mainCategories;
           state.subcategories = normalized.subcategories;
@@ -884,8 +675,6 @@ const dashboardSlice = createSlice({
       .addCase(addExpense.fulfilled, (state, action) => {
         state.saving = false;
         state.expenses.unshift(action.payload.expense);
-        state.habits.expensesLoggedThisWeek =
-          (state.habits.expensesLoggedThisWeek || 0) + 1;
       })
       .addCase(addExpense.rejected, (state, action) => {
         state.saving = false;
@@ -929,7 +718,7 @@ const dashboardSlice = createSlice({
         }
         state.walletTransactions.unshift({
           ...action.payload.transaction,
-          createdAt: new Date().toISOString(),
+          createdAt: action.payload.transaction.createdAt || new Date().toISOString(),
         });
       })
       .addCase(addWalletFunds.rejected, (state, action) => {
@@ -958,6 +747,8 @@ const dashboardSlice = createSlice({
                 amount: updated.amount,
                 note: updated.note,
                 accountId: updated.accountId,
+                date: updated.date,
+                monthKey: updated.monthKey,
               }
             : tx
         );
@@ -996,10 +787,52 @@ const dashboardSlice = createSlice({
         }
         state.walletTransactions.unshift({
           ...action.payload.transaction,
-          createdAt: new Date().toISOString(),
+          createdAt: action.payload.transaction.createdAt || new Date().toISOString(),
         });
       })
       .addCase(transferBetweenAccounts.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+
+      .addCase(updateWalletTransfer.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(updateWalletTransfer.fulfilled, (state, action) => {
+        state.saving = false;
+        if (action.payload.accounts) {
+          state.accounts = ensureAccounts(action.payload.accounts);
+        }
+        const updated = action.payload.transaction;
+        state.walletTransactions = state.walletTransactions.map((tx) =>
+          tx.id === updated.id
+            ? {
+                ...tx,
+                amount: updated.amount,
+                note: updated.note,
+                fromAccountId: updated.fromAccountId,
+                toAccountId: updated.toAccountId,
+                date: updated.date,
+                monthKey: updated.monthKey,
+              }
+            : tx
+        );
+      })
+      .addCase(updateWalletTransfer.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+
+      .addCase(removeWalletTransfer.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(removeWalletTransfer.fulfilled, (state, action) => {
+        state.saving = false;
+        state.walletTransactions = state.walletTransactions.filter(
+          (tx) => tx.id !== action.payload.txId
+        );
+      })
+      .addCase(removeWalletTransfer.rejected, (state, action) => {
         state.saving = false;
         state.error = action.payload;
       })
@@ -1016,23 +849,6 @@ const dashboardSlice = createSlice({
         state.error = action.payload;
       })
 
-      .addCase(markWeeklyReview.fulfilled, (state, action) => {
-        state.habits = action.payload;
-      })
-
-      .addCase(createSplitGroup.fulfilled, (state, action) => {
-        state.splitGroups.unshift(action.payload);
-      })
-      .addCase(addSplitGroupExpense.fulfilled, (state, action) => {
-        state.splitGroups = action.payload.updates.splitGroups;
-        state.activityLog = action.payload.updates.activityLog;
-      })
-      .addCase(markSettlementPaid.fulfilled, (state, action) => {
-        state.splitGroups = action.payload.splitGroups;
-      })
-      .addCase(updateSettlement.fulfilled, (state, action) => {
-        state.splitGroups = action.payload.splitGroups;
-      })
       .addCase(addRecurringExpenseTemplate.pending, (state) => {
         state.saving = true;
       })
@@ -1051,7 +867,6 @@ const dashboardSlice = createSlice({
         state.saving = false;
         state.expenses = [...action.payload.expenses, ...state.expenses];
         state.recurringExpenses = action.payload.recurringExpenses;
-        state.activityLog = [...(action.payload.activity || []), ...state.activityLog].slice(0, 100);
       })
       .addCase(applyDueRecurringExpenses.rejected, (state, action) => {
         state.saving = false;
@@ -1096,9 +911,6 @@ const dashboardSlice = createSlice({
         if (action.payload.categoryColors) {
           state.categoryColors = action.payload.categoryColors;
         }
-      })
-      .addCase(deleteCategory.rejected, (state, action) => {
-        state.error = action.payload;
       });
   },
 });
@@ -1108,7 +920,6 @@ export const {
   clearDashboardError,
   setMonthFilter,
   setDayFilter,
-  markOnboardingSeen,
 } =
   dashboardSlice.actions;
 export default dashboardSlice.reducer;
@@ -1170,54 +981,6 @@ export const selectExpensesGroupedByDay = (state) => {
   return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
 };
 
-export const selectMonthDayCalendar = (state) => {
-  const { month, year } = selectFilter(state);
-  const filterDate = state.dashboard.filterDate;
-  const start = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);
-  const daysInMonth = start.daysInMonth();
-  const today = getTodayString();
-  const days = [];
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = start.date(d).format('YYYY-MM-DD');
-    const dayExpenses = state.dashboard.expenses.filter((e) => e.date === date);
-    const total = dayExpenses.reduce((sum, e) => sum + e.amount, 0);
-    days.push({
-      date,
-      dayNum: d,
-      weekday: start.date(d).format('dd')[0],
-      total,
-      count: dayExpenses.length,
-      isToday: date === today,
-      isSelected: date === filterDate,
-      isFuture: dayjs(date).isAfter(dayjs(), 'day'),
-    });
-  }
-  return days;
-};
-
-export const selectMonthlyDistribution = (state) => {
-  const grouped = {};
-  state.dashboard.expenses.forEach((expense) => {
-    const key = dayjs(expense.date).format('YYYY-MM');
-    grouped[key] = (grouped[key] || 0) + expense.amount;
-  });
-
-  const months = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = dayjs().subtract(i, 'month');
-    const key = d.format('YYYY-MM');
-    months.push({
-      key,
-      label: d.format('MMM YY'),
-      month: d.month() + 1,
-      year: d.year(),
-      amount: grouped[key] || 0,
-    });
-  }
-  return months;
-};
-
 export const selectFilterMonthKey = (state) => {
   const { month, year } = selectFilter(state);
   return getMonthKey(month, year);
@@ -1276,7 +1039,34 @@ export const selectMonthIncomeEntries = (state) => {
         tx.monthKey === monthKey
     )
     .slice()
-    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    .sort((a, b) => {
+      const aDay = String(a.date || a.createdAt || '').slice(0, 10);
+      const bDay = String(b.date || b.createdAt || '').slice(0, 10);
+      const byDay = bDay.localeCompare(aDay);
+      if (byDay !== 0) return byDay;
+      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
+};
+
+/** Transfer entries for the filtered month (editable/deletable). */
+export const selectMonthTransferEntries = (state) => {
+  const monthKey = selectFilterMonthKey(state);
+  const { month, year } = selectFilter(state);
+  return (state.dashboard.walletTransactions || [])
+    .filter((tx) => {
+      if (tx.type !== 'transfer') return false;
+      if (tx.monthKey) return tx.monthKey === monthKey;
+      const day = String(tx.date || tx.createdAt || '').slice(0, 10);
+      return isInMonthYear(day, month, year);
+    })
+    .slice()
+    .sort((a, b) => {
+      const aDay = String(a.date || a.createdAt || '').slice(0, 10);
+      const bDay = String(b.date || b.createdAt || '').slice(0, 10);
+      const byDay = bDay.localeCompare(aDay);
+      if (byDay !== 0) return byDay;
+      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
 };
 
 export const selectMonthWalletRemaining = (state) => {
@@ -1307,9 +1097,6 @@ export const selectMonthWalletUsagePercent = (state) => {
 
 export const selectTotalSpent = (state) =>
   selectMonthExpenses(state).reduce((sum, e) => sum + e.amount, 0);
-
-export const selectBudgetRemaining = (state) =>
-  state.dashboard.monthlyBudget - selectTotalSpent(state);
 
 export const selectExpensesByCategory = (state) => {
   const grouped = {};
@@ -1378,13 +1165,6 @@ export const selectSubcategoriesForCategory = (state, categoryName) => {
   return selectSubcategories(state)[main.id] || [];
 };
 
-export const selectSavingsRate = (state) => {
-  const spent = selectTotalSpent(state);
-  const income = selectMonthIncome(state);
-  if (!income) return 0;
-  return Math.round(((income - spent) / income) * 100);
-};
-
 /** Home snapshot: income vs spend vs savings goal for the filtered month. */
 export const selectMonthSavingsSnapshot = (state) => {
   const income = selectMonthIncome(state);
@@ -1407,210 +1187,6 @@ export const selectMonthSavingsSnapshot = (state) => {
     progressTowardGoal,
     goalMet: income > 0 && saved >= goalAmount,
     hasIncome: income > 0,
-  };
-};
-
-export const selectDailySpendTrend = (state) => {
-  const { month, year } = selectFilter(state);
-  const start = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);
-  const daysInMonth = start.daysInMonth();
-  const days = [];
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = start.date(d);
-    const key = date.format('YYYY-MM-DD');
-    const total = state.dashboard.expenses
-      .filter((e) => e.date === key)
-      .reduce((sum, e) => sum + e.amount, 0);
-    days.push({
-      label: String(d),
-      amount: total,
-      date: key,
-      isSelected: key === state.dashboard.filterDate,
-    });
-  }
-  return days;
-};
-
-export const selectTopCategories = (state) => {
-  const grouped = selectExpensesByCategory(state);
-  return Object.entries(grouped)
-    .map(([category, amount]) => ({ category, amount }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 3);
-};
-
-export const selectHabitInsights = (state) => {
-  const spent = selectTotalSpent(state);
-  const income = selectMonthIncome(state);
-  const budget = state.dashboard.monthlyBudget;
-  const byCategory = selectExpensesByCategory(state);
-  const insights = [];
-
-  if (!state.dashboard.loaded) return insights;
-
-  const monthExpenses = selectMonthExpenses(state);
-  const monthLabel = selectFilteredMonthLabel(state);
-
-  if (state.dashboard.expenses.length === 0) {
-    insights.push({
-      type: 'info',
-      icon: '📝',
-      text: 'Log your first expense to unlock personalized insights.',
-    });
-    return insights;
-  }
-
-  if (monthExpenses.length === 0) {
-    insights.push({
-      type: 'info',
-      icon: '📅',
-      text: `No expenses in ${monthLabel}. Pick another month or add an expense for this period.`,
-    });
-    return insights;
-  }
-
-  const dayTotal = selectDayTotal(state);
-  const dayLabel = selectFilteredDayLabel(state);
-  if (selectIsTodaySelected(state) && dayTotal === 0) {
-    insights.push({
-      type: 'action',
-      icon: '✏️',
-      text: 'Log today\'s spends before end of day — small UPI payments add up fast.',
-    });
-  } else if (dayTotal > 0) {
-    insights.push({
-      type: 'tip',
-      icon: '📒',
-      text: `${dayLabel}: ₹${dayTotal.toLocaleString('en-IN')} logged. Keep tracking day by day!`,
-    });
-  }
-
-  const foodSpend = byCategory.Food || 0;
-  if (income > 0 && foodSpend / income > 0.3) {
-    insights.push({
-      type: 'warning',
-      icon: '🍽️',
-      text: 'Food spending is over 30% of income. Try meal planning to save more.',
-    });
-  }
-
-  const categoryLimitStatuses = selectCategoryLimitStatuses(state);
-  categoryLimitStatuses
-    .filter((item) => item.level != null)
-    .sort((a, b) => b.level - a.level)
-    .slice(0, 3)
-    .forEach((item) => {
-      insights.push({
-        type: item.level >= 100 ? 'danger' : item.level >= 90 ? 'warning' : 'tip',
-        icon: item.level >= 100 ? '⛔' : '📊',
-        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
-      });
-    });
-
-  if (budget > 0 && spent > budget) {
-    insights.push({
-      type: 'danger',
-      icon: '⚠️',
-      text: `You've exceeded your monthly budget by ₹${(spent - budget).toLocaleString('en-IN')}.`,
-    });
-  } else if (budget > 0 && spent > budget * 0.8) {
-    insights.push({
-      type: 'warning',
-      icon: '📊',
-      text: 'You have used 80%+ of your budget. Slow down discretionary spends.',
-    });
-  }
-
-  const walletFunded = selectMonthWalletFunded(state);
-  if (walletFunded === 0 && spent > 0) {
-    insights.push({
-      type: 'action',
-      icon: '👛',
-      text: `${monthLabel} has expenses but no wallet funded. Add income to track remaining balance.`,
-    });
-  } else if (walletFunded > 0 && spent > walletFunded) {
-    insights.push({
-      type: 'danger',
-      icon: '💸',
-      text: `You've spent ₹${(spent - walletFunded).toLocaleString('en-IN')} more than your wallet for ${monthLabel}.`,
-    });
-  } else if (walletFunded > 0 && spent > walletFunded * 0.8) {
-    insights.push({
-      type: 'warning',
-      icon: '👛',
-      text: 'You have used 80%+ of this month\'s wallet. Watch your remaining balance.',
-    });
-  }
-
-  const upiCount = selectMonthExpenses(state).filter((e) => e.paymentMode === 'UPI').length;
-  if (upiCount >= 5) {
-    insights.push({
-      type: 'tip',
-      icon: '📱',
-      text: `${upiCount} UPI transactions this month. Review small daily UPI spends on Sundays.`,
-    });
-  }
-
-  const savingsRate = selectSavingsRate(state);
-  const goal = state.dashboard.habits?.savingsGoalPercent ?? 20;
-  if (income > 0 && savingsRate < goal) {
-    insights.push({
-      type: 'tip',
-      icon: '🎯',
-      text: `Savings rate is ${savingsRate}%. Your goal is ${goal}% — cut one non-essential category.`,
-    });
-  } else if (income > 0 && savingsRate >= goal) {
-    insights.push({
-      type: 'success',
-      icon: '✅',
-      text: `Great job! You're meeting your ${goal}% savings goal.`,
-    });
-  }
-
-  const lastReview = state.dashboard.habits?.lastWeeklyReview;
-  if (!lastReview || dayjs().diff(dayjs(lastReview), 'day') >= 7) {
-    insights.push({
-      type: 'action',
-      icon: '📅',
-      text: 'Time for your weekly money review. Check expenses and adjust budget.',
-    });
-  }
-
-  return insights;
-};
-
-export const selectSplitOverview = (state) => {
-  const groups = state.dashboard.splitGroups || [];
-  const totalPending = groups.reduce(
-    (sum, group) =>
-      sum + (group.settlements || [])
-        .filter((item) => item.status === 'pending')
-        .reduce((groupSum, item) => groupSum + (item.amount || 0), 0),
-    0
-  );
-
-  const youOwe = groups.reduce(
-    (sum, group) =>
-      sum + (group.settlements || [])
-        .filter((item) => item.status === 'pending' && item.from === 'You')
-        .reduce((s, item) => s + (item.amount || 0), 0),
-    0
-  );
-
-  const owedToYou = groups.reduce(
-    (sum, group) =>
-      sum + (group.settlements || [])
-        .filter((item) => item.status === 'pending' && item.to === 'You')
-        .reduce((s, item) => s + (item.amount || 0), 0),
-    0
-  );
-
-  return {
-    groupsCount: groups.length,
-    totalPending,
-    youOwe,
-    owedToYou,
   };
 };
 
@@ -1653,22 +1229,22 @@ export const selectInAppReminders = (state) => {
       tone: 'info',
       action: 'wallet',
       text: selectIsFilterCurrentMonth(state)
-        ? 'Add income for this month to fund your wallet and start tracking spends.'
-        : `Fund your wallet for ${selectFilteredMonthLabel(state)} to track that month's balance.`,
+        ? 'Add income for this month to fund your budget and track spends.'
+        : `Add income for ${selectFilteredMonthLabel(state)} to track that month's budget.`,
     });
   } else if (walletFunded > 0 && walletRemaining < 0) {
     reminders.push({
       id: 'wallet-over',
       tone: 'danger',
       action: 'wallet',
-      text: `Wallet overspent by ${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
+      text: `Over budget by ₹${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
     });
   } else if (walletFunded > 0 && walletRemaining <= walletFunded * 0.2) {
     reminders.push({
       id: 'wallet-low',
       tone: 'warning',
       action: 'wallet',
-      text: `Only ${Math.max(0, walletRemaining).toLocaleString('en-IN')} left in this month's wallet.`,
+      text: `Only ₹${Math.max(0, walletRemaining).toLocaleString('en-IN')} left in this month's budget.`,
     });
   }
 
@@ -1693,17 +1269,6 @@ export const selectInAppReminders = (state) => {
         text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
       });
     });
-
-  if (state.dashboard.monthlyBudget > 0) {
-    const remaining = selectBudgetRemaining(state);
-    if (remaining < 0) {
-      reminders.push({
-        id: 'budget-over',
-        tone: 'danger',
-        text: `Budget exceeded by ${Math.abs(remaining).toLocaleString('en-IN')}.`,
-      });
-    }
-  }
 
   return reminders.slice(0, 4);
 };

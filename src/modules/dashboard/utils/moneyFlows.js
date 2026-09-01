@@ -1,3 +1,6 @@
+import dayjs from 'dayjs';
+import { getMonthKey, getTodayString } from '../../../core/utils/date';
+
 /**
  * Resolve income for a month key without leaking legacy totals into empty months.
  */
@@ -45,4 +48,47 @@ export function advanceRecurringNextDate(fromDate, cadence, today) {
     guard += 1;
   }
   return next;
+}
+
+/** Normalize Firestore / ISO / seconds timestamps to epoch ms. */
+export function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'object') {
+    if (typeof value.seconds === 'number') return value.seconds * 1000;
+    if (typeof value.toDate === 'function') {
+      const d = value.toDate();
+      return d instanceof Date ? d.getTime() : 0;
+    }
+  }
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Calendar day YYYY-MM-DD for a wallet tx or expense (date first, then createdAt). */
+export function resolveLedgerDayKey(item, fallback = '') {
+  const rawDate = item?.date;
+  if (rawDate && /^\d{4}-\d{2}-\d{2}/.test(String(rawDate))) {
+    return String(rawDate).slice(0, 10);
+  }
+  const ms = toMillis(item?.createdAt);
+  if (ms) return dayjs(ms).format('YYYY-MM-DD');
+  return fallback;
+}
+
+/** Normalize user-entered date; clamp to today max. */
+export function normalizeLedgerDate(dateStr, { allowFuture = false } = {}) {
+  const d = dayjs(dateStr);
+  if (!d.isValid()) return getTodayString();
+  if (!allowFuture && d.isAfter(dayjs(), 'day')) return getTodayString();
+  return d.format('YYYY-MM-DD');
+}
+
+export function monthKeyFromDate(dateStr) {
+  const d = dayjs(dateStr);
+  if (!d.isValid()) {
+    const today = dayjs();
+    return getMonthKey(today.month() + 1, today.year());
+  }
+  return getMonthKey(d.month() + 1, d.year());
 }

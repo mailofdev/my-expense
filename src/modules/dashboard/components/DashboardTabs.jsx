@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 const TABS = [
   { id: 'overview', label: 'Home' },
-  { id: 'wallet', label: 'Wallet' },
+  { id: 'wallet', label: 'Money' },
   { id: 'analyzer', label: 'Charts' },
   { id: 'settings', label: 'Settings' },
 ];

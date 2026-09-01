@@ -26,7 +26,7 @@ export default function ExpenseAnalyzer({ onOpenDay }) {
       <FindExpenses onOpenDay={onOpenDay} />
       <CategoryChart />
 
-      {monthExpenses.length > 0 && <MonthHistoryList />}
+      {monthExpenses.length > 0 && <MonthHistoryList onOpenDay={onOpenDay} />}
 
       {monthExpenses.length === 0 && (
         <p className="empty-state">

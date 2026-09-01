@@ -357,13 +357,13 @@ export default function CategorySettings() {
           </div>
 
           <label className="label mb-0">
-            Monthly limit (₹)
+            Monthly limit — optional (₹)
             <input
               className="input mt-1"
               type="number"
               min="0"
               inputMode="numeric"
-              placeholder="e.g. 3000"
+              placeholder="Leave blank for no limit"
               value={limits[active.name] ?? ''}
               onChange={(e) => {
                 const value = e.target.value;

@@ -151,12 +151,12 @@ export default function AddExpenseForm({ onGoToWallet }) {
 
     if (expenseWallet.funded === 0) {
       const proceed = window.confirm(
-        `No money added for ${expenseWallet.monthLabel} yet.\n\nAdd this expense anyway?`
+        `No income added for ${expenseWallet.monthLabel} yet.\n\nAdd this expense anyway?`
       );
       if (!proceed) return;
     } else if (remainingAfter < 0) {
       const proceed = window.confirm(
-        `This goes ${formatINR(Math.abs(remainingAfter))} over your month.\n\nAdd anyway?`
+        `This goes ${formatINR(Math.abs(remainingAfter))} over your month budget.\n\nAdd anyway?`
       );
       if (!proceed) return;
     }
@@ -197,10 +197,10 @@ export default function AddExpenseForm({ onGoToWallet }) {
             ))}
           </select>
 
-          <select className="input" {...register('accountId')} aria-label="Paid from">
+          <select className="input" {...register('accountId')} aria-label="Paid from bank">
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
-                {account.name}
+                From {account.name}
               </option>
             ))}
           </select>
@@ -258,13 +258,13 @@ export default function AddExpenseForm({ onGoToWallet }) {
 
         {expenseWallet.funded === 0 && watchedAmount > 0 && onGoToWallet && (
           <p className="m-0 rounded-sm border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-yellow-100">
-            Month not funded yet.{' '}
+            Month budget not funded yet.{' '}
             <button
               type="button"
               className="border-0 bg-transparent p-0 font-semibold text-primary underline"
               onClick={onGoToWallet}
             >
-              Add money
+              Add income
             </button>
           </p>
         )}

@@ -1,5 +1,11 @@
 import dayjs from 'dayjs';
-import { resolveMonthIncome, advanceRecurringNextDate } from './moneyFlows';
+import {
+  resolveMonthIncome,
+  advanceRecurringNextDate,
+  resolveLedgerDayKey,
+  normalizeLedgerDate,
+  monthKeyFromDate,
+} from './moneyFlows';
 
 describe('resolveMonthIncome', () => {
   test('uses per-month map including zero', () => {
@@ -57,5 +63,34 @@ describe('advanceRecurringNextDate', () => {
     const today = dayjs('2026-08-03');
     const next = advanceRecurringNextDate(dayjs('2026-07-20'), 'weekly', today);
     expect(next.isAfter(today, 'day')).toBe(true);
+  });
+});
+
+describe('ledger date helpers', () => {
+  test('prefers explicit date over createdAt', () => {
+    expect(
+      resolveLedgerDayKey({
+        date: '2026-08-01',
+        createdAt: '2026-08-06T12:00:00.000Z',
+      })
+    ).toBe('2026-08-01');
+  });
+
+  test('falls back to createdAt day for legacy income/transfers', () => {
+    expect(
+      resolveLedgerDayKey({
+        createdAt: '2026-08-06T06:00:00.000Z',
+      })
+    ).toBe('2026-08-06');
+  });
+
+  test('monthKeyFromDate matches calendar month', () => {
+    expect(monthKeyFromDate('2026-07-15')).toBe('2026-07');
+  });
+
+  test('normalizeLedgerDate clamps future dates', () => {
+    const tomorrow = dayjs().add(1, 'day').format('YYYY-MM-DD');
+    const today = dayjs().format('YYYY-MM-DD');
+    expect(normalizeLedgerDate(tomorrow)).toBe(today);
   });
 });

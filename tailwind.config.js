@@ -18,6 +18,7 @@ module.exports = {
         accent: '#4ade80',
         danger: '#ef4444',
         success: '#22c55e',
+        info: '#38bdf8',
       },
       fontFamily: {
         sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],

@@ -5,13 +5,13 @@ import DashboardHeader from '../components/DashboardHeader';
 import DashboardTabs from '../components/DashboardTabs';
 import DateToolbar from '../components/DateToolbar';
 import OverviewHero from '../components/OverviewHero';
+import HomeReminders from '../components/HomeReminders';
 import AddExpenseForm from '../components/AddExpenseForm';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
 import WalletTracker from '../components/WalletTracker';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import SettingsHub from '../components/SettingsHub';
-import { fetchDashboardData, clearDashboardError, setMonthFilter, setDayFilter } from '../store/dashboardSlice';
-import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
+import { fetchDashboardData, clearDashboardError, setDayFilter } from '../store/dashboardSlice';
 import dayjs from 'dayjs';
 
 const DATE_TABS = ['overview', 'wallet', 'analyzer'];
@@ -23,11 +23,6 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
 
   const handleTabChange = (tab) => {
-    if (tab === 'wallet') {
-      const now = getNowMonthYear();
-      dispatch(setMonthFilter({ month: now.month, year: now.year }));
-      dispatch(setDayFilter({ date: getTodayString() }));
-    }
     setActiveTab(tab);
   };
 
@@ -86,6 +81,10 @@ export default function DashboardPage() {
           {activeTab === 'overview' && (
             <>
               <OverviewHero onTabChange={handleTabChange} />
+              <HomeReminders
+                onGoToMoney={() => handleTabChange('wallet')}
+                onGoToSettings={() => handleTabChange('settings')}
+              />
               <AddExpenseForm onGoToWallet={() => handleTabChange('wallet')} />
               <DailyExpenseLedger onFindExpenses={() => handleTabChange('analyzer')} />
             </>

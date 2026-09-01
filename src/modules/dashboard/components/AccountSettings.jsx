@@ -43,6 +43,12 @@ export default function AccountSettings() {
       setMessage('Keep at least one bank.');
       return;
     }
+    const removed = rows.find((row) => row.id === id);
+    const keepName = rows.find((row) => row.id !== id)?.name || 'another bank';
+    const proceed = window.confirm(
+      `Remove ${removed?.name || 'this bank'}?\n\nPast expenses and income on it will count under ${keepName}.`
+    );
+    if (!proceed) return;
     setRows((prev) => prev.filter((row) => row.id !== id));
     setMessage('');
   };
@@ -151,8 +157,8 @@ export default function AccountSettings() {
     <section className="card">
       <h2 className="card-title mb-1">Banks</h2>
       <p className="card-desc mb-3">
-        Add each bank with its current balance. Income, expenses, and transfers update these
-        amounts.
+        Set each bank&apos;s current balance once. After that, use Add income for new money — don&apos;t
+        re-enter salary here or it will double-count.
       </p>
 
       <form className="space-y-3" onSubmit={handleSave}>
@@ -176,7 +182,7 @@ export default function AccountSettings() {
             </div>
             <div className="w-[7.5rem]">
               <label className="mb-1 block text-xs text-muted" htmlFor={`bank-amt-${row.id}`}>
-                Amount ₹
+                Balance ₹
               </label>
               <input
                 id={`bank-amt-${row.id}`}

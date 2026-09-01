@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { formatINR } from '../../../core/utils/currency';
+import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
 import { getCategoryColor } from '../../../core/constants/finance';
 import {
   removeExpense,
@@ -236,8 +236,8 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                         })()}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-semibold">
-                      {formatINR(expense.amount)}
+                    <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass('debit')}`}>
+                      −{formatINR(expense.amount)}
                     </span>
                     <button
                       type="button"

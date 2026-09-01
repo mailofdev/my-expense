@@ -8,6 +8,7 @@ import {
   selectMonthWalletFunded,
   selectMonthWalletUsagePercent,
   selectTotalSpent,
+  selectMonthSavingsSnapshot,
 } from '../store/dashboardSlice';
 
 export default function OverviewHero({ onTabChange }) {
@@ -18,8 +19,12 @@ export default function OverviewHero({ onTabChange }) {
   const walletFunded = useSelector(selectMonthWalletFunded);
   const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
   const monthSpent = useSelector(selectTotalSpent);
+  const savings = useSelector(selectMonthSavingsSnapshot);
 
   const walletBarPercent = walletFunded > 0 ? Math.min(100, walletUsagePercent) : 0;
+  const savingsBarPercent = savings.hasIncome
+    ? Math.min(100, Math.max(0, savings.progressTowardGoal))
+    : 0;
 
   return (
     <section className="px-0.5">
@@ -31,7 +36,7 @@ export default function OverviewHero({ onTabChange }) {
 
       <div className="mt-4 rounded-lg bg-surface-2/40 px-3 py-3">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="m-0 text-xs text-muted">This month</p>
+          <p className="m-0 text-xs text-muted">Month budget</p>
           {walletFunded > 0 ? (
             <p
               className={`m-0 text-sm font-semibold ${
@@ -46,7 +51,7 @@ export default function OverviewHero({ onTabChange }) {
               className="border-0 bg-transparent p-0 text-sm font-semibold text-primary"
               onClick={() => onTabChange?.('wallet')}
             >
-              Add money
+              Add income
             </button>
           )}
         </div>
@@ -65,9 +70,36 @@ export default function OverviewHero({ onTabChange }) {
               />
             </div>
             <p className="m-0 text-xs text-muted">
-              {formatINRCompact(monthSpent)} of {formatINRCompact(walletFunded)}
+              {formatINRCompact(monthSpent)} spent of {formatINRCompact(walletFunded)}
             </p>
           </>
+        )}
+
+        {savings.hasIncome && (
+          <div className="mt-3 border-t border-edge/40 pt-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="m-0 text-xs text-muted">Savings goal</p>
+              <p
+                className={`m-0 text-sm font-semibold ${
+                  savings.goalMet ? 'text-success' : savings.saved < 0 ? 'text-danger' : 'text-[#f0f4f2]'
+                }`}
+              >
+                {savings.savingsRate}% of income
+              </p>
+            </div>
+            <div className="mb-1.5 mt-2 h-1 overflow-hidden rounded-full bg-surface">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  savings.goalMet ? 'bg-success' : savings.saved < 0 ? 'bg-danger' : 'bg-accent'
+                }`}
+                style={{ width: `${savingsBarPercent}%` }}
+              />
+            </div>
+            <p className="m-0 text-xs text-muted">
+              {formatINRCompact(Math.max(0, savings.saved))} saved · goal {savings.goalPercent}%
+              {savings.goalMet ? ' · on track' : ''}
+            </p>
+          </div>
         )}
       </div>
     </section>

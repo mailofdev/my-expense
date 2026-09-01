@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
-import { formatINR } from '../../../core/utils/currency';
+import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
+import { getTodayString } from '../../../core/utils/date';
 import { getAccountById, getDefaultAccountId } from '../utils/accounts';
+import { resolveLedgerDayKey } from '../utils/moneyFlows';
 import {
   addWalletFunds,
   updateWalletCredit,
@@ -13,6 +15,7 @@ import {
   selectMonthIncomeEntries,
   selectIsFilterCurrentMonth,
   selectAccounts,
+  selectFilterDate,
 } from '../store/dashboardSlice';
 
 export default function AddIncomeForm() {
@@ -25,6 +28,7 @@ export default function AddIncomeForm() {
   const monthIncome = useSelector(selectMonthIncome);
   const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
   const incomeEntries = useSelector(selectMonthIncomeEntries);
+  const filterDate = useSelector(selectFilterDate);
 
   const defaultAccountId = getDefaultAccountId(accounts);
   const salaryAccountId =
@@ -33,12 +37,14 @@ export default function AddIncomeForm() {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [accountId, setAccountId] = useState(salaryAccountId);
+  const [date, setDate] = useState(filterDate || getTodayString());
   const [message, setMessage] = useState('');
 
   const [editingId, setEditingId] = useState(null);
   const [editAmount, setEditAmount] = useState('');
   const [editNote, setEditNote] = useState('');
   const [editAccountId, setEditAccountId] = useState(salaryAccountId);
+  const [editDate, setEditDate] = useState(filterDate || getTodayString());
 
   useEffect(() => {
     setAccountId((prev) => {
@@ -47,11 +53,18 @@ export default function AddIncomeForm() {
     });
   }, [accounts, salaryAccountId]);
 
+  useEffect(() => {
+    if (!editingId) {
+      setDate(filterDate || getTodayString());
+    }
+  }, [filterDate, editingId]);
+
   const startEdit = (entry) => {
     setEditingId(entry.id);
     setEditAmount(String(entry.amount));
     setEditNote(entry.note || '');
     setEditAccountId(entry.accountId || defaultAccountId);
+    setEditDate(resolveLedgerDayKey(entry, filterDate || getTodayString()));
     setMessage('');
   };
 
@@ -60,12 +73,17 @@ export default function AddIncomeForm() {
     setEditAmount('');
     setEditNote('');
     setEditAccountId(salaryAccountId);
+    setEditDate(filterDate || getTodayString());
   };
 
   const handleSaveEdit = (entry) => {
     const value = Number(editAmount);
     if (!value || value < 1) {
       setMessage('Enter at least ₹1.');
+      return;
+    }
+    if (!editDate) {
+      setMessage('Pick a date.');
       return;
     }
 
@@ -76,6 +94,7 @@ export default function AddIncomeForm() {
         amount: value,
         note: editNote.trim() || 'Income',
         accountId: editAccountId || defaultAccountId,
+        date: editDate,
       })
     ).then((result) => {
       if (!result.error) {
@@ -111,6 +130,10 @@ export default function AddIncomeForm() {
       setMessage('Enter at least ₹1.');
       return;
     }
+    if (!date) {
+      setMessage('Pick a date.');
+      return;
+    }
 
     dispatch(
       addWalletFunds({
@@ -120,11 +143,13 @@ export default function AddIncomeForm() {
         monthKey,
         source: 'income',
         accountId: accountId || defaultAccountId,
+        date,
       })
     ).then((result) => {
       if (!result.error) {
         setAmount('');
         setNote('');
+        setDate(filterDate || getTodayString());
         const accountName = accounts.find((a) => a.id === accountId)?.name || 'account';
         setMessage(`+${formatINR(value)} → ${accountName}`);
       } else {
@@ -135,10 +160,11 @@ export default function AddIncomeForm() {
 
   return (
     <section className="card">
-      <h2 className="card-title mb-1">Add money</h2>
+      <h2 className="card-title mb-1">Add income</h2>
       <p className="card-desc mb-3">
-        {monthLabel}
-        {monthIncome > 0 ? ` · ${formatINR(monthIncome)} so far` : ''}
+        {`Funds your ${monthLabel} budget and deposits into a bank${
+          monthIncome > 0 ? ` · ${formatINR(monthIncome)} so far` : ''
+        }.`}
       </p>
 
       {!isCurrentMonth && (
@@ -167,7 +193,7 @@ export default function AddIncomeForm() {
             setAccountId(e.target.value);
             setMessage('');
           }}
-          aria-label="Deposit to account"
+          aria-label="Deposit to bank"
         >
           {accounts.map((account) => (
             <option key={account.id} value={account.id}>
@@ -175,6 +201,18 @@ export default function AddIncomeForm() {
             </option>
           ))}
         </select>
+
+        <input
+          className="input"
+          type="date"
+          max={getTodayString()}
+          value={date}
+          onChange={(e) => {
+            setDate(e.target.value);
+            setMessage('');
+          }}
+          aria-label="Income date"
+        />
 
         <input
           className="input"
@@ -189,7 +227,7 @@ export default function AddIncomeForm() {
         />
 
         <button type="submit" className="btn-primary btn-full" disabled={saving || editingId}>
-          {saving && !editingId ? 'Adding…' : 'Add money'}
+          {saving && !editingId ? 'Adding…' : 'Add income'}
         </button>
       </form>
 
@@ -201,6 +239,7 @@ export default function AddIncomeForm() {
               accounts,
               entry.accountId || defaultAccountId
             )?.name;
+            const entryDay = resolveLedgerDayKey(entry);
 
             return (
               <li key={entry.id} className="rounded-sm py-2">
@@ -229,6 +268,14 @@ export default function AddIncomeForm() {
                     </select>
                     <input
                       className="input py-2 text-sm"
+                      type="date"
+                      max={getTodayString()}
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      aria-label="Edit income date"
+                    />
+                    <input
+                      className="input py-2 text-sm"
                       value={editNote}
                       onChange={(e) => setEditNote(e.target.value)}
                       placeholder="Note"
@@ -247,7 +294,7 @@ export default function AddIncomeForm() {
                         type="button"
                         className="btn-primary btn-sm"
                         onClick={() => handleSaveEdit(entry)}
-                        disabled={saving || !(Number(editAmount) >= 1)}
+                        disabled={saving || !(Number(editAmount) >= 1) || !editDate}
                       >
                         {saving ? '…' : 'Save'}
                       </button>
@@ -261,12 +308,10 @@ export default function AddIncomeForm() {
                       </p>
                       <p className="m-0 text-xs text-muted">
                         {accountName ? `${accountName} · ` : ''}
-                        {entry.createdAt
-                          ? dayjs(entry.createdAt).format('D MMM')
-                          : monthLabel}
+                        {entryDay ? dayjs(entryDay).format('D MMM') : monthLabel}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-semibold text-success">
+                    <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass('income')}`}>
                       +{formatINR(entry.amount)}
                     </span>
                     <button
@@ -298,7 +343,7 @@ export default function AddIncomeForm() {
       {message && (
         <p
           className={`mb-0 mt-2 text-sm ${
-            message.startsWith('Could') || message.startsWith('Enter')
+            message.startsWith('Could') || message.startsWith('Enter') || message.startsWith('Pick')
               ? 'text-danger'
               : 'text-success'
           }`}

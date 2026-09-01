@@ -12,19 +12,19 @@ export default function SettingsHub() {
   return (
     <div className="feature-panel">
       <AccountSettings />
+      <RecurringExpensesPanel />
       <CategorySettings />
 
       <DisclosureToggle
         open={showAdvanced}
         onToggle={() => setShowAdvanced((prev) => !prev)}
         title="More settings"
-        hintClosed="Recurring bills, savings goal, export"
+        hintClosed="Savings goal, export"
         hintOpen="Tap to hide"
         controlsId="advanced-settings"
       />
       {showAdvanced && (
         <div id="advanced-settings" className="contents">
-          <RecurringExpensesPanel />
           <SavingsGoalSettings />
           <ExportDataPanel />
         </div>

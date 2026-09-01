@@ -1,10 +1,9 @@
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { formatINR } from '../../../core/utils/currency';
 import { formatDayLabel } from '../../../core/utils/date';
-import { setDayFilter, selectExpensesGroupedByDay, selectFilterDate } from '../store/dashboardSlice';
+import { selectExpensesGroupedByDay, selectFilterDate } from '../store/dashboardSlice';
 
-export default function MonthHistoryList() {
-  const dispatch = useDispatch();
+export default function MonthHistoryList({ onOpenDay }) {
   const filterDate = useSelector(selectFilterDate);
   const groupedDays = useSelector(selectExpensesGroupedByDay);
 
@@ -20,6 +19,7 @@ export default function MonthHistoryList() {
   return (
     <section className="card card-subtle">
       <h2 className="card-title">By day</h2>
+      <p className="card-desc mb-3 mt-0">Tap a day to view expenses on Home.</p>
       <ul className="m-0 list-none p-0">
         {groupedDays.map((group) => (
           <li key={group.date} className="border-t border-edge/60 first:border-0">
@@ -28,10 +28,10 @@ export default function MonthHistoryList() {
               className={`flex w-full items-center justify-between gap-3 border-0 bg-transparent py-3.5 text-left text-sm transition-colors ${
                 group.date === filterDate ? 'text-primary' : 'text-[#f0f4f2] hover:text-primary'
               }`}
-              onClick={() => dispatch(setDayFilter({ date: group.date }))}
+              onClick={() => onOpenDay?.(group.date)}
             >
               <span>{formatDayLabel(group.date)}</span>
-              <strong>{formatINR(group.total)}</strong>
+              <strong className="text-danger">−{formatINR(group.total)}</strong>
             </button>
           </li>
         ))}
