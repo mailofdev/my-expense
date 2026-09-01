@@ -6,6 +6,7 @@ import DashboardTabs from '../components/DashboardTabs';
 import DateToolbar from '../components/DateToolbar';
 import OverviewHero from '../components/OverviewHero';
 import HomeReminders from '../components/HomeReminders';
+import GettingStarted from '../components/GettingStarted';
 import AddExpenseForm from '../components/AddExpenseForm';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
 import WalletTracker from '../components/WalletTracker';
@@ -81,16 +82,16 @@ export default function DashboardPage() {
           {activeTab === 'overview' && (
             <>
               <OverviewHero onTabChange={handleTabChange} />
-              <HomeReminders
-                onGoToMoney={() => handleTabChange('wallet')}
-                onGoToSettings={() => handleTabChange('settings')}
-              />
-              <AddExpenseForm onGoToWallet={() => handleTabChange('wallet')} />
+              <GettingStarted onGoToMoney={() => handleTabChange('wallet')} />
+              <HomeReminders onGoToMoney={() => handleTabChange('wallet')} />
+              <AddExpenseForm onGoToMoney={() => handleTabChange('wallet')} />
               <DailyExpenseLedger onFindExpenses={() => handleTabChange('analyzer')} />
             </>
           )}
 
-          {activeTab === 'wallet' && <WalletTracker />}
+          {activeTab === 'wallet' && (
+            <WalletTracker onGoToHome={() => handleTabChange('overview')} />
+          )}
           {activeTab === 'analyzer' && <ExpenseAnalyzer onOpenDay={openExpenseDay} />}
           {activeTab === 'settings' && <SettingsHub />}
         </div>

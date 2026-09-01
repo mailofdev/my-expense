@@ -8,7 +8,6 @@ import {
   buildCategoryColors,
   getCategoryLimitLevel,
   getCategoryLimitPercent,
-  getCategoryLimitWarningText,
 } from '../../../core/constants/finance';
 import {
   getNowMonthYear,
@@ -559,6 +558,27 @@ export const setMainCategoryHidden = createAsyncThunk(
   }
 );
 
+/** Clear all income and expenses for the current calendar month. */
+export const resetCurrentMonth = createAsyncThunk(
+  'dashboard/resetCurrentMonth',
+  async ({ uid }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState().dashboard;
+      const { month, year } = getNowMonthYear();
+      return await walletService.resetMonth(
+        uid,
+        { month, year },
+        {
+          expenses: state.expenses,
+          walletTransactions: state.walletTransactions,
+        }
+      );
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
 const initialMonthYear = getNowMonthYear();
 
 const dashboardSlice = createSlice({
@@ -833,6 +853,26 @@ const dashboardSlice = createSlice({
         );
       })
       .addCase(removeWalletTransfer.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+
+      .addCase(resetCurrentMonth.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(resetCurrentMonth.fulfilled, (state, action) => {
+        state.saving = false;
+        const deletedExpenseIds = new Set(action.payload.deletedExpenseIds);
+        const deletedTxIds = new Set(action.payload.deletedTxIds);
+        state.expenses = state.expenses.filter((expense) => !deletedExpenseIds.has(expense.id));
+        state.walletTransactions = state.walletTransactions.filter(
+          (tx) => !deletedTxIds.has(tx.id)
+        );
+        state.monthlyWallets = action.payload.monthlyWallets;
+        state.monthlyIncomes = action.payload.monthlyIncomes;
+        state.monthlyIncome = action.payload.monthlyIncome;
+      })
+      .addCase(resetCurrentMonth.rejected, (state, action) => {
         state.saving = false;
         state.error = action.payload;
       })
@@ -1208,18 +1248,6 @@ export const selectDueRecurringExpenses = (state) => {
 export const selectInAppReminders = (state) => {
   const reminders = [];
 
-  // Highest priority for Home: bills due + wallet status.
-  const dueRecurring = selectDueRecurringExpenses(state);
-  if (dueRecurring.length > 0) {
-    const total = dueRecurring.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-    reminders.push({
-      id: 'due-recurring',
-      tone: 'warning',
-      action: 'log-recurring',
-      text: `${dueRecurring.length} bill${dueRecurring.length > 1 ? 's' : ''} due · ₹${total.toLocaleString('en-IN')} — tap to log`,
-    });
-  }
-
   const walletFunded = selectMonthWalletFunded(state);
   const walletRemaining = selectMonthWalletRemaining(state);
   const monthSpent = selectTotalSpent(state);
@@ -1229,46 +1257,24 @@ export const selectInAppReminders = (state) => {
       tone: 'info',
       action: 'wallet',
       text: selectIsFilterCurrentMonth(state)
-        ? 'Add income for this month to fund your budget and track spends.'
-        : `Add income for ${selectFilteredMonthLabel(state)} to track that month's budget.`,
+        ? 'Add income on the Money tab to start tracking this month.'
+        : `Add income for ${selectFilteredMonthLabel(state)} on the Money tab.`,
     });
   } else if (walletFunded > 0 && walletRemaining < 0) {
     reminders.push({
       id: 'wallet-over',
       tone: 'danger',
       action: 'wallet',
-      text: `Over budget by ₹${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
+      text: `Over by ₹${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
     });
   } else if (walletFunded > 0 && walletRemaining <= walletFunded * 0.2) {
     reminders.push({
       id: 'wallet-low',
       tone: 'warning',
       action: 'wallet',
-      text: `Only ₹${Math.max(0, walletRemaining).toLocaleString('en-IN')} left in this month's budget.`,
+      text: `Only ₹${Math.max(0, walletRemaining).toLocaleString('en-IN')} left this month.`,
     });
   }
 
-  const categoryLimitStatuses = selectCategoryLimitStatuses(state);
-  categoryLimitStatuses
-    .filter((item) => item.level >= 100)
-    .slice(0, 2)
-    .forEach((item) => {
-      reminders.push({
-        id: `cat-limit-${item.category}`,
-        tone: 'danger',
-        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
-      });
-    });
-  categoryLimitStatuses
-    .filter((item) => item.level != null && item.level < 100 && item.level >= 75)
-    .slice(0, 2)
-    .forEach((item) => {
-      reminders.push({
-        id: `cat-warn-${item.category}`,
-        tone: 'warning',
-        text: getCategoryLimitWarningText(item.category, item.level, item.spent, item.limit),
-      });
-    });
-
-  return reminders.slice(0, 4);
+  return reminders.slice(0, 3);
 };

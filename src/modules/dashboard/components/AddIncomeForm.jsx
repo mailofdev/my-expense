@@ -162,9 +162,9 @@ export default function AddIncomeForm() {
     <section className="card">
       <h2 className="card-title mb-1">Add income</h2>
       <p className="card-desc mb-3">
-        {`Funds your ${monthLabel} budget and deposits into a bank${
-          monthIncome > 0 ? ` · ${formatINR(monthIncome)} so far` : ''
-        }.`}
+        {monthIncome > 0
+          ? `${formatINR(monthIncome)} added this month. More income = more to spend.`
+          : 'Start by adding your salary or any money you received this month.'}
       </p>
 
       {!isCurrentMonth && (
@@ -186,21 +186,23 @@ export default function AddIncomeForm() {
           aria-label="Amount"
         />
 
-        <select
-          className="input"
-          value={accountId}
-          onChange={(e) => {
-            setAccountId(e.target.value);
-            setMessage('');
-          }}
-          aria-label="Deposit to bank"
-        >
-          {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              Into {account.name}
-            </option>
-          ))}
-        </select>
+        {accounts.length > 1 && (
+          <select
+            className="input"
+            value={accountId}
+            onChange={(e) => {
+              setAccountId(e.target.value);
+              setMessage('');
+            }}
+            aria-label="Deposit to account"
+          >
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                Into {account.name}
+              </option>
+            ))}
+          </select>
+        )}
 
         <input
           className="input"
@@ -254,18 +256,20 @@ export default function AddIncomeForm() {
                       aria-label="Edit amount"
                       autoFocus
                     />
-                    <select
-                      className="input py-2 text-sm"
-                      value={editAccountId}
-                      onChange={(e) => setEditAccountId(e.target.value)}
-                      aria-label="Edit account"
-                    >
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          Into {account.name}
-                        </option>
-                      ))}
-                    </select>
+                    {accounts.length > 1 && (
+                      <select
+                        className="input py-2 text-sm"
+                        value={editAccountId}
+                        onChange={(e) => setEditAccountId(e.target.value)}
+                        aria-label="Edit account"
+                      >
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            Into {account.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <input
                       className="input py-2 text-sm"
                       type="date"

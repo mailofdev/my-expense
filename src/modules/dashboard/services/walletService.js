@@ -7,6 +7,7 @@ import {
   limit,
   serverTimestamp,
   runTransaction,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from '../../../core/config/firebase';
 import { getMonthKey, getNowMonthYear, getTodayString, isInMonthYear } from '../../../core/utils/date';
@@ -543,5 +544,58 @@ export const walletService = {
     });
 
     return result;
+  },
+
+  /**
+   * Delete all income, transfers, and expenses for a calendar month so the user can start fresh.
+   */
+  async resetMonth(uid, { month, year }, { expenses = [], walletTransactions = [] } = {}) {
+    const monthKey = getMonthKey(month, year);
+
+    const expensesToDelete = (expenses || []).filter((expense) =>
+      isInMonthYear(expense.date, month, year)
+    );
+
+    const txsToDelete = (walletTransactions || []).filter((tx) => {
+      if (tx.monthKey === monthKey) return true;
+      const dayKey =
+        tx.date ||
+        (tx.createdAt ? String(tx.createdAt).slice(0, 10) : null);
+      return dayKey && isInMonthYear(dayKey, month, year);
+    });
+
+    await Promise.all([
+      ...expensesToDelete.map((expense) =>
+        deleteDoc(doc(db, 'users', uid, 'expenses', expense.id))
+      ),
+      ...txsToDelete.map((tx) =>
+        deleteDoc(doc(db, 'users', uid, 'walletTransactions', tx.id))
+      ),
+    ]);
+
+    const profile = await userService.getProfile(uid);
+    if (!profile) throw new Error('User profile not found');
+
+    const monthlyWallets = { ...(profile.monthlyWallets || {}) };
+    const monthlyIncomes = { ...(profile.monthlyIncomes || {}) };
+    delete monthlyWallets[monthKey];
+    delete monthlyIncomes[monthKey];
+
+    const { month: nowMonth, year: nowYear } = getNowMonthYear();
+    const updates = { monthlyWallets, monthlyIncomes };
+    if (month === nowMonth && year === nowYear) {
+      updates.monthlyIncome = 0;
+    }
+
+    await userService.updateProfile(uid, updates);
+
+    return {
+      monthKey,
+      deletedExpenseIds: expensesToDelete.map((expense) => expense.id),
+      deletedTxIds: txsToDelete.map((tx) => tx.id),
+      monthlyWallets,
+      monthlyIncomes,
+      monthlyIncome: updates.monthlyIncome ?? profile.monthlyIncome ?? 0,
+    };
   },
 };

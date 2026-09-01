@@ -7,6 +7,8 @@ import { getAccountById, getDefaultAccountId } from '../utils/accounts';
 import { resolveLedgerDayKey, toMillis } from '../utils/moneyFlows';
 import AddIncomeForm from './AddIncomeForm';
 import TransferForm from './TransferForm';
+import BankManager from './BankManager';
+import MoneyNextStep from './MoneyNextStep';
 import {
   selectFilterMonthKey,
   selectFilteredMonthLabel,
@@ -19,7 +21,7 @@ import {
   selectAccounts,
 } from '../store/dashboardSlice';
 
-export default function WalletTracker() {
+export default function WalletTracker({ onGoToHome }) {
   const { walletTransactions } = useSelector((state) => state.dashboard);
   const accounts = useSelector(selectAccounts);
   const { accounts: accountsWithBal, total: accountsTotal } = useSelector(selectAccountsWithBalances);
@@ -36,7 +38,7 @@ export default function WalletTracker() {
     year: state.dashboard.filterYear,
   }));
   const defaultAccountId = getDefaultAccountId(accounts);
-  const [showActivity, setShowActivity] = useState(true);
+  const [showActivity, setShowActivity] = useState(false);
 
   const isTxInFilteredMonth = (tx) => {
     if (tx.monthKey) return tx.monthKey === monthKey;
@@ -109,8 +111,10 @@ export default function WalletTracker() {
 
   return (
     <div className="feature-panel">
+      <MoneyNextStep onGoToHome={onGoToHome} />
+
       <section className="card text-center">
-        <p className="section-label m-0">{monthLabel} budget</p>
+        <p className="section-label m-0">{monthLabel}</p>
         <p
           className={`text-glow m-0 mt-1 text-[clamp(1.75rem,8vw,2.5rem)] font-bold ${
             monthFunded > 0 && monthRemaining < 0
@@ -123,9 +127,7 @@ export default function WalletTracker() {
           {monthFunded > 0 ? formatINR(monthRemaining) : formatINR(0)}
         </p>
         <p className="m-0 mt-1 text-sm text-muted">
-          {monthFunded > 0
-            ? 'left to spend this month'
-            : 'Add income below to fund this month'}
+          {monthFunded > 0 ? 'left to spend' : 'Add income below to get started'}
         </p>
 
         {monthFunded > 0 && (
@@ -154,11 +156,11 @@ export default function WalletTracker() {
 
       <section className="card">
         <div className="mb-1 flex items-baseline justify-between gap-2">
-          <h2 className="card-title mb-0">Banks</h2>
+          <h2 className="card-title mb-0">Balances</h2>
           <p className="m-0 text-sm font-semibold text-primary">{formatINR(accountsTotal)}</p>
         </div>
         <p className="card-desc mb-3">
-          Cash in your banks. Separate from this month&apos;s spending budget above.
+          Updated when you add income or log expenses.
         </p>
         <ul className="m-0 list-none space-y-0 p-0">
           {accountsWithBal.map((account) => (
@@ -177,6 +179,8 @@ export default function WalletTracker() {
             </li>
           ))}
         </ul>
+
+        <BankManager />
 
         {accountsWithBal.length >= 2 && (
           <div className="mt-4 border-t border-edge/50 pt-4">

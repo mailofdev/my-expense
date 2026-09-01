@@ -7,20 +7,15 @@ import {
   updateExpense,
   selectDayExpenses,
   selectDayTotal,
-  selectFilterDate,
   selectFilteredDayLabel,
   selectIsTodaySelected,
-  selectMonthWalletStatsByDate,
   selectAccounts,
   selectDefaultAccountId,
   selectVisibleCategories,
   selectMainCategories,
 } from '../store/dashboardSlice';
 import { getAccountById } from '../utils/accounts';
-import {
-  normalizeTags,
-  resolveMainCategoryName,
-} from '../utils/categories';
+import { resolveMainCategoryName } from '../utils/categories';
 
 export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
@@ -30,7 +25,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const mainCategories = useSelector(selectMainCategories);
   const accounts = useSelector(selectAccounts);
   const defaultAccountId = useSelector(selectDefaultAccountId);
-  const filterDate = useSelector(selectFilterDate);
+  const showBankPicker = accounts.length > 1;
   const dayExpenses = useSelector(selectDayExpenses);
   const dayTotal = useSelector(selectDayTotal);
   const dayLabel = useSelector(selectFilteredDayLabel);
@@ -41,10 +36,6 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const [editAmount, setEditAmount] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editAccountId, setEditAccountId] = useState('');
-
-  const editWallet = useSelector((state) =>
-    editingId ? selectMonthWalletStatsByDate(state, filterDate, editingId) : null
-  );
 
   const startEdit = (expense) => {
     setEditingId(expense.id);
@@ -65,20 +56,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const handleSave = (expense) => {
     const title = editTitle.trim();
     const amount = Number(editAmount);
-    const date = expense.date;
-
-    if (!title) return;
-    if (!amount || amount < 1) return;
-
-    const stats = editWallet || { remaining: 0, funded: 0, monthLabel: '' };
-    const remainingAfter = stats.remaining - amount;
-
-    if (stats.funded > 0 && remainingAfter < 0) {
-      const proceed = window.confirm(
-        `This goes ${formatINR(Math.abs(remainingAfter))} over your month. Save anyway?`
-      );
-      if (!proceed) return;
-    }
+    if (!title || !amount || amount < 1) return;
 
     dispatch(
       updateExpense({
@@ -90,16 +68,14 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           amount,
           category: editCategory,
           subcategory: expense.subcategory || '',
-          tags: normalizeTags(expense.tags),
-          date,
+          tags: Array.isArray(expense.tags) ? expense.tags : [],
+          date: expense.date,
           paymentMode: expense.paymentMode || paymentModes[0],
           accountId: editAccountId || defaultAccountId,
         },
       })
     ).then((result) => {
-      if (!result.error) {
-        cancelEdit();
-      }
+      if (!result.error) cancelEdit();
     });
   };
 
@@ -141,7 +117,9 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           {dayExpenses.map((expense) => {
             const isEditing = editingId === expense.id;
             const category = resolveMainCategoryName(expense.category, mainCategories);
-            const tags = normalizeTags(expense.tags);
+            const bankName = showBankPicker
+              ? getAccountById(accounts, expense.accountId || defaultAccountId)?.name
+              : null;
 
             return (
               <li
@@ -167,7 +145,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                       placeholder="Amount ₹"
                       aria-label="Expense amount"
                     />
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={`grid gap-2 ${showBankPicker ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <select
                         className="input py-2 text-sm"
                         value={editCategory}
@@ -178,18 +156,20 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                           <option key={cat} value={cat}>{cat}</option>
                         ))}
                       </select>
-                      <select
-                        className="input py-2 text-sm"
-                        value={editAccountId}
-                        onChange={(e) => setEditAccountId(e.target.value)}
-                        aria-label="Paid from"
-                      >
-                        {accounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.name}
-                          </option>
-                        ))}
-                      </select>
+                      {showBankPicker && (
+                        <select
+                          className="input py-2 text-sm"
+                          value={editAccountId}
+                          onChange={(e) => setEditAccountId(e.target.value)}
+                          aria-label="Paid from"
+                        >
+                          {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
                       <button
@@ -223,17 +203,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                       <p className="m-0 truncate text-sm font-medium">{expense.title}</p>
                       <p className="m-0 text-xs text-muted">
                         {category}
-                        {expense.subcategory ? ` · ${expense.subcategory}` : ''}
-                        {tags.length
-                          ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}`
-                          : ''}
-                        {(() => {
-                          const name = getAccountById(
-                            accounts,
-                            expense.accountId || defaultAccountId
-                          )?.name;
-                          return name ? ` · ${name}` : '';
-                        })()}
+                        {bankName ? ` · ${bankName}` : ''}
                       </p>
                     </div>
                     <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass('debit')}`}>
@@ -271,7 +241,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           className="mt-3 w-full border-0 bg-transparent p-0 text-center text-xs font-semibold text-primary"
           onClick={onFindExpenses}
         >
-          Find past expenses
+          Search all expenses
         </button>
       )}
     </section>

@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
-import { getTodayString } from '../../../core/utils/date';
+import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
 import { formatINR } from '../../../core/utils/currency';
 import {
-  downloadExpenseCsv,
-  filterExpensesByDateRange,
+  buildLedgerRows,
+  downloadLedgerCsv,
+  summarizeLedgerRows,
 } from '../utils/exportExpenses';
+import { selectAccounts, selectMainCategories } from '../store/dashboardSlice';
 
-function getDefaultRange(filterMonth, filterYear) {
+function getDefaultRange() {
+  const { month, year } = getNowMonthYear();
   const today = getTodayString();
-  const startDate = dayjs(`${filterYear}-${String(filterMonth).padStart(2, '0')}-01`).format(
-    'YYYY-MM-DD'
-  );
+  const startDate = dayjs(`${year}-${String(month).padStart(2, '0')}-01`).format('YYYY-MM-DD');
   const monthEnd = dayjs(startDate).endOf('month').format('YYYY-MM-DD');
   const endDate = dayjs(monthEnd).isAfter(dayjs(today), 'day') ? today : monthEnd;
   return { startDate, endDate };
@@ -20,28 +21,39 @@ function getDefaultRange(filterMonth, filterYear) {
 
 export default function ExportDataPanel() {
   const expenses = useSelector((state) => state.dashboard.expenses);
-  const { filterMonth, filterYear } = useSelector((state) => state.dashboard);
+  const walletTransactions = useSelector((state) => state.dashboard.walletTransactions);
+  const accounts = useSelector(selectAccounts);
+  const mainCategories = useSelector(selectMainCategories);
   const today = getTodayString();
 
-  const defaults = getDefaultRange(filterMonth, filterYear);
+  const defaults = getDefaultRange();
   const [startDate, setStartDate] = useState(defaults.startDate);
   const [endDate, setEndDate] = useState(defaults.endDate);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    const next = getDefaultRange(filterMonth, filterYear);
-    setStartDate(next.startDate);
-    setEndDate(next.endDate);
-    setMessage('');
-  }, [filterMonth, filterYear]);
-
   const rangeValid = startDate && endDate && !dayjs(startDate).isAfter(dayjs(endDate), 'day');
 
-  const filtered = rangeValid
-    ? filterExpensesByDateRange(expenses, startDate, endDate)
-    : [];
+  const rows = useMemo(() => {
+    if (!rangeValid) return [];
+    return buildLedgerRows({
+      expenses,
+      walletTransactions,
+      accounts,
+      mainCategories,
+      startDate,
+      endDate,
+    });
+  }, [
+    rangeValid,
+    expenses,
+    walletTransactions,
+    accounts,
+    mainCategories,
+    startDate,
+    endDate,
+  ]);
 
-  const total = filtered.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+  const summary = useMemo(() => summarizeLedgerRows(rows), [rows]);
 
   const handleExport = () => {
     setMessage('');
@@ -49,16 +61,19 @@ export default function ExportDataPanel() {
       setMessage('End date must be on or after start date.');
       return;
     }
-    if (filtered.length === 0) {
-      setMessage('No expenses in this date range.');
+    if (rows.length === 0) {
+      setMessage('No income, expenses, or transfers in this date range.');
       return;
     }
-    downloadExpenseCsv(filtered, startDate, endDate);
+    downloadLedgerCsv(rows, startDate, endDate);
   };
 
   return (
     <section className="card">
-      <h2 className="card-title">Export data</h2>
+      <h2 className="card-title mb-1">Export data</h2>
+      <p className="card-desc mb-3">
+        Download income, expenses, and transfers as CSV — same as your Money history.
+      </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="label m-0">
           Start date
@@ -91,7 +106,12 @@ export default function ExportDataPanel() {
 
       {rangeValid && (
         <p className="mt-3 mb-0 text-sm text-muted">
-          {filtered.length} expense{filtered.length === 1 ? '' : 's'} · {formatINR(total)}
+          {summary.total} item{summary.total === 1 ? '' : 's'}
+          {summary.income > 0 ? ` · ${summary.income} income` : ''}
+          {summary.expenses > 0 ? ` · ${summary.expenses} expenses` : ''}
+          {summary.transfers > 0 ? ` · ${summary.transfers} transfers` : ''}
+          {summary.incomeTotal > 0 ? ` · In ${formatINR(summary.incomeTotal)}` : ''}
+          {summary.expenseTotal > 0 ? ` · Out ${formatINR(summary.expenseTotal)}` : ''}
         </p>
       )}
 
