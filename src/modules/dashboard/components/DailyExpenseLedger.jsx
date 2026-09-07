@@ -15,7 +15,10 @@ import {
   selectMainCategories,
 } from '../store/dashboardSlice';
 import { getAccountById } from '../utils/accounts';
-import { normalizeTags, resolveMainCategoryName } from '../utils/categories';
+import {
+  normalizeTags,
+  resolveMainCategoryName,
+} from '../utils/categories';
 
 export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
@@ -36,6 +39,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const [editAmount, setEditAmount] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editAccountId, setEditAccountId] = useState('');
+  const [editTags, setEditTags] = useState('');
 
   const startEdit = (expense) => {
     setEditingId(expense.id);
@@ -43,6 +47,8 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     setEditAmount(String(expense.amount));
     setEditCategory(resolveMainCategoryName(expense.category, mainCategories));
     setEditAccountId(expense.accountId || defaultAccountId);
+    const tags = normalizeTags(expense.tags);
+    setEditTags(tags.map((tag) => `#${tag}`).join(' '));
   };
 
   const cancelEdit = () => {
@@ -51,6 +57,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     setEditAmount('');
     setEditCategory('');
     setEditAccountId('');
+    setEditTags('');
   };
 
   const handleSave = (expense) => {
@@ -68,7 +75,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           amount,
           category: editCategory,
           subcategory: expense.subcategory || '',
-          tags: Array.isArray(expense.tags) ? expense.tags : [],
+          tags: normalizeTags(editTags),
           date: expense.date,
           paymentMode: expense.paymentMode || paymentModes[0],
           accountId: editAccountId || defaultAccountId,
@@ -172,6 +179,15 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                         </select>
                       )}
                     </div>
+                    <input
+                      className="input py-2 text-sm"
+                      type="text"
+                      value={editTags}
+                      onChange={(e) => setEditTags(e.target.value)}
+                      placeholder="Tag · #trip"
+                      aria-label="Tags"
+                      autoComplete="off"
+                    />
                     <div className="flex justify-end gap-2 pt-1">
                       <button
                         type="button"
