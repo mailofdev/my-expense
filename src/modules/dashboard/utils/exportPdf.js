@@ -17,16 +17,9 @@ const loadPdfLibs = async () => {
     import('jspdf-autotable'),
     import('chart.js'),
   ]);
-  const {
-    Chart,
-    ArcElement,
-    BarElement,
-    CategoryScale,
-    LinearScale,
-    Tooltip,
-    Legend,
-  } = chartJs;
-  Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+  const { Chart, registerables } = chartJs;
+  // Controllers (bar/doughnut) must be registered — elements alone are not enough.
+  Chart.register(...registerables);
   return { jsPDF, autoTable, Chart };
 };
 
