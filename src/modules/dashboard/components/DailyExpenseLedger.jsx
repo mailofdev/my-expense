@@ -13,13 +13,21 @@ import {
   selectDefaultAccountId,
   selectVisibleCategories,
   selectMainCategories,
+  selectPeopleGroups,
 } from '../store/dashboardSlice';
 import { getAccountById } from '../utils/accounts';
 import {
   normalizeTags,
   resolveMainCategoryName,
 } from '../utils/categories';
+import { formatSplitSummary } from '../utils/groups';
 import TagInput from './TagInput';
+import ExpenseSplitFields, {
+  resolveSplitPayload,
+  splitUiFromExpense,
+} from './ExpenseSplitFields';
+
+const EMPTY_SPLIT = { enabled: false, groupId: '', paidBy: '', memberIds: [] };
 
 export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
@@ -27,6 +35,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const { paymentModes, saving, categoryColors } = useSelector((state) => state.dashboard);
   const categories = useSelector(selectVisibleCategories);
   const mainCategories = useSelector(selectMainCategories);
+  const peopleGroups = useSelector(selectPeopleGroups);
   const accounts = useSelector(selectAccounts);
   const defaultAccountId = useSelector(selectDefaultAccountId);
   const showBankPicker = accounts.length > 1;
@@ -41,6 +50,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
   const [editCategory, setEditCategory] = useState('');
   const [editAccountId, setEditAccountId] = useState('');
   const [editTags, setEditTags] = useState('');
+  const [editSplitUi, setEditSplitUi] = useState(EMPTY_SPLIT);
 
   const startEdit = (expense) => {
     setEditingId(expense.id);
@@ -50,6 +60,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     setEditAccountId(expense.accountId || defaultAccountId);
     const tags = normalizeTags(expense.tags);
     setEditTags(tags.map((tag) => `#${tag}`).join(' '));
+    setEditSplitUi(splitUiFromExpense(expense.split, peopleGroups));
   };
 
   const cancelEdit = () => {
@@ -59,12 +70,16 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     setEditCategory('');
     setEditAccountId('');
     setEditTags('');
+    setEditSplitUi(EMPTY_SPLIT);
   };
 
   const handleSave = (expense) => {
     const title = editTitle.trim();
     const amount = Number(editAmount);
     if (!title || !amount || amount < 1) return;
+
+    const split = resolveSplitPayload(editSplitUi, amount, peopleGroups);
+    if (editSplitUi.enabled && !split) return;
 
     dispatch(
       updateExpense({
@@ -80,6 +95,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           date: expense.date,
           paymentMode: expense.paymentMode || paymentModes[0],
           accountId: editAccountId || defaultAccountId,
+          split: editSplitUi.enabled ? split : null,
         },
       })
     ).then((result) => {
@@ -129,6 +145,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
             const bankName = showBankPicker
               ? getAccountById(accounts, expense.accountId || defaultAccountId)?.name
               : null;
+            const splitLabel = formatSplitSummary(expense.split, peopleGroups, expense.amount);
 
             return (
               <li
@@ -187,6 +204,11 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                       placeholder="Tag · #trip"
                       aria-label="Tags"
                     />
+                    <ExpenseSplitFields
+                      amount={Number(editAmount) || 0}
+                      value={editSplitUi}
+                      onChange={setEditSplitUi}
+                    />
                     <div className="flex justify-end gap-2 pt-1">
                       <button
                         type="button"
@@ -221,6 +243,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                         {category}
                         {tags.length ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}` : ''}
                         {bankName ? ` · ${bankName}` : ''}
+                        {splitLabel ? ` · ${splitLabel}` : ''}
                       </p>
                     </div>
                     <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass('debit')}`}>

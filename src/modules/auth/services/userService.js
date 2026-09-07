@@ -25,6 +25,7 @@ const defaultProfile = () => ({
     { id: 'acc_savings', name: 'Savings', kind: 'savings' },
   ],
   accountOpenings: {},
+  peopleGroups: [],
   splitGroups: [],
   recurringExpenses: [],
   activityLog: [],

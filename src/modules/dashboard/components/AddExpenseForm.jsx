@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
@@ -14,12 +14,16 @@ import {
   selectVisibleCategories,
   selectMainCategories,
   selectSubcategories,
+  selectPeopleGroups,
 } from '../store/dashboardSlice';
 import {
   collectExpenseTags,
   suggestCategoryFromTitle,
 } from '../utils/categories';
 import TagInput from './TagInput';
+import ExpenseSplitFields, { resolveSplitPayload } from './ExpenseSplitFields';
+
+const EMPTY_SPLIT = { enabled: false, groupId: '', paidBy: '', memberIds: [] };
 
 export default function AddExpenseForm({ onGoToMoney }) {
   const dispatch = useDispatch();
@@ -29,10 +33,12 @@ export default function AddExpenseForm({ onGoToMoney }) {
   const mainCategories = useSelector(selectMainCategories);
   const subcategoriesMap = useSelector(selectSubcategories);
   const accounts = useSelector(selectAccounts);
+  const peopleGroups = useSelector(selectPeopleGroups);
   const defaultAccountId = useSelector(selectDefaultAccountId);
   const filterDate = useSelector(selectFilterDate);
   const isToday = useSelector(selectIsTodaySelected);
   const showBankPicker = accounts.length > 1;
+  const [splitUi, setSplitUi] = useState(EMPTY_SPLIT);
 
   const categoryTouchedRef = useRef(false);
 
@@ -97,19 +103,23 @@ export default function AddExpenseForm({ onGoToMoney }) {
 
     const category = data.category || categories[0];
     const tags = collectExpenseTags(data.title, data.tags);
+    const amount = Number(data.amount);
+    const split = resolveSplitPayload(splitUi, amount, peopleGroups);
+    if (splitUi.enabled && !split) return;
 
     dispatch(
       addExpense({
         uid: user.uid,
         expense: {
           title: data.title,
-          amount: Number(data.amount),
+          amount,
           category,
           subcategory: '',
           tags,
           paymentMode: paymentModes[0],
           accountId: data.accountId || defaultAccountId,
           date: expenseDate,
+          split: split || null,
         },
       })
     ).then((result) => {
@@ -118,6 +128,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
           dispatch(setDayFilter({ date: expenseDate }));
         }
         categoryTouchedRef.current = false;
+        setSplitUi(EMPTY_SPLIT);
         reset({
           title: '',
           amount: '',
@@ -191,6 +202,12 @@ export default function AddExpenseForm({ onGoToMoney }) {
             aria-label="Tag"
           />
         </div>
+
+        <ExpenseSplitFields
+          amount={watchedAmount}
+          value={splitUi}
+          onChange={setSplitUi}
+        />
 
         {expenseWallet.funded > 0 && watchedAmount > 0 && (
           <p

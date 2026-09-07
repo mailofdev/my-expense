@@ -40,6 +40,7 @@ import {
   remapCategoryBudgets,
   resolveMainCategoryName,
 } from '../utils/categories';
+import { ensurePeopleGroups, resolveSelfMemberName } from '../utils/groups';
 const getErrorMessage = (error) =>
   error?.message || 'Something went wrong. Please try again.';
 
@@ -327,6 +328,11 @@ export const updateFinanceSettings = createAsyncThunk(
           next.accountOpenings = openings;
         }
       }
+      if (Array.isArray(next.peopleGroups)) {
+        next.peopleGroups = ensurePeopleGroups(next.peopleGroups, [], {
+          selfName: resolveSelfMemberName(getState().auth?.user),
+        });
+      }
       await userService.updateProfile(uid, next);
       return next;
     } catch (error) {
@@ -594,6 +600,7 @@ const dashboardSlice = createSlice({
     habits: { ...DEFAULT_HABITS },
     accounts: ensureAccounts(),
     accountOpenings: {},
+    peopleGroups: [],
     expenses: [],
     walletTransactions: [],
     recurringExpenses: [],
@@ -633,6 +640,7 @@ const dashboardSlice = createSlice({
       state.habits = { ...DEFAULT_HABITS };
       state.accounts = ensureAccounts();
       state.accountOpenings = {};
+      state.peopleGroups = [];
       state.expenses = [];
       state.walletTransactions = [];
       state.recurringExpenses = [];
@@ -668,6 +676,11 @@ const dashboardSlice = createSlice({
           state.habits = profile.habits ?? { ...DEFAULT_HABITS };
           state.accounts = ensureAccounts(profile.accounts);
           state.accountOpenings = profile.accountOpenings ?? {};
+          state.peopleGroups = ensurePeopleGroups(
+            profile.peopleGroups,
+            profile.splitGroups,
+            { selfName: resolveSelfMemberName(profile) }
+          );
           state.recurringExpenses = profile.recurringExpenses ?? [];
           const normalized = normalizeCategoryProfile(profile);
           state.mainCategories = normalized.mainCategories;
@@ -1027,6 +1040,11 @@ export const selectFilterMonthKey = (state) => {
 };
 
 export const selectAccounts = (state) => ensureAccounts(state.dashboard.accounts);
+
+export const selectPeopleGroups = (state) =>
+  ensurePeopleGroups(state.dashboard.peopleGroups, [], {
+    selfName: resolveSelfMemberName(state.auth?.user),
+  });
 
 export const selectDefaultAccountId = (state) => getDefaultAccountId(selectAccounts(state));
 

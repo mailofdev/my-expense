@@ -57,12 +57,18 @@ export const expenseService = {
     date,
     paymentMode,
     accountId,
+    split,
   }) {
     const expenseRef = doc(db, 'users', uid, 'expenses', expenseId);
     const updates = { title, amount, category, date, paymentMode };
     if (accountId) updates.accountId = accountId;
     if (subcategory !== undefined) updates.subcategory = subcategory || '';
     if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : [];
+    if (split === null) {
+      updates.split = null;
+    } else if (split !== undefined) {
+      updates.split = split;
+    }
     await updateDoc(expenseRef, updates);
     return { id: expenseId, ...updates };
   },

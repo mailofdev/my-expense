@@ -3,6 +3,7 @@ import { isInDateRange } from '../../../core/utils/date';
 import { getAccountById, getDefaultAccountId } from './accounts';
 import { resolveLedgerDayKey, toMillis } from './moneyFlows';
 import { normalizeTags, resolveMainCategoryName } from './categories';
+import { formatSplitDetail } from './groups';
 
 const COLUMNS = [
   { key: 'date', label: 'Date' },
@@ -10,6 +11,7 @@ const COLUMNS = [
   { key: 'description', label: 'Description' },
   { key: 'category', label: 'Category' },
   { key: 'account', label: 'Account' },
+  { key: 'split', label: 'Split' },
   { key: 'amount', label: 'Amount' },
 ];
 
@@ -27,6 +29,7 @@ export const buildLedgerRows = ({
   walletTransactions = [],
   accounts = [],
   mainCategories = [],
+  peopleGroups = [],
   startDate,
   endDate,
 }) => {
@@ -48,6 +51,7 @@ export const buildLedgerRows = ({
         description: `${from} → ${to}${note}`,
         category: '',
         account: `${from} → ${to}`,
+        split: '',
         amount: Number(tx.amount) || 0,
         sortTime: toMillis(tx.createdAt),
         sortId: String(tx.id || ''),
@@ -64,6 +68,7 @@ export const buildLedgerRows = ({
         description: accountName ? `${label} · ${accountName}` : label,
         category: '',
         account: accountName,
+        split: '',
         amount: Number(tx.amount) || 0,
         sortTime: toMillis(tx.createdAt),
         sortId: String(tx.id || ''),
@@ -77,13 +82,15 @@ export const buildLedgerRows = ({
 
     const accountName = getAccountById(accounts, expense.accountId || defaultAccountId)?.name || '';
     const category = resolveMainCategoryName(expense.category, mainCategories);
+    const amount = Number(expense.amount) || 0;
     rows.push({
       date: dayKey,
       type: 'Expense',
       description: accountName ? `${expense.title} · ${accountName}` : expense.title || '',
       category,
       account: accountName,
-      amount: Number(expense.amount) || 0,
+      split: formatSplitDetail(expense.split, peopleGroups, amount),
+      amount,
       sortTime: toMillis(expense.createdAt),
       sortId: String(expense.id || ''),
     });
@@ -177,27 +184,31 @@ const SEARCH_EXPORT_COLUMNS = [
   { key: 'category', label: 'Category' },
   { key: 'tags', label: 'Tags' },
   { key: 'account', label: 'Account' },
+  { key: 'split', label: 'Split' },
   { key: 'amount', label: 'Amount' },
 ];
 
-/** Build CSV rows from Find expenses search results (includes tags). */
+/** Build CSV rows from Find expenses search results (includes tags + split). */
 export const buildSearchExportRows = ({
   expenses = [],
   accounts = [],
   mainCategories = [],
+  peopleGroups = [],
 }) => {
   const defaultAccountId = getDefaultAccountId(accounts);
   return (expenses || []).map((expense) => {
     const accountName =
       getAccountById(accounts, expense.accountId || defaultAccountId)?.name || '';
     const tags = normalizeTags(expense.tags);
+    const amount = Number(expense.amount) || 0;
     return {
       date: resolveLedgerDayKey(expense) || expense.date || '',
       title: expense.title || '',
       category: resolveMainCategoryName(expense.category, mainCategories),
       tags: tags.map((tag) => `#${tag}`).join(' '),
       account: accountName,
-      amount: Number(expense.amount) || 0,
+      split: formatSplitDetail(expense.split, peopleGroups, amount),
+      amount,
     };
   });
 };
@@ -217,9 +228,10 @@ export const downloadSearchResultsCsv = ({
   expenses = [],
   accounts = [],
   mainCategories = [],
+  peopleGroups = [],
   query = '',
 }) => {
-  const rows = buildSearchExportRows({ expenses, accounts, mainCategories });
+  const rows = buildSearchExportRows({ expenses, accounts, mainCategories, peopleGroups });
   const csv = buildSearchExportCsv(rows);
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
