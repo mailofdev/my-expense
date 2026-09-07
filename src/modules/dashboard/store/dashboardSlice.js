@@ -995,19 +995,25 @@ export const selectIsFilterCurrentMonth = (state) => {
 
 export const selectFilterDate = (state) => state.dashboard.filterDate;
 
-export const selectMonthExpenses = (state) => {
-  const { month, year } = selectFilter(state);
-  return state.dashboard.expenses
-    .filter((e) => isInMonthYear(e.date, month, year))
-    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-};
+export const selectMonthExpenses = createSelector(
+  [
+    (state) => state.dashboard.expenses,
+    (state) => state.dashboard.filterMonth,
+    (state) => state.dashboard.filterYear,
+  ],
+  (expenses, month, year) =>
+    expenses
+      .filter((e) => isInMonthYear(e.date, month, year))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+);
 
-export const selectDayExpenses = (state) => {
-  const date = state.dashboard.filterDate;
-  return state.dashboard.expenses
-    .filter((e) => e.date === date)
-    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-};
+export const selectDayExpenses = createSelector(
+  [(state) => state.dashboard.expenses, (state) => state.dashboard.filterDate],
+  (expenses, date) =>
+    expenses
+      .filter((e) => e.date === date)
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+);
 
 export const selectDayTotal = (state) =>
   selectDayExpenses(state).reduce((sum, e) => sum + e.amount, 0);
@@ -1053,25 +1059,34 @@ export const selectPeopleGroups = createSelector(
 
 export const selectDefaultAccountId = (state) => getDefaultAccountId(selectAccounts(state));
 
-export const selectAccountBalances = (state) =>
-  computeAccountBalances({
-    accounts: state.dashboard.accounts,
-    accountOpenings: state.dashboard.accountOpenings,
-    expenses: state.dashboard.expenses,
-    walletTransactions: state.dashboard.walletTransactions,
-  });
+export const selectAccountBalances = createSelector(
+  [
+    (state) => state.dashboard.accounts,
+    (state) => state.dashboard.accountOpenings,
+    (state) => state.dashboard.expenses,
+    (state) => state.dashboard.walletTransactions,
+  ],
+  (accounts, accountOpenings, expenses, walletTransactions) =>
+    computeAccountBalances({
+      accounts,
+      accountOpenings,
+      expenses,
+      walletTransactions,
+    })
+);
 
 /** Accounts with live balances for Wallet UI. */
-export const selectAccountsWithBalances = (state) => {
-  const accounts = selectAccounts(state);
-  const balances = selectAccountBalances(state);
-  const views = withAccountBalanceViews(accounts, balances);
-  return {
-    accounts: views,
-    total: sumCashBalances(accounts, balances),
-    creditOutstanding: sumCreditOutstanding(accounts, balances),
-  };
-};
+export const selectAccountsWithBalances = createSelector(
+  [selectAccounts, selectAccountBalances],
+  (accounts, balances) => {
+    const views = withAccountBalanceViews(accounts, balances);
+    return {
+      accounts: views,
+      total: sumCashBalances(accounts, balances),
+      creditOutstanding: sumCreditOutstanding(accounts, balances),
+    };
+  }
+);
 
 export const selectMonthWalletFunded = (state) => {
   const key = selectFilterMonthKey(state);
@@ -1136,18 +1151,32 @@ export const selectMonthWalletRemaining = (state) => {
   return funded - selectTotalSpent(state);
 };
 
-export const selectMonthWalletStatsByDate = (state, dateStr, excludeExpenseId = null) => {
-  const d = dayjs(dateStr);
-  const monthKey = getMonthKey(d.month() + 1, d.year());
-  const month = d.month() + 1;
-  const year = d.year();
-  const funded = state.dashboard.monthlyWallets[monthKey] || 0;
-  const spent = state.dashboard.expenses
-    .filter((e) => isInMonthYear(e.date, month, year) && e.id !== excludeExpenseId)
-    .reduce((sum, e) => sum + e.amount, 0);
-  const remaining = funded ? funded - spent : 0;
-  return { monthKey, monthLabel: formatMonthYearLabel(month, year), funded, spent, remaining };
-};
+export const selectMonthWalletStatsByDate = createSelector(
+  [
+    (state, dateStr) => dateStr,
+    (state, _dateStr, excludeExpenseId = null) => excludeExpenseId,
+    (state) => state.dashboard.monthlyWallets,
+    (state) => state.dashboard.expenses,
+  ],
+  (dateStr, excludeExpenseId, monthlyWallets, expenses) => {
+    const d = dayjs(dateStr);
+    const monthKey = getMonthKey(d.month() + 1, d.year());
+    const month = d.month() + 1;
+    const year = d.year();
+    const funded = monthlyWallets[monthKey] || 0;
+    const spent = expenses
+      .filter((e) => isInMonthYear(e.date, month, year) && e.id !== excludeExpenseId)
+      .reduce((sum, e) => sum + e.amount, 0);
+    const remaining = funded ? funded - spent : 0;
+    return {
+      monthKey,
+      monthLabel: formatMonthYearLabel(month, year),
+      funded,
+      spent,
+      remaining,
+    };
+  }
+);
 
 export const selectMonthWalletUsagePercent = (state) => {
   const funded = selectMonthWalletFunded(state);
@@ -1209,16 +1238,26 @@ export const selectCategoryLimitStatuses = (state) => {
     .filter(Boolean);
 };
 
-export const selectMainCategories = (state) =>
-  ensureMainCategories(state.dashboard.mainCategories);
+export const selectMainCategories = createSelector(
+  [(state) => state.dashboard.mainCategories],
+  (mainCategories) => ensureMainCategories(mainCategories)
+);
 
-export const selectVisibleCategories = (state) => {
-  const visible = getVisibleCategoryNames(state.dashboard.mainCategories);
-  return visible.length > 0 ? visible : getAllCategoryNames(state.dashboard.mainCategories);
-};
+export const selectVisibleCategories = createSelector(
+  [(state) => state.dashboard.mainCategories],
+  (mainCategories) => {
+    const visible = getVisibleCategoryNames(mainCategories);
+    return visible.length > 0 ? visible : getAllCategoryNames(mainCategories);
+  }
+);
 
-export const selectSubcategories = (state) =>
-  ensureSubcategories(state.dashboard.subcategories, state.dashboard.mainCategories);
+export const selectSubcategories = createSelector(
+  [
+    (state) => state.dashboard.subcategories,
+    (state) => state.dashboard.mainCategories,
+  ],
+  (subcategories, mainCategories) => ensureSubcategories(subcategories, mainCategories)
+);
 
 export const selectSubcategoriesForCategory = (state, categoryName) => {
   const main = getMainByName(state.dashboard.mainCategories, categoryName);
@@ -1251,51 +1290,60 @@ export const selectMonthSavingsSnapshot = (state) => {
   };
 };
 
-export const selectDueRecurringExpenses = (state) => {
-  const today = dayjs(getTodayString());
-  return (state.dashboard.recurringExpenses || []).filter((item) => {
-    if (!item?.enabled || !item.nextDate) return false;
-    const next = dayjs(item.nextDate);
-    if (!next.isValid()) return false;
-    if (next.isAfter(today, 'day')) return false;
-    if (item.endDate && dayjs(item.endDate).isValid() && dayjs(item.endDate).isBefore(today, 'day')) {
-      return false;
-    }
-    if (item.maxOccurrences && (item.runCount || 0) >= item.maxOccurrences) return false;
-    return true;
-  });
-};
-
-export const selectInAppReminders = (state) => {
-  const reminders = [];
-
-  const walletFunded = selectMonthWalletFunded(state);
-  const walletRemaining = selectMonthWalletRemaining(state);
-  const monthSpent = selectTotalSpent(state);
-  if (walletFunded === 0 && (selectIsFilterCurrentMonth(state) || monthSpent > 0)) {
-    reminders.push({
-      id: 'fund-month-wallet',
-      tone: 'info',
-      action: 'wallet',
-      text: selectIsFilterCurrentMonth(state)
-        ? 'Add income on the Money tab to start tracking this month.'
-        : `Add income for ${selectFilteredMonthLabel(state)} on the Money tab.`,
-    });
-  } else if (walletFunded > 0 && walletRemaining < 0) {
-    reminders.push({
-      id: 'wallet-over',
-      tone: 'danger',
-      action: 'wallet',
-      text: `Over by ₹${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
-    });
-  } else if (walletFunded > 0 && walletRemaining <= walletFunded * 0.2) {
-    reminders.push({
-      id: 'wallet-low',
-      tone: 'warning',
-      action: 'wallet',
-      text: `Only ₹${Math.max(0, walletRemaining).toLocaleString('en-IN')} left this month.`,
+export const selectDueRecurringExpenses = createSelector(
+  [(state) => state.dashboard.recurringExpenses],
+  (recurringExpenses) => {
+    const today = dayjs(getTodayString());
+    return (recurringExpenses || []).filter((item) => {
+      if (!item?.enabled || !item.nextDate) return false;
+      const next = dayjs(item.nextDate);
+      if (!next.isValid()) return false;
+      if (next.isAfter(today, 'day')) return false;
+      if (item.endDate && dayjs(item.endDate).isValid() && dayjs(item.endDate).isBefore(today, 'day')) {
+        return false;
+      }
+      if (item.maxOccurrences && (item.runCount || 0) >= item.maxOccurrences) return false;
+      return true;
     });
   }
+);
 
-  return reminders.slice(0, 3);
-};
+export const selectInAppReminders = createSelector(
+  [
+    selectMonthWalletFunded,
+    selectMonthWalletRemaining,
+    selectTotalSpent,
+    selectIsFilterCurrentMonth,
+    selectFilteredMonthLabel,
+  ],
+  (walletFunded, walletRemaining, monthSpent, isCurrentMonth, monthLabel) => {
+    const reminders = [];
+
+    if (walletFunded === 0 && (isCurrentMonth || monthSpent > 0)) {
+      reminders.push({
+        id: 'fund-month-wallet',
+        tone: 'info',
+        action: 'wallet',
+        text: isCurrentMonth
+          ? 'Add income on the Money tab to start tracking this month.'
+          : `Add income for ${monthLabel} on the Money tab.`,
+      });
+    } else if (walletFunded > 0 && walletRemaining < 0) {
+      reminders.push({
+        id: 'wallet-over',
+        tone: 'danger',
+        action: 'wallet',
+        text: `Over by ₹${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
+      });
+    } else if (walletFunded > 0 && walletRemaining <= walletFunded * 0.2) {
+      reminders.push({
+        id: 'wallet-low',
+        tone: 'warning',
+        action: 'wallet',
+        text: `Only ₹${Math.max(0, walletRemaining).toLocaleString('en-IN')} left this month.`,
+      });
+    }
+
+    return reminders.slice(0, 3);
+  }
+);

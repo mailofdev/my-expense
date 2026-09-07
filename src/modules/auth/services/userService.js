@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../../core/config/firebase';
 import { CATEGORIES, DEFAULT_HABITS, DEFAULT_CATEGORY_COLORS } from '../../../core/constants/finance';
+import { sanitizeProfileDates } from '../../../core/utils/firestoreDates';
 import { DEFAULT_MAIN_CATEGORIES } from '../../dashboard/utils/categories';
 
 const defaultProfile = () => ({
@@ -37,7 +38,7 @@ export const userService = {
     const ref = doc(db, 'users', uid);
     const snap = await getDoc(ref);
     if (!snap.exists()) return null;
-    return { uid, ...snap.data() };
+    return sanitizeProfileDates({ uid, ...snap.data() });
   },
 
   async createProfile(uid, { email, displayName }) {
@@ -50,7 +51,14 @@ export const userService = {
       updatedAt: serverTimestamp(),
     };
     await setDoc(ref, data);
-    return { uid, email, displayName, ...defaultProfile() };
+    return sanitizeProfileDates({
+      uid,
+      email,
+      displayName,
+      ...defaultProfile(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   },
 
   async ensureProfile(uid, { email, displayName }) {

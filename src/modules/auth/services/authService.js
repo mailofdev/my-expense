@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../../../core/config/firebase';
 import { userService } from './userService';
+import { toSerializableDate } from '../../../core/utils/firestoreDates';
 
 const mapFirebaseUser = (firebaseUser, token, profile = null) => ({
   uid: firebaseUser.uid,
@@ -22,7 +23,7 @@ const mapFirebaseUser = (firebaseUser, token, profile = null) => ({
   monthlyIncome: profile?.monthlyIncome ?? 0,
   categoryBudgets: profile?.categoryBudgets ?? {},
   habits: profile?.habits ?? null,
-  createdAt: profile?.createdAt ?? null,
+  createdAt: toSerializableDate(profile?.createdAt) ?? null,
 });
 
 export const authService = {

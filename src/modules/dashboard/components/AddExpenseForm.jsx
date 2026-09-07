@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useDispatch, useSelector } from 'react-redux';
+import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
 import {
@@ -60,7 +60,10 @@ export default function AddExpenseForm({ onGoToMoney }) {
   const watchedCategory = watch('category') || categories[0];
   const watchedTitle = watch('title') || '';
   const watchedTags = watch('tags') || '';
-  const expenseWallet = useSelector((state) => selectMonthWalletStatsByDate(state, watchedDate));
+  const expenseWallet = useSelector(
+    (state) => selectMonthWalletStatsByDate(state, watchedDate),
+    shallowEqual
+  );
   const projectedRemaining = expenseWallet.remaining - watchedAmount;
 
   useEffect(() => {
