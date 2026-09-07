@@ -110,6 +110,13 @@ export default function TransferForm() {
       return;
     }
 
+    const toAcc = getAccountById(accounts, editToId);
+    const fromAcc = getAccountById(accounts, editFromId);
+    if (isCreditAccount(toAcc) && isCreditAccount(fromAcc)) {
+      setMessage('Pay a credit card from a bank or debit card.');
+      return;
+    }
+
     dispatch(
       updateWalletTransfer({
         uid: user.uid,
@@ -117,7 +124,9 @@ export default function TransferForm() {
         amount: value,
         fromAccountId: editFromId,
         toAccountId: editToId,
-        note: editNote.trim() || 'Transfer',
+        note:
+          editNote.trim() ||
+          (isCreditAccount(toAcc) ? 'Card payment' : 'Transfer'),
         date: editDate,
       })
     ).then((result) => {

@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import dayjs from 'dayjs';
 import {
   CATEGORIES,
@@ -1038,12 +1038,18 @@ export const selectFilterMonthKey = (state) => {
   return getMonthKey(month, year);
 };
 
-export const selectAccounts = (state) => ensureAccounts(state.dashboard.accounts);
+export const selectAccounts = createSelector(
+  [(state) => state.dashboard.accounts],
+  (accounts) => ensureAccounts(accounts)
+);
 
-export const selectPeopleGroups = (state) =>
-  ensurePeopleGroups(state.dashboard.peopleGroups, [], {
-    selfName: resolveSelfMemberName(state.auth?.user),
-  });
+export const selectPeopleGroups = createSelector(
+  [(state) => state.dashboard.peopleGroups, (state) => state.auth?.user],
+  (peopleGroups, user) =>
+    ensurePeopleGroups(peopleGroups, [], {
+      selfName: resolveSelfMemberName(user),
+    })
+);
 
 export const selectDefaultAccountId = (state) => getDefaultAccountId(selectAccounts(state));
 

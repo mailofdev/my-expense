@@ -49,10 +49,10 @@ export default function AddIncomeForm() {
 
   useEffect(() => {
     setAccountId((prev) => {
-      if (cashAccounts.some((a) => a.id === prev)) return prev;
+      if (accounts.some((a) => a.id === prev && isCashAccount(a))) return prev;
       return salaryAccountId;
     });
-  }, [cashAccounts, salaryAccountId]);
+  }, [accounts, salaryAccountId]);
 
   useEffect(() => {
     if (!editingId) {

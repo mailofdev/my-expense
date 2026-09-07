@@ -11,36 +11,83 @@ export const formatMoneyPdf = (amount) =>
 const moneyTick = (value) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
 
 /** Lazy-load PDF libs so Jest / initial app load stay light. */
+let pdfChartRegistered = false;
+
 const loadPdfLibs = async () => {
   const [{ jsPDF }, { autoTable }, chartJs] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
     import('chart.js'),
   ]);
-  const { Chart, registerables } = chartJs;
-  // Controllers (bar/doughnut) must be registered — elements alone are not enough.
-  Chart.register(...registerables);
+  const {
+    Chart,
+    registerables,
+    BarController,
+    BarElement,
+    DoughnutController,
+    ArcElement,
+    CategoryScale,
+    LinearScale,
+    Tooltip,
+    Legend,
+  } = chartJs;
+
+  // Register once. Prefer registerables; fall back to explicit bar/doughnut controllers.
+  if (!pdfChartRegistered) {
+    if (Array.isArray(registerables) && registerables.length) {
+      Chart.register(...registerables);
+    } else {
+      Chart.register(
+        BarController,
+        BarElement,
+        DoughnutController,
+        ArcElement,
+        CategoryScale,
+        LinearScale,
+        Tooltip,
+        Legend
+      );
+    }
+    pdfChartRegistered = true;
+  }
+
   return { jsPDF, autoTable, Chart };
 };
 
+/** Render Chart.js to PNG. Append canvas for mobile Safari reliability. */
 const renderChartToDataUrl = (Chart, config, width = 720, height = 400) => {
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined' || !Chart) return null;
+
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const chart = new Chart(canvas, {
-    type: config.type,
-    data: config.data,
-    options: {
-      ...(config.options || {}),
-      responsive: false,
-      animation: false,
-      devicePixelRatio: 2,
-    },
-  });
-  const dataUrl = canvas.toDataURL('image/png');
-  chart.destroy();
-  return dataUrl;
+  canvas.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+  document.body.appendChild(canvas);
+
+  let chart;
+  try {
+    chart = new Chart(canvas, {
+      type: config.type,
+      data: config.data,
+      options: {
+        ...(config.options || {}),
+        responsive: false,
+        animation: false,
+        devicePixelRatio: Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1),
+      },
+    });
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.warn('PDF chart render failed:', config?.type, error);
+    return null;
+  } finally {
+    try {
+      chart?.destroy();
+    } catch (_) {
+      /* ignore */
+    }
+    if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+  }
 };
 
 const ensureY = (doc, y, needed = 36) => {
@@ -149,22 +196,26 @@ const addAutoTable = (autoTable, doc, y, { head, body, columnStyles }) => {
 };
 
 const downloadPdfDoc = async (doc, filename, { preferShare = false } = {}) => {
-  const blob = doc.output('blob');
-  const file = new File([blob], filename, { type: 'application/pdf' });
-
-  if (preferShare && typeof navigator !== 'undefined' && navigator.canShare) {
-    try {
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: filename,
-          text: 'Shared expense report',
-        });
-        return { shared: true };
+  try {
+    const blob = doc.output('blob');
+    if (preferShare && typeof navigator !== 'undefined' && navigator.canShare && typeof File !== 'undefined') {
+      try {
+        const file = new File([blob], filename, { type: 'application/pdf' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: filename,
+            text: 'Shared expense report',
+          });
+          return { shared: true };
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError') return { shared: false, aborted: true };
+        // Fall through to save
       }
-    } catch (error) {
-      if (error?.name === 'AbortError') return { shared: false, aborted: true };
     }
+  } catch (_) {
+    // Fall through to save
   }
 
   doc.save(filename);

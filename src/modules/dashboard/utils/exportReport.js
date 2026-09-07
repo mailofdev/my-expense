@@ -3,6 +3,7 @@ import { CATEGORY_PALETTE } from '../../../core/constants/finance';
 import { summarizeLedgerRows } from './exportExpenses';
 import {
   aggregateSplitBalances,
+  describeEqualShare,
   getGroupById,
   normalizeExpenseSplit,
 } from './groups';
@@ -391,11 +392,15 @@ export const buildShareableSplitRows = (expenses = [], peopleGroups = []) => {
     const nameOf = (id) =>
       group?.members?.find((m) => m.id === id)?.name || 'Someone';
     const amount = Number(expense.amount) || 0;
-    const each =
-      normalized.shares?.[0]?.amount ??
-      (normalized.memberIds.length
-        ? Math.round((amount / normalized.memberIds.length) * 100) / 100
-        : 0);
+    const eachLabel = describeEqualShare(
+      normalized.shares,
+      amount,
+      normalized.memberIds.length
+    );
+    const eachMatch = eachLabel.match(/([\d,]+(?:\.\d+)?)/);
+    const each = eachMatch
+      ? Number(String(eachMatch[1]).replace(/,/g, ''))
+      : normalized.shares?.[0]?.amount || 0;
     rows.push({
       date: resolveLedgerDayKey(expense) || expense.date || '',
       title: expense.title || 'Expense',

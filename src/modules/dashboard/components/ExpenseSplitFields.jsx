@@ -21,8 +21,8 @@ export default function ExpenseSplitFields({ amount, value, onChange }) {
   const paidBy = value?.paidBy || selfId;
   const memberIds = useMemo(() => {
     if (Array.isArray(value?.memberIds)) return value.memberIds;
-    return group?.members.map((m) => m.id) || [];
-  }, [value?.memberIds, group]);
+    return group?.members?.map((m) => m.id) || [];
+  }, [value?.memberIds, group?.members]);
 
   const preview = useMemo(() => {
     if (!enabled || !group) return null;
