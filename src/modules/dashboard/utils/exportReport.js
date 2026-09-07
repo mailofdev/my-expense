@@ -19,18 +19,6 @@ const escapeHtml = (value) =>
 const formatMoney = (amount) =>
   `₹${Number(amount || 0).toLocaleString('en-IN')}`;
 
-const downloadBlob = (content, filename, mimeType) => {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
 /** Aggregate chart-ready series from ledger or expense-search rows. */
 export const buildReportChartData = (rows = [], { mode = 'ledger' } = {}) => {
   const list = rows || [];
@@ -341,31 +329,35 @@ export const buildReportHtml = ({
 </html>`;
 };
 
-export const downloadLedgerReport = (
+export const downloadLedgerReport = async (
   rows,
   startDate,
   endDate,
   { expenses = [], peopleGroups = [] } = {}
 ) => {
+  const { downloadReportPdf } = await import('./exportPdf');
   const from = dayjs(startDate).format('YYYY-MM-DD');
   const to = dayjs(endDate).format('YYYY-MM-DD');
   const settlementBalances = aggregateSplitBalances(expenses, peopleGroups);
-  const html = buildReportHtml({
+  const chartData = buildReportChartData(rows, { mode: 'ledger' });
+  return downloadReportPdf({
     title: 'Glow Money report',
     subtitle: `${from} to ${to} · income, expenses, and transfers`,
     rows,
     mode: 'ledger',
+    chartData,
     settlementBalances,
+    filename: `money_report_${from}_to_${to}.pdf`,
   });
-  downloadBlob(html, `money_report_${from}_to_${to}.html`, 'text/html;charset=utf-8');
 };
 
-export const downloadSearchReport = ({
+export const downloadSearchReport = async ({
   rows = [],
   query = '',
   expenses = [],
   peopleGroups = [],
 }) => {
+  const { downloadReportPdf } = await import('./exportPdf');
   const list = rows || [];
   const safeQuery =
     String(query || 'results')
@@ -374,18 +366,16 @@ export const downloadSearchReport = ({
       .replace(/[^\w-]+/g, '_')
       .slice(0, 40) || 'results';
   const settlementBalances = aggregateSplitBalances(expenses, peopleGroups);
-  const html = buildReportHtml({
+  const chartData = buildReportChartData(list, { mode: 'search' });
+  return downloadReportPdf({
     title: 'Glow Money report',
     subtitle: `Filtered expenses for “${query}” · ${list.length} item${list.length === 1 ? '' : 's'}`,
     rows: list,
     mode: 'search',
+    chartData,
     settlementBalances,
+    filename: `expenses_report_${safeQuery}_${dayjs().format('YYYY-MM-DD')}.pdf`,
   });
-  downloadBlob(
-    html,
-    `expenses_report_${safeQuery}_${dayjs().format('YYYY-MM-DD')}.html`,
-    'text/html;charset=utf-8'
-  );
 };
 
 /**
@@ -662,7 +652,7 @@ export const buildShareableSplitHtml = ({
 </html>`;
 };
 
-export const downloadShareableSplitReport = ({
+export const downloadShareableSplitReport = async ({
   expenses = [],
   peopleGroups = [],
   query = '',
@@ -672,6 +662,7 @@ export const downloadShareableSplitReport = ({
   );
   const rows = buildShareableSplitRows(splitExpenses, peopleGroups);
   const settlementBalances = aggregateSplitBalances(splitExpenses, peopleGroups);
+  const chartData = buildShareableSplitChartData(rows, settlementBalances);
   const safeQuery =
     String(query || 'split')
       .trim()
@@ -679,16 +670,18 @@ export const downloadShareableSplitReport = ({
       .replace(/[^\w-]+/g, '_')
       .slice(0, 40) || 'split';
   const label = query ? `“${query}”` : 'selected expenses';
-  const html = buildShareableSplitHtml({
-    title: 'Shared expenses',
-    subtitle: `${label} · ${rows.length} split item${rows.length === 1 ? '' : 's'} · ready to share`,
+  const groupNames = [...new Set(rows.map((r) => r.groupName).filter(Boolean))];
+  const title =
+    groupNames.length === 1 ? `Shared expenses · ${groupNames[0]}` : 'Shared expenses';
+
+  const { downloadShareableSplitPdf } = await import('./exportPdf');
+  await downloadShareableSplitPdf({
+    title,
+    subtitle: `${label} · ${rows.length} split item${rows.length === 1 ? '' : 's'} · PDF for mobile`,
     rows,
+    chartData,
     settlementBalances,
+    filename: `shared_split_${safeQuery}_${dayjs().format('YYYY-MM-DD')}.pdf`,
   });
-  downloadBlob(
-    html,
-    `shared_split_${safeQuery}_${dayjs().format('YYYY-MM-DD')}.html`,
-    'text/html;charset=utf-8'
-  );
   return { count: rows.length };
 };

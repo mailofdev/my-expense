@@ -51,6 +51,8 @@ export default function ExportDataPanel() {
   const [excludedIds, setExcludedIds] = useState(() => new Set());
   const [message, setMessage] = useState('');
 
+  const [exporting, setExporting] = useState(false);
+
   const rangeValid = startDate && endDate && !dayjs(startDate).isAfter(dayjs(endDate), 'day');
 
   useEffect(() => {
@@ -161,16 +163,23 @@ export default function ExportDataPanel() {
     setMessage('');
   };
 
-  const handleExportAllReport = () => {
+  const handleExportAllReport = async () => {
     if (!validateAll()) return;
     const rangedExpenses = expenses.filter((expense) => {
       const day = expense.date;
       return day && !dayjs(day).isBefore(dayjs(startDate), 'day') && !dayjs(day).isAfter(dayjs(endDate), 'day');
     });
-    downloadLedgerReport(allRows, startDate, endDate, {
-      expenses: rangedExpenses,
-      peopleGroups,
-    });
+    setExporting(true);
+    try {
+      await downloadLedgerReport(allRows, startDate, endDate, {
+        expenses: rangedExpenses,
+        peopleGroups,
+      });
+    } catch (error) {
+      setMessage(error?.message || 'Could not create PDF.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleExportAllCsv = () => {
@@ -178,14 +187,21 @@ export default function ExportDataPanel() {
     downloadLedgerCsv(allRows, startDate, endDate);
   };
 
-  const handleExportTagReport = () => {
+  const handleExportTagReport = async () => {
     if (!validateTag()) return;
-    downloadSearchReport({
-      rows: tagExportRows,
-      query: trimmedTag,
-      expenses: tagResults,
-      peopleGroups,
-    });
+    setExporting(true);
+    try {
+      await downloadSearchReport({
+        rows: tagExportRows,
+        query: trimmedTag,
+        expenses: tagResults,
+        peopleGroups,
+      });
+    } catch (error) {
+      setMessage(error?.message || 'Could not create PDF.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleExportTagCsv = () => {
@@ -199,25 +215,32 @@ export default function ExportDataPanel() {
     });
   };
 
-  const handleShareableSplitReport = () => {
+  const handleShareableSplitReport = async () => {
     if (!validateTag()) return;
     if (splitReadyCount === 0) {
       setMessage('None of the selected expenses have a split. Add a split, or remove non-split items.');
       return;
     }
-    downloadShareableSplitReport({
-      expenses: tagResults,
-      peopleGroups,
-      query: trimmedTag,
-    });
+    setExporting(true);
+    try {
+      await downloadShareableSplitReport({
+        expenses: tagResults,
+        peopleGroups,
+        query: trimmedTag,
+      });
+    } catch (error) {
+      setMessage(error?.message || 'Could not create PDF.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
     <section className="card">
       <h2 className="card-title mb-1">Export data</h2>
       <p className="card-desc mb-3">
-        Download a report with charts, or CSV for spreadsheets. Search a tag like #trip to export
-        only those expenses — or a shareable split report for your group.
+        Download a PDF report with charts (works on mobile), or CSV for spreadsheets. Search a tag
+        like #trip to export only those expenses — or a shareable split PDF for your group.
       </p>
 
       <div className="mb-4 grid grid-cols-2 gap-2">
@@ -300,15 +323,15 @@ export default function ExportDataPanel() {
             type="button"
             className="btn-primary btn-full mt-4"
             onClick={handleExportAllReport}
-            disabled={!rangeValid}
+            disabled={!rangeValid || exporting}
           >
-            Export report
+            {exporting ? 'Creating PDF…' : 'Export PDF'}
           </button>
           <button
             type="button"
             className="btn-outline btn-full mt-2"
             onClick={handleExportAllCsv}
-            disabled={!rangeValid}
+            disabled={!rangeValid || exporting}
           >
             Export CSV
           </button>
@@ -419,26 +442,26 @@ export default function ExportDataPanel() {
             type="button"
             className="btn-primary btn-full mt-4"
             onClick={handleShareableSplitReport}
-            disabled={!trimmedTag || tagResults.length === 0}
+            disabled={!trimmedTag || tagResults.length === 0 || exporting}
           >
-            Shareable split report
+            {exporting ? 'Creating PDF…' : 'Shareable split PDF'}
           </button>
           <p className="mb-0 mt-1.5 text-xs text-muted">
-            Split expenses only · no banks or income · safe to send to your group
+            Split expenses only · charts included · opens on phones · no banks or income
           </p>
           <button
             type="button"
             className="btn-outline btn-full mt-3"
             onClick={handleExportTagReport}
-            disabled={!trimmedTag || tagResults.length === 0}
+            disabled={!trimmedTag || tagResults.length === 0 || exporting}
           >
-            Export full report
+            Export full PDF
           </button>
           <button
             type="button"
             className="btn-outline btn-full mt-2"
             onClick={handleExportTagCsv}
-            disabled={!trimmedTag || tagResults.length === 0}
+            disabled={!trimmedTag || tagResults.length === 0 || exporting}
           >
             Export CSV
           </button>
