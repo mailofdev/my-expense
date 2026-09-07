@@ -28,6 +28,7 @@ export default function TagInput({
   const [activeIndex, setActiveIndex] = useState(0);
   const rootRef = useRef(null);
   const listId = useId();
+  const suggestionsKey = suggestions.join('|');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -42,7 +43,7 @@ export default function TagInput({
 
   useEffect(() => {
     setActiveIndex(0);
-  }, [suggestions.join('|')]);
+  }, [suggestionsKey]);
 
   const pickSuggestion = (tag) => {
     onChange?.(applyTagSuggestion(value, tag));
