@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import {
-  setMonthFilter,
   setDayFilter,
   selectFilteredDayLabel,
   selectIsTodaySelected,
@@ -34,6 +33,7 @@ export default function DateToolbar() {
   const [viewMonth, setViewMonth] = useState(filterMonth);
   const [viewYear, setViewYear] = useState(filterYear);
   const today = getTodayString();
+  const canGoNextDay = dayjs(filterDate || today).isBefore(dayjs(), 'day');
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
@@ -66,9 +66,10 @@ export default function DateToolbar() {
     };
   }, [calendarOpen]);
 
-  const shiftMonth = (delta) => {
-    const d = dayjs(`${filterYear}-${String(filterMonth).padStart(2, '0')}-01`).add(delta, 'month');
-    dispatch(setMonthFilter({ month: d.month() + 1, year: d.year() }));
+  const shiftDay = (delta) => {
+    const next = dayjs(filterDate || today).add(delta, 'day');
+    if (next.isAfter(dayjs(), 'day')) return;
+    dispatch(setDayFilter({ date: next.format('YYYY-MM-DD') }));
   };
 
   const shiftViewMonth = (delta) => {
@@ -113,8 +114,8 @@ export default function DateToolbar() {
         <button
           type="button"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg text-[#f0f4f2] hover:bg-primary/15 hover:text-primary"
-          onClick={() => shiftMonth(-1)}
-          aria-label="Previous month"
+          onClick={() => shiftDay(-1)}
+          aria-label="Previous day"
         >
           ‹
         </button>
@@ -146,9 +147,10 @@ export default function DateToolbar() {
 
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg text-[#f0f4f2] hover:bg-primary/15 hover:text-primary"
-          onClick={() => shiftMonth(1)}
-          aria-label="Next month"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg text-[#f0f4f2] hover:bg-primary/15 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+          onClick={() => shiftDay(1)}
+          aria-label="Next day"
+          disabled={!canGoNextDay}
         >
           ›
         </button>

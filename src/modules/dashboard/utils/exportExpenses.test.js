@@ -1,4 +1,10 @@
-import { buildLedgerRows, buildLedgerCsv, summarizeLedgerRows } from './exportExpenses';
+import {
+  buildLedgerRows,
+  buildLedgerCsv,
+  summarizeLedgerRows,
+  buildSearchExportRows,
+  buildSearchExportCsv,
+} from './exportExpenses';
 
 describe('exportExpenses', () => {
   const accounts = [
@@ -87,5 +93,31 @@ describe('exportExpenses', () => {
     expect(csv).toContain('Date,Type,Description,Category,Account,Amount');
     expect(csv).toContain('Income');
     expect(csv).toContain('Salary · Salary');
+  });
+
+  test('search export includes tags', () => {
+    const rows = buildSearchExportRows({
+      expenses: [
+        {
+          id: 'e1',
+          title: 'Hotel',
+          amount: 2000,
+          category: 'Food & Groceries',
+          accountId: 'acc_salary',
+          date: '2026-09-10',
+          tags: ['trip'],
+        },
+      ],
+      accounts,
+      mainCategories,
+    });
+    expect(rows[0]).toMatchObject({
+      title: 'Hotel',
+      tags: '#trip',
+      account: 'Salary',
+    });
+    const csv = buildSearchExportCsv(rows);
+    expect(csv).toContain('Date,Title,Category,Tags,Account,Amount');
+    expect(csv).toContain('#trip');
   });
 });

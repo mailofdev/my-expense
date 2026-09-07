@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { isInDateRange } from '../../../core/utils/date';
 import { getAccountById, getDefaultAccountId } from './accounts';
 import { resolveLedgerDayKey, toMillis } from './moneyFlows';
-import { resolveMainCategoryName } from './categories';
+import { normalizeTags, resolveMainCategoryName } from './categories';
 
 const COLUMNS = [
   { key: 'date', label: 'Date' },
@@ -171,18 +171,68 @@ export const downloadLedgerCsv = (rows, startDate, endDate) => {
   URL.revokeObjectURL(url);
 };
 
-/** @deprecated Use downloadLedgerCsv */
-export const downloadExpenseCsv = (expenses, startDate, endDate) => {
-  downloadLedgerCsv(
-    (expenses || []).map((expense) => ({
-      date: expense.date,
-      type: 'Expense',
-      description: expense.title || '',
-      category: expense.category || '',
-      account: expense.accountId || '',
+const SEARCH_EXPORT_COLUMNS = [
+  { key: 'date', label: 'Date' },
+  { key: 'title', label: 'Title' },
+  { key: 'category', label: 'Category' },
+  { key: 'tags', label: 'Tags' },
+  { key: 'account', label: 'Account' },
+  { key: 'amount', label: 'Amount' },
+];
+
+/** Build CSV rows from Find expenses search results (includes tags). */
+export const buildSearchExportRows = ({
+  expenses = [],
+  accounts = [],
+  mainCategories = [],
+}) => {
+  const defaultAccountId = getDefaultAccountId(accounts);
+  return (expenses || []).map((expense) => {
+    const accountName =
+      getAccountById(accounts, expense.accountId || defaultAccountId)?.name || '';
+    const tags = normalizeTags(expense.tags);
+    return {
+      date: resolveLedgerDayKey(expense) || expense.date || '',
+      title: expense.title || '',
+      category: resolveMainCategoryName(expense.category, mainCategories),
+      tags: tags.map((tag) => `#${tag}`).join(' '),
+      account: accountName,
       amount: Number(expense.amount) || 0,
-    })),
-    startDate,
-    endDate
+    };
+  });
+};
+
+export const buildSearchExportCsv = (rows) => {
+  const header = SEARCH_EXPORT_COLUMNS.map((col) => escapeCsvCell(col.label)).join(',');
+  const body = rows.map((row) =>
+    SEARCH_EXPORT_COLUMNS.map((col) => {
+      if (col.key === 'amount') return escapeCsvCell(Number(row.amount) || 0);
+      return escapeCsvCell(row[col.key] ?? '');
+    }).join(',')
   );
+  return [header, ...body].join('\n');
+};
+
+export const downloadSearchResultsCsv = ({
+  expenses = [],
+  accounts = [],
+  mainCategories = [],
+  query = '',
+}) => {
+  const rows = buildSearchExportRows({ expenses, accounts, mainCategories });
+  const csv = buildSearchExportCsv(rows);
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeQuery = String(query || 'results')
+    .trim()
+    .replace(/^#+/, '')
+    .replace(/[^\w-]+/g, '_')
+    .slice(0, 40) || 'results';
+  link.href = url;
+  link.download = `expenses_${safeQuery}_${dayjs().format('YYYY-MM-DD')}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };

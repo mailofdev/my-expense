@@ -16,6 +16,7 @@ import {
   selectSubcategories,
 } from '../store/dashboardSlice';
 import {
+  collectExpenseTags,
   suggestCategoryFromTitle,
 } from '../utils/categories';
 
@@ -40,6 +41,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
       amount: '',
       date: filterDate,
       category: categories[0] || 'Miscellaneous',
+      tags: '',
       paymentMode: paymentModes[0],
       accountId: defaultAccountId,
     },
@@ -92,6 +94,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
     if (dayjs(expenseDate).isAfter(dayjs(), 'day')) return;
 
     const category = data.category || categories[0];
+    const tags = collectExpenseTags(data.title, data.tags);
 
     dispatch(
       addExpense({
@@ -101,7 +104,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
           amount: Number(data.amount),
           category,
           subcategory: '',
-          tags: [],
+          tags,
           paymentMode: paymentModes[0],
           accountId: data.accountId || defaultAccountId,
           date: expenseDate,
@@ -118,6 +121,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
           amount: '',
           date: expenseDate,
           category: categories.includes(category) ? category : categories[0],
+          tags: '',
           paymentMode: paymentModes[0],
           accountId: defaultAccountId,
         });
@@ -169,13 +173,23 @@ export default function AddExpenseForm({ onGoToMoney }) {
           )}
         </div>
 
-        <input
-          className="input"
-          type="date"
-          max={dayjs().format('YYYY-MM-DD')}
-          {...register('date')}
-          aria-label="Date"
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            className="input"
+            type="date"
+            max={dayjs().format('YYYY-MM-DD')}
+            {...register('date')}
+            aria-label="Date"
+          />
+          <input
+            className="input"
+            type="text"
+            placeholder="Tag · #trip"
+            {...register('tags')}
+            aria-label="Tag"
+            autoComplete="off"
+          />
+        </div>
 
         {expenseWallet.funded > 0 && watchedAmount > 0 && (
           <p

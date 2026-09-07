@@ -44,4 +44,20 @@ describe('searchExpenses', () => {
     );
     expect(hits.map((e) => e.id)).toEqual(['4', '2']);
   });
+
+  test('matches tags with or without #', () => {
+    const withTags = [
+      ...expenses,
+      {
+        id: '5',
+        title: 'Hotel',
+        category: 'Travel',
+        amount: 2000,
+        date: '2026-08-04',
+        tags: ['trip', 'goa'],
+      },
+    ];
+    expect(searchExpenses(withTags, '#trip').map((e) => e.id)).toEqual(['5']);
+    expect(searchExpenses(withTags, 'trip').map((e) => e.id)).toEqual(['5']);
+  });
 });

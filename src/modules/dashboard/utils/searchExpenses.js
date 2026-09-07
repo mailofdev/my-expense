@@ -18,9 +18,9 @@ export function searchExpenses(expenses = [], query = '', { limit = 40 } = {}) {
       const title = String(expense.title || '').toLowerCase();
       const category = String(expense.category || '').toLowerCase();
       const subcategory = String(expense.subcategory || '').toLowerCase();
-      const tags = Array.isArray(expense.tags)
-        ? expense.tags.map((tag) => `#${tag}`.toLowerCase()).join(' ')
-        : '';
+      const tagList = Array.isArray(expense.tags) ? expense.tags : [];
+      const tagsWithHash = tagList.map((tag) => `#${String(tag).toLowerCase()}`).join(' ');
+      const tagsPlain = tagList.map((tag) => String(tag).toLowerCase()).join(' ');
       const paymentMode = String(expense.paymentMode || '').toLowerCase();
       const amountStr = String(expense.amount ?? '');
       const dateRaw = String(expense.date || '');
@@ -28,11 +28,15 @@ export function searchExpenses(expenses = [], query = '', { limit = 40 } = {}) {
         ? dayjs(dateRaw).format('D MMM YYYY').toLowerCase()
         : '';
 
+      const queryTag = q.replace(/^#+/, '');
+
       if (
         title.includes(q) ||
         category.includes(q) ||
         subcategory.includes(q) ||
-        tags.includes(q) ||
+        tagsWithHash.includes(q) ||
+        tagsPlain.includes(queryTag) ||
+        (queryTag && tagList.some((tag) => String(tag).toLowerCase() === queryTag)) ||
         paymentMode.includes(q)
       ) {
         return true;

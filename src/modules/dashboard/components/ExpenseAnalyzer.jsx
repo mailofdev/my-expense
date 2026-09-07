@@ -7,7 +7,6 @@ import {
 } from '../store/dashboardSlice';
 import CategoryChart from './CategoryChart';
 import MonthHistoryList from './MonthHistoryList';
-import FindExpenses from './FindExpenses';
 
 export default function ExpenseAnalyzer({ onOpenDay }) {
   const expenses = useSelector((state) => state.dashboard.expenses);
@@ -28,8 +27,6 @@ export default function ExpenseAnalyzer({ onOpenDay }) {
       <CategoryChart />
 
       {monthExpenses.length > 0 && <MonthHistoryList onOpenDay={onOpenDay} />}
-
-      <FindExpenses onOpenDay={onOpenDay} />
 
       {monthExpenses.length === 0 && (
         <p className="empty-state">

@@ -85,7 +85,7 @@ export default function DashboardPage() {
               <GettingStarted onGoToMoney={() => handleTabChange('wallet')} />
               <HomeReminders onGoToMoney={() => handleTabChange('wallet')} />
               <AddExpenseForm onGoToMoney={() => handleTabChange('wallet')} />
-              <DailyExpenseLedger onFindExpenses={() => handleTabChange('analyzer')} />
+              <DailyExpenseLedger onFindExpenses={() => handleTabChange('settings')} />
             </>
           )}
 

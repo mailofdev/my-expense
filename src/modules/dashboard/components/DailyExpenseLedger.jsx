@@ -15,7 +15,7 @@ import {
   selectMainCategories,
 } from '../store/dashboardSlice';
 import { getAccountById } from '../utils/accounts';
-import { resolveMainCategoryName } from '../utils/categories';
+import { normalizeTags, resolveMainCategoryName } from '../utils/categories';
 
 export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
@@ -117,6 +117,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           {dayExpenses.map((expense) => {
             const isEditing = editingId === expense.id;
             const category = resolveMainCategoryName(expense.category, mainCategories);
+            const tags = normalizeTags(expense.tags);
             const bankName = showBankPicker
               ? getAccountById(accounts, expense.accountId || defaultAccountId)?.name
               : null;
@@ -203,6 +204,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                       <p className="m-0 truncate text-sm font-medium">{expense.title}</p>
                       <p className="m-0 text-xs text-muted">
                         {category}
+                        {tags.length ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}` : ''}
                         {bankName ? ` · ${bankName}` : ''}
                       </p>
                     </div>
@@ -241,7 +243,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
           className="mt-3 w-full border-0 bg-transparent p-0 text-center text-xs font-semibold text-primary"
           onClick={onFindExpenses}
         >
-          Search all expenses
+          Search / export
         </button>
       )}
     </section>
