@@ -3,6 +3,9 @@ import {
   ensureAccounts,
   getDefaultAccountId,
   openingsForDesiredBalances,
+  creditOutstandingFromBalance,
+  sumCashBalances,
+  withAccountBalanceViews,
 } from './accounts';
 
 describe('accounts helpers', () => {
@@ -19,6 +22,20 @@ describe('accounts helpers', () => {
       { id: 'a2', name: 'SBI' },
     ]);
     expect(custom.map((a) => a.name)).toEqual(['HDFC', 'SBI']);
+  });
+
+  test('normalizes debit and credit cards', () => {
+    const list = ensureAccounts([
+      { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+      { id: 'd1', name: 'HDFC Debit', kind: 'debit' },
+      { id: 'c1', name: 'Amex', kind: 'credit', creditLimit: 100000, dueDay: 15 },
+    ]);
+    expect(list.find((a) => a.id === 'd1').kind).toBe('debit');
+    expect(list.find((a) => a.id === 'c1')).toMatchObject({
+      kind: 'credit',
+      creditLimit: 100000,
+      dueDay: 15,
+    });
   });
 
   test('treats transfers as move, not spend', () => {
@@ -39,6 +56,50 @@ describe('accounts helpers', () => {
 
     expect(balances.acc_salary).toBe(50000 + 5000 - 8000 - 2000);
     expect(balances.acc_savings).toBe(10000 + 8000);
+  });
+
+  test('credit card spend raises outstanding; bill pay lowers it', () => {
+    const cardAccounts = ensureAccounts([
+      { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+      { id: 'acc_cc', name: 'HDFC Credit', kind: 'credit', creditLimit: 100000 },
+    ]);
+    const balances = computeAccountBalances({
+      accounts: cardAccounts,
+      accountOpenings: { acc_salary: 20000, acc_cc: 0 },
+      expenses: [{ accountId: 'acc_cc', amount: 5000 }],
+      walletTransactions: [
+        {
+          type: 'transfer',
+          fromAccountId: 'acc_salary',
+          toAccountId: 'acc_cc',
+          amount: 2000,
+          note: 'Card payment',
+        },
+      ],
+    });
+
+    expect(balances.acc_salary).toBe(18000);
+    expect(creditOutstandingFromBalance(balances.acc_cc)).toBe(3000);
+
+    const views = withAccountBalanceViews(cardAccounts, balances);
+    const cc = views.find((a) => a.id === 'acc_cc');
+    expect(cc.outstanding).toBe(3000);
+    expect(cc.available).toBe(97000);
+    expect(sumCashBalances(cardAccounts, balances)).toBe(18000);
+  });
+
+  test('credit opening seeds starting outstanding', () => {
+    const cardAccounts = ensureAccounts([
+      { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+      { id: 'acc_cc', name: 'Card', kind: 'credit', creditLimit: 50000 },
+    ]);
+    const balances = computeAccountBalances({
+      accounts: cardAccounts,
+      accountOpenings: { acc_salary: 0, acc_cc: 8000 },
+      expenses: [],
+      walletTransactions: [],
+    });
+    expect(creditOutstandingFromBalance(balances.acc_cc)).toBe(8000);
   });
 
   test('untagged legacy items use Salary', () => {

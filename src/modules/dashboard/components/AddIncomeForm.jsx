@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
 import { getTodayString } from '../../../core/utils/date';
-import { getAccountById, getDefaultAccountId } from '../utils/accounts';
+import { getAccountById, getDefaultAccountId, formatAccountOptionLabel, isCashAccount } from '../utils/accounts';
 import { resolveLedgerDayKey } from '../utils/moneyFlows';
 import {
   addWalletFunds,
@@ -23,6 +23,7 @@ export default function AddIncomeForm() {
   const { user } = useSelector((state) => state.auth);
   const { saving } = useSelector((state) => state.dashboard);
   const accounts = useSelector(selectAccounts);
+  const cashAccounts = accounts.filter(isCashAccount);
   const monthKey = useSelector(selectFilterMonthKey);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const monthIncome = useSelector(selectMonthIncome);
@@ -30,9 +31,9 @@ export default function AddIncomeForm() {
   const incomeEntries = useSelector(selectMonthIncomeEntries);
   const filterDate = useSelector(selectFilterDate);
 
-  const defaultAccountId = getDefaultAccountId(accounts);
+  const defaultAccountId = getDefaultAccountId(cashAccounts);
   const salaryAccountId =
-    accounts.find((a) => a.kind === 'salary')?.id || defaultAccountId;
+    cashAccounts.find((a) => a.kind === 'salary')?.id || defaultAccountId;
 
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -48,10 +49,10 @@ export default function AddIncomeForm() {
 
   useEffect(() => {
     setAccountId((prev) => {
-      if (accounts.some((a) => a.id === prev)) return prev;
+      if (cashAccounts.some((a) => a.id === prev)) return prev;
       return salaryAccountId;
     });
-  }, [accounts, salaryAccountId]);
+  }, [cashAccounts, salaryAccountId]);
 
   useEffect(() => {
     if (!editingId) {
@@ -186,7 +187,7 @@ export default function AddIncomeForm() {
           aria-label="Amount"
         />
 
-        {accounts.length > 1 && (
+        {cashAccounts.length > 1 && (
           <select
             className="input"
             value={accountId}
@@ -196,9 +197,9 @@ export default function AddIncomeForm() {
             }}
             aria-label="Deposit to account"
           >
-            {accounts.map((account) => (
+            {cashAccounts.map((account) => (
               <option key={account.id} value={account.id}>
-                Into {account.name}
+                Into {formatAccountOptionLabel(account)}
               </option>
             ))}
           </select>
@@ -256,16 +257,16 @@ export default function AddIncomeForm() {
                       aria-label="Edit amount"
                       autoFocus
                     />
-                    {accounts.length > 1 && (
+                    {cashAccounts.length > 1 && (
                       <select
                         className="input py-2 text-sm"
                         value={editAccountId}
                         onChange={(e) => setEditAccountId(e.target.value)}
                         aria-label="Edit account"
                       >
-                        {accounts.map((account) => (
+                        {cashAccounts.map((account) => (
                           <option key={account.id} value={account.id}>
-                            Into {account.name}
+                            Into {formatAccountOptionLabel(account)}
                           </option>
                         ))}
                       </select>

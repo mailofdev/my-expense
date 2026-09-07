@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
 import { getTodayString } from '../../../core/utils/date';
-import { getAccountById } from '../utils/accounts';
+import { getAccountById, formatAccountOptionLabel, isCreditAccount, isCashAccount } from '../utils/accounts';
 import { resolveLedgerDayKey } from '../utils/moneyFlows';
 import {
   transferBetweenAccounts,
@@ -24,8 +24,14 @@ export default function TransferForm() {
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const transferEntries = useSelector(selectMonthTransferEntries);
 
-  const salary = accounts.find((a) => a.kind === 'salary') || accounts[0];
-  const savings = accounts.find((a) => a.kind === 'savings') || accounts[1] || accounts[0];
+  const salary = accounts.find((a) => a.kind === 'salary') || accounts.find(isCashAccount) || accounts[0];
+  const savings =
+    accounts.find((a) => a.kind === 'savings') ||
+    accounts.find((a) => a.kind === 'debit') ||
+    accounts.find((a) => isCashAccount(a) && a.id !== salary?.id) ||
+    accounts[1] ||
+    accounts[0];
+  const defaultCredit = accounts.find(isCreditAccount);
 
   const [amount, setAmount] = useState('');
   const [fromId, setFromId] = useState('');
@@ -43,11 +49,17 @@ export default function TransferForm() {
 
   useEffect(() => {
     if (!accounts.length) return;
-    setFromId((prev) => (accounts.some((a) => a.id === prev) ? prev : salary?.id || accounts[0].id));
-    setToId((prev) =>
-      accounts.some((a) => a.id === prev) ? prev : savings?.id || accounts[1]?.id || accounts[0].id
+    setFromId((prev) =>
+      accounts.some((a) => a.id === prev && isCashAccount(a))
+        ? prev
+        : salary?.id || accounts.find(isCashAccount)?.id || accounts[0].id
     );
-  }, [accounts, salary?.id, savings?.id]);
+    setToId((prev) =>
+      accounts.some((a) => a.id === prev)
+        ? prev
+        : defaultCredit?.id || savings?.id || accounts[1]?.id || accounts[0].id
+    );
+  }, [accounts, salary?.id, savings?.id, defaultCredit?.id]);
 
   useEffect(() => {
     if (!editingId) {
@@ -153,13 +165,19 @@ export default function TransferForm() {
       return;
     }
 
+    const payingCard = isCreditAccount(toAccount);
+    if (payingCard && isCreditAccount(fromAccount)) {
+      setMessage('Pay a credit card from a bank or debit card.');
+      return;
+    }
+
     dispatch(
       transferBetweenAccounts({
         uid: user.uid,
         amount: value,
         fromAccountId: fromId,
         toAccountId: toId,
-        note: note.trim() || undefined,
+        note: note.trim() || (payingCard ? 'Card payment' : undefined),
         date,
       })
     ).then((result) => {
@@ -168,7 +186,9 @@ export default function TransferForm() {
         setNote('');
         setDate(filterDate || getTodayString());
         setMessage(
-          `Moved ${formatINR(value)} · ${fromAccount?.name} → ${toAccount?.name}`
+          payingCard
+            ? `Paid ${formatINR(value)} toward ${toAccount?.name}`
+            : `Moved ${formatINR(value)} · ${fromAccount?.name} → ${toAccount?.name}`
         );
       } else {
         setMessage(typeof result.payload === 'string' ? result.payload : 'Transfer failed.');
@@ -180,6 +200,7 @@ export default function TransferForm() {
 
   const successMessage =
     message.includes('Moved') ||
+    message.includes('Paid') ||
     message.includes('updated') ||
     message.includes('removed');
 
@@ -203,7 +224,7 @@ export default function TransferForm() {
             >
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name}
+                  {formatAccountOptionLabel(account)}
                 </option>
               ))}
             </select>
@@ -219,7 +240,7 @@ export default function TransferForm() {
           </button>
           <div>
             <label className="mb-1 block text-xs text-muted" htmlFor="transfer-to">
-              To
+              {isCreditAccount(toAccount) ? 'Pay card' : 'To'}
             </label>
             <select
               id="transfer-to"
@@ -233,12 +254,18 @@ export default function TransferForm() {
             >
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name}
+                  {formatAccountOptionLabel(account)}
                 </option>
               ))}
             </select>
           </div>
         </div>
+
+        {isCreditAccount(toAccount) && (
+          <p className="m-0 text-xs text-muted">
+            Paying {toAccount.name} reduces outstanding. This is not a new expense.
+          </p>
+        )}
 
         <input
           className="input"
@@ -304,7 +331,7 @@ export default function TransferForm() {
                       >
                         {accounts.map((account) => (
                           <option key={account.id} value={account.id}>
-                            From {account.name}
+                            From {formatAccountOptionLabel(account)}
                           </option>
                         ))}
                       </select>
@@ -316,7 +343,7 @@ export default function TransferForm() {
                       >
                         {accounts.map((account) => (
                           <option key={account.id} value={account.id}>
-                            To {account.name}
+                            To {formatAccountOptionLabel(account)}
                           </option>
                         ))}
                       </select>

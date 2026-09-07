@@ -24,7 +24,9 @@ import {
 export default function WalletTracker({ onGoToHome }) {
   const { walletTransactions } = useSelector((state) => state.dashboard);
   const accounts = useSelector(selectAccounts);
-  const { accounts: accountsWithBal, total: accountsTotal } = useSelector(selectAccountsWithBalances);
+  const { accounts: accountsWithBal, total: accountsTotal, creditOutstanding } = useSelector(
+    selectAccountsWithBalances
+  );
   const monthKey = useSelector(selectFilterMonthKey);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const monthFunded = useSelector(selectMonthWalletFunded);
@@ -53,16 +55,24 @@ export default function WalletTracker({ onGoToHome }) {
       const sortTime = toMillis(tx.createdAt);
       if (tx.type === 'transfer') {
         const from = getAccountById(accounts, tx.fromAccountId)?.name || 'Bank';
-        const to = getAccountById(accounts, tx.toAccountId)?.name || 'Bank';
-        const note = tx.note && tx.note !== 'Transfer' ? ` · ${tx.note}` : '';
+        const toAcc = getAccountById(accounts, tx.toAccountId);
+        const to = toAcc?.name || 'Bank';
+        const isCardPay = toAcc?.kind === 'credit';
+        const customNote =
+          tx.note && tx.note !== 'Transfer' && tx.note !== 'Card payment'
+            ? ` · ${tx.note}`
+            : '';
         return {
           id: `tx-${tx.id}`,
           type: 'transfer',
           amount: tx.amount,
-          label: `${from} → ${to}${note}`,
+          label: isCardPay
+            ? `Card payment · ${to}${customNote}`
+            : `${from} → ${to}${customNote}`,
           dayKey,
           sortTime,
           sortId: String(tx.id || ''),
+          transferKind: isCardPay ? 'card_payment' : 'transfer',
         };
       }
       const accountName = getAccountById(accounts, tx.accountId || defaultAccountId)?.name;
@@ -160,31 +170,85 @@ export default function WalletTracker({ onGoToHome }) {
           <p className="m-0 text-sm font-semibold text-primary">{formatINR(accountsTotal)}</p>
         </div>
         <p className="card-desc mb-3">
-          Updated when you add income or log expenses.
+          Cash & debit total. Credit cards show outstanding separately.
         </p>
         <ul className="m-0 list-none space-y-0 p-0">
-          {accountsWithBal.map((account) => (
-            <li
-              key={account.id}
-              className="flex items-center justify-between gap-3 border-t border-edge/50 py-3 first:border-0 first:pt-0"
-            >
-              <p className="m-0 text-sm font-medium">{account.name}</p>
-              <span
-                className={`text-sm font-semibold ${
-                  account.balance < 0 ? 'text-danger' : 'text-[#f0f4f2]'
-                }`}
+          {accountsWithBal
+            .filter((account) => !account.isCredit)
+            .map((account) => (
+              <li
+                key={account.id}
+                className="flex items-center justify-between gap-3 border-t border-edge/50 py-3 first:border-0 first:pt-0"
               >
-                {formatINR(account.balance)}
-              </span>
-            </li>
-          ))}
+                <div className="min-w-0">
+                  <p className="m-0 text-sm font-medium">{account.name}</p>
+                  {(account.kind === 'debit' || account.kind === 'other') && (
+                    <p className="m-0 text-xs text-muted">
+                      {account.kind === 'debit' ? 'Debit card' : 'Bank'}
+                    </p>
+                  )}
+                </div>
+                <span
+                  className={`text-sm font-semibold ${
+                    account.balance < 0 ? 'text-danger' : 'text-[#f0f4f2]'
+                  }`}
+                >
+                  {formatINR(account.balance)}
+                </span>
+              </li>
+            ))}
         </ul>
+
+        {accountsWithBal.some((a) => a.isCredit) && (
+          <div className="mt-4 border-t border-edge/50 pt-3">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <p className="m-0 text-sm font-medium">Credit cards</p>
+              {creditOutstanding > 0 && (
+                <p className="m-0 text-xs text-danger">
+                  Due {formatINR(creditOutstanding)}
+                </p>
+              )}
+            </div>
+            <ul className="m-0 list-none space-y-0 p-0">
+              {accountsWithBal
+                .filter((account) => account.isCredit)
+                .map((account) => (
+                  <li
+                    key={account.id}
+                    className="flex items-center justify-between gap-3 border-t border-edge/50 py-3 first:border-0 first:pt-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="m-0 text-sm font-medium">{account.name}</p>
+                      <p className="m-0 text-xs text-muted">
+                        Available {formatINR(account.available || 0)}
+                        {account.creditLimit
+                          ? ` · Limit ${formatINR(account.creditLimit)}`
+                          : ''}
+                        {account.dueDay ? ` · Due ${account.dueDay}` : ''}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-sm font-semibold ${
+                        account.outstanding > 0 ? 'text-danger' : 'text-[#f0f4f2]'
+                      }`}
+                    >
+                      {formatINR(account.outstanding)}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
 
         <BankManager />
 
         {accountsWithBal.length >= 2 && (
           <div className="mt-4 border-t border-edge/50 pt-4">
-            <p className="m-0 mb-3 text-sm font-medium">Transfer between banks</p>
+            <p className="m-0 mb-1 text-sm font-medium">Transfer / pay card bill</p>
+            <p className="m-0 mb-3 text-xs text-muted">
+              Move money between banks, or pay a credit card from a bank or debit card.
+              Card payments reduce outstanding — they don’t count as a new expense.
+            </p>
             <TransferForm />
           </div>
         )}
@@ -225,7 +289,9 @@ export default function WalletTracker({ onGoToHome }) {
                           <p className="m-0 truncate text-sm">{item.label}</p>
                           <p className={`m-0 text-xs ${ledgerTypeLabelClass(item.type)}`}>
                             {item.type === 'transfer'
-                              ? 'Transfer'
+                              ? item.transferKind === 'card_payment'
+                                ? 'Card payment'
+                                : 'Transfer'
                               : item.type === 'credit'
                                 ? 'Income'
                                 : 'Expense'}

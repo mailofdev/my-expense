@@ -15,7 +15,7 @@ import {
   selectMainCategories,
   selectPeopleGroups,
 } from '../store/dashboardSlice';
-import { getAccountById } from '../utils/accounts';
+import { getAccountById, formatAccountOptionLabel } from '../utils/accounts';
 import {
   normalizeTags,
   resolveMainCategoryName,
@@ -191,7 +191,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                         >
                           {accounts.map((account) => (
                             <option key={account.id} value={account.id}>
-                              {account.name}
+                              {formatAccountOptionLabel(account)}
                             </option>
                           ))}
                         </select>

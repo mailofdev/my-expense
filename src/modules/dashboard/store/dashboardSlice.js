@@ -26,6 +26,10 @@ import {
   computeAccountBalances,
   ensureAccounts,
   getDefaultAccountId,
+  normalizeAccount,
+  sumCashBalances,
+  sumCreditOutstanding,
+  withAccountBalanceViews,
   MAX_ACCOUNTS,
 } from '../utils/accounts';
 import {
@@ -303,17 +307,12 @@ export const updateFinanceSettings = createAsyncThunk(
         const seen = new Set();
         const accounts = [];
         for (const raw of next.accounts) {
-          const name = String(raw?.name || '').trim();
-          const id = String(raw?.id || '').trim();
-          if (!name || !id) continue;
-          const key = name.toLowerCase();
+          const account = normalizeAccount(raw);
+          if (!account) continue;
+          const key = account.name.toLowerCase();
           if (seen.has(key)) continue;
           seen.add(key);
-          accounts.push({
-            id,
-            name,
-            kind: raw.kind || 'other',
-          });
+          accounts.push(account);
           if (accounts.length >= MAX_ACCOUNTS) break;
         }
         if (accounts.length === 0) {
@@ -1060,13 +1059,11 @@ export const selectAccountBalances = (state) =>
 export const selectAccountsWithBalances = (state) => {
   const accounts = selectAccounts(state);
   const balances = selectAccountBalances(state);
-  const total = accounts.reduce((sum, account) => sum + (balances[account.id] || 0), 0);
+  const views = withAccountBalanceViews(accounts, balances);
   return {
-    accounts: accounts.map((account) => ({
-      ...account,
-      balance: balances[account.id] || 0,
-    })),
-    total,
+    accounts: views,
+    total: sumCashBalances(accounts, balances),
+    creditOutstanding: sumCreditOutstanding(accounts, balances),
   };
 };
 

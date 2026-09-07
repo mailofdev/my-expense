@@ -22,6 +22,7 @@ import {
 } from '../utils/categories';
 import TagInput from './TagInput';
 import ExpenseSplitFields, { resolveSplitPayload } from './ExpenseSplitFields';
+import { formatAccountOptionLabel } from '../utils/accounts';
 
 const EMPTY_SPLIT = { enabled: false, groupId: '', paidBy: '', memberIds: [] };
 
@@ -179,7 +180,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
             <select className="input" {...register('accountId')} aria-label="Paid from">
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name}
+                  {formatAccountOptionLabel(account)}
                 </option>
               ))}
             </select>
