@@ -253,6 +253,56 @@ export function collectExpenseTags(title, tagsInput) {
   return tags;
 }
 
+/** Unique tags used across expenses, sorted alphabetically. */
+export function collectKnownTags(expenses = []) {
+  const seen = new Set();
+  for (const expense of expenses || []) {
+    for (const tag of normalizeTags(expense?.tags)) {
+      seen.add(tag);
+    }
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Suggest existing tags matching the fragment currently being typed.
+ * Prefers prefix matches, then substring matches.
+ */
+export function suggestTags(knownTags = [], inputValue = '', { limit = 6 } = {}) {
+  const value = String(inputValue || '');
+  const parts = value.split(/[\s,]+/);
+  const fragment = (parts[parts.length - 1] || '').replace(/^#/, '').toLowerCase();
+  if (!fragment) return [];
+
+  const already = new Set(normalizeTags(value));
+  const prefix = [];
+  const contains = [];
+
+  for (const tag of knownTags) {
+    if (!tag || already.has(tag)) continue;
+    if (tag === fragment) continue;
+    if (tag.startsWith(fragment)) prefix.push(tag);
+    else if (tag.includes(fragment)) contains.push(tag);
+  }
+
+  return [...prefix, ...contains].slice(0, limit);
+}
+
+/** Replace the current typing fragment with a selected tag. */
+export function applyTagSuggestion(inputValue = '', suggestion = '') {
+  const tag = String(suggestion || '')
+    .trim()
+    .replace(/^#/, '')
+    .toLowerCase();
+  if (!tag) return String(inputValue || '');
+
+  const value = String(inputValue || '');
+  const match = value.match(/^(.*?)([\s,]*#?[\w-]*)$/);
+  const prefix = (match?.[1] || '').replace(/[\s,]+$/, '');
+  const next = prefix ? `${prefix} #${tag}` : `#${tag}`;
+  return `${next} `;
+}
+
 /**
  * Build profile category fields from raw profile (migration-safe).
  */

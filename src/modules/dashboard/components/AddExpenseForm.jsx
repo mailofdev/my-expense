@@ -19,6 +19,7 @@ import {
   collectExpenseTags,
   suggestCategoryFromTitle,
 } from '../utils/categories';
+import TagInput from './TagInput';
 
 export default function AddExpenseForm({ onGoToMoney }) {
   const dispatch = useDispatch();
@@ -51,6 +52,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
   const watchedAmount = Number(watch('amount')) || 0;
   const watchedCategory = watch('category') || categories[0];
   const watchedTitle = watch('title') || '';
+  const watchedTags = watch('tags') || '';
   const expenseWallet = useSelector((state) => selectMonthWalletStatsByDate(state, watchedDate));
   const projectedRemaining = expenseWallet.remaining - watchedAmount;
 
@@ -181,13 +183,12 @@ export default function AddExpenseForm({ onGoToMoney }) {
             {...register('date')}
             aria-label="Date"
           />
-          <input
+          <TagInput
             className="input"
-            type="text"
+            value={watchedTags}
+            onChange={(next) => setValue('tags', next)}
             placeholder="Tag · #trip"
-            {...register('tags')}
             aria-label="Tag"
-            autoComplete="off"
           />
         </div>
 

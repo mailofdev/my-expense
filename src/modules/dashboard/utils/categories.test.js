@@ -12,6 +12,9 @@ import {
   normalizeTags,
   suggestCategoryFromTitle,
   collectExpenseTags,
+  collectKnownTags,
+  suggestTags,
+  applyTagSuggestion,
   normalizeCategoryProfile,
   remapCategoryBudgets,
   LEGACY_CATEGORY_TO_ID,
@@ -164,5 +167,31 @@ describe('lookups', () => {
     const mains = ensureMainCategories();
     expect(getMainByName(mains, 'Transport & Fuel')?.id).toBe('transport_fuel');
     expect(getMainById(mains, 'bills_emis')?.name).toBe('Bills & EMIs');
+  });
+});
+
+describe('tag suggestions', () => {
+  test('collectKnownTags returns unique sorted tags', () => {
+    expect(
+      collectKnownTags([
+        { tags: ['trip', 'goa'] },
+        { tags: ['trip', 'food'] },
+        { tags: [] },
+      ])
+    ).toEqual(['food', 'goa', 'trip']);
+  });
+
+  test('suggestTags matches similar tags and skips already typed ones', () => {
+    const known = ['trip', 'travel', 'food', 'family'];
+    expect(suggestTags(known, 'tr')).toEqual(['trip', 'travel']);
+    expect(suggestTags(known, '#tr')).toEqual(['trip', 'travel']);
+    expect(suggestTags(known, '#trip fa')).toEqual(['family']);
+    expect(suggestTags(known, '#trip fo')).toEqual(['food']);
+    expect(suggestTags(known, '')).toEqual([]);
+  });
+
+  test('applyTagSuggestion replaces the current fragment', () => {
+    expect(applyTagSuggestion('tr', 'trip')).toBe('#trip ');
+    expect(applyTagSuggestion('#food tr', 'trip')).toBe('#food #trip ');
   });
 });

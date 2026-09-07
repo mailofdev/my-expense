@@ -19,6 +19,7 @@ import {
   normalizeTags,
   resolveMainCategoryName,
 } from '../utils/categories';
+import TagInput from './TagInput';
 
 export default function DailyExpenseLedger({ onFindExpenses }) {
   const dispatch = useDispatch();
@@ -179,14 +180,12 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                         </select>
                       )}
                     </div>
-                    <input
+                    <TagInput
                       className="input py-2 text-sm"
-                      type="text"
                       value={editTags}
-                      onChange={(e) => setEditTags(e.target.value)}
+                      onChange={setEditTags}
                       placeholder="Tag · #trip"
                       aria-label="Tags"
-                      autoComplete="off"
                     />
                     <div className="flex justify-end gap-2 pt-1">
                       <button
