@@ -14,7 +14,7 @@ function isTxInMonth(tx, month, year, monthKey) {
   return dayKey && isInMonthYear(dayKey, month, year);
 }
 
-export default function ResetMonthPanel() {
+export default function ResetMonthPanel({ embedded = false }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { saving, expenses, walletTransactions } = useSelector((state) => state.dashboard);
@@ -79,12 +79,20 @@ export default function ResetMonthPanel() {
   };
 
   return (
-    <section className="card">
-      <h2 className="card-title mb-1">Reset this month</h2>
-      <p className="card-desc mb-3">
-        Clear all income and expenses for <strong>{monthLabel}</strong> and start over. Past months
-        are not affected.
-      </p>
+    <section className={embedded ? '' : 'card'}>
+      {!embedded && (
+        <>
+          <h2 className="card-title mb-1">Reset this month</h2>
+          <p className="card-desc mb-3">
+            Clear income and expenses for <strong>{monthLabel}</strong>. Past months stay as they are.
+          </p>
+        </>
+      )}
+      {embedded && (
+        <p className="card-desc mb-3 mt-0">
+          Clears income and expenses for <strong>{monthLabel}</strong> only.
+        </p>
+      )}
 
       {hasData ? (
         <p className="m-0 mb-3 text-sm text-muted">

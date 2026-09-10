@@ -10,7 +10,7 @@ import {
 } from '../utils/groups';
 import { updateFinanceSettings, selectPeopleGroups } from '../store/dashboardSlice';
 
-export default function GroupsSettings() {
+export default function GroupsSettings({ embedded = false }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { saving } = useSelector((state) => state.dashboard);
@@ -160,11 +160,15 @@ export default function GroupsSettings() {
   };
 
   return (
-    <section className="card">
-      <h2 className="card-title mb-1">People groups</h2>
-      <p className="card-desc mb-3">
-        Create groups like Trip, Flatmates, or Friends. Use them to split expenses equally.
-      </p>
+    <section className={embedded ? '' : 'card'}>
+      {!embedded && (
+        <>
+          <h2 className="card-title mb-1">People groups</h2>
+          <p className="card-desc mb-3">
+            Groups like Trip or Flatmates. Use them to split expenses equally.
+          </p>
+        </>
+      )}
 
       {message && (
         <p

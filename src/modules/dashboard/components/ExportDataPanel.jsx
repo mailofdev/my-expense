@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
-import { formatINR } from '../../../core/utils/currency';
+import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
 import { searchExpenses } from '../utils/searchExpenses';
 import { normalizeTags, resolveMainCategoryName } from '../utils/categories';
 import {
@@ -25,6 +25,7 @@ import {
 } from '../store/dashboardSlice';
 
 const TAG_EXPORT_LIMIT = 500;
+const PREVIEW_VISIBLE = 80;
 
 function getDefaultRange() {
   const { month, year } = getNowMonthYear();
@@ -35,7 +36,120 @@ function getDefaultRange() {
   return { startDate, endDate };
 }
 
-export default function ExportDataPanel() {
+function formatPreviewDate(date) {
+  return dayjs(date).isValid() ? dayjs(date).format('D MMM YYYY') : 'Unknown date';
+}
+
+function amountClassForType(type) {
+  if (type === 'Income') return ledgerAmountClass('income');
+  if (type === 'Transfer') return ledgerAmountClass('transfer');
+  return ledgerAmountClass('debit');
+}
+
+function amountPrefix(type) {
+  if (type === 'Income') return '+';
+  if (type === 'Transfer') return '↔';
+  return '−';
+}
+
+function ExportPreview({
+  heading,
+  summaryText,
+  rows,
+  message,
+  exporting,
+  onBack,
+  onExportPdf,
+  onExportCsv,
+  onExportSplit,
+  splitReadyCount = 0,
+}) {
+  const visibleRows = rows.slice(0, PREVIEW_VISIBLE);
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="mb-3 border-0 bg-transparent p-0 text-sm font-semibold text-primary"
+        onClick={onBack}
+      >
+        ← Back
+      </button>
+      <h3 className="m-0 text-base font-semibold text-[#f0f4f2]">Preview</h3>
+      <p className="mb-3 mt-1 text-sm text-muted">{heading}</p>
+      {summaryText && <p className="mb-3 mt-0 text-xs text-muted">{summaryText}</p>}
+
+      {rows.length === 0 ? (
+        <p className="empty-state-sm">Nothing to export.</p>
+      ) : (
+        <>
+          <ul className="m-0 max-h-[min(50vh,22rem)] list-none overflow-y-auto overscroll-contain p-0">
+            {visibleRows.map((row) => (
+              <li
+                key={row.id}
+                className="flex items-start justify-between gap-2 border-t border-edge/50 py-2.5 first:border-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-sm font-medium">{row.title}</p>
+                  <p className="m-0 truncate text-xs text-muted">{row.detail}</p>
+                </div>
+                <span
+                  className={`shrink-0 text-sm font-semibold tabular-nums ${amountClassForType(row.type)}`}
+                >
+                  {amountPrefix(row.type)}
+                  {formatINR(row.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {rows.length > PREVIEW_VISIBLE && (
+            <p className="mb-0 mt-2 text-xs text-muted">
+              Showing first {PREVIEW_VISIBLE} · export includes all {rows.length}
+            </p>
+          )}
+        </>
+      )}
+
+      {message && <p className="mt-2 mb-0 text-sm text-danger">{message}</p>}
+
+      <button
+        type="button"
+        className="btn-primary btn-full mt-4"
+        onClick={onExportPdf}
+        disabled={exporting || rows.length === 0}
+      >
+        {exporting ? 'Creating PDF…' : 'Export PDF'}
+      </button>
+      <button
+        type="button"
+        className="btn-outline btn-full mt-2"
+        onClick={onExportCsv}
+        disabled={exporting || rows.length === 0}
+      >
+        Export CSV
+      </button>
+      {onExportSplit && (
+        <>
+          <button
+            type="button"
+            className="btn-outline btn-full mt-2"
+            onClick={onExportSplit}
+            disabled={exporting || splitReadyCount === 0}
+          >
+            Shareable split PDF
+          </button>
+          <p className="mb-0 mt-1.5 text-xs text-muted">
+            {splitReadyCount > 0
+              ? `${splitReadyCount} split expense${splitReadyCount === 1 ? '' : 's'} · opens on phones`
+              : 'No split expenses in this preview'}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function ExportDataPanel({ embedded = false }) {
   const expenses = useSelector((state) => state.dashboard.expenses);
   const walletTransactions = useSelector((state) => state.dashboard.walletTransactions);
   const accounts = useSelector(selectAccounts);
@@ -44,14 +158,14 @@ export default function ExportDataPanel() {
   const today = getTodayString();
 
   const defaults = getDefaultRange();
-  const [mode, setMode] = useState('all'); // 'all' | 'tag'
+  const [mode, setMode] = useState('all');
   const [startDate, setStartDate] = useState(defaults.startDate);
   const [endDate, setEndDate] = useState(defaults.endDate);
   const [tagQuery, setTagQuery] = useState('');
   const [excludedIds, setExcludedIds] = useState(() => new Set());
   const [message, setMessage] = useState('');
-
   const [exporting, setExporting] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const rangeValid = startDate && endDate && !dayjs(startDate).isAfter(dayjs(endDate), 'day');
 
@@ -119,6 +233,39 @@ export default function ExportDataPanel() {
   const trimmedTag = tagQuery.trim();
   const removedCount = excludedIds.size;
 
+  const allPreviewRows = useMemo(
+    () =>
+      allRows.map((row, index) => ({
+        id: `${row.type}-${row.date}-${row.sortId || index}`,
+        title: row.description || row.type,
+        detail: [formatPreviewDate(row.date), row.type, row.category, row.split]
+          .filter(Boolean)
+          .join(' · '),
+        amount: row.amount,
+        type: row.type,
+      })),
+    [allRows]
+  );
+
+  const tagPreviewRows = useMemo(
+    () =>
+      tagExportRows.map((row, index) => ({
+        id: tagResults[index]?.id || `${row.date}-${row.title}-${index}`,
+        title: row.title || 'Untitled',
+        detail: [formatPreviewDate(row.date), row.category, row.tags, row.account, row.split]
+          .filter(Boolean)
+          .join(' · '),
+        amount: row.amount,
+        type: 'Expense',
+      })),
+    [tagExportRows, tagResults]
+  );
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setMessage('');
+  };
+
   const validateAll = () => {
     setMessage('');
     if (!rangeValid) {
@@ -163,11 +310,28 @@ export default function ExportDataPanel() {
     setMessage('');
   };
 
+  const handlePreview = () => {
+    if (mode === 'all') {
+      setMessage('');
+      if (!rangeValid) {
+        setMessage('End date must be on or after start date.');
+        return;
+      }
+    } else if (!validateTag()) {
+      return;
+    }
+    setPreviewOpen(true);
+  };
+
   const handleExportAllReport = async () => {
     if (!validateAll()) return;
     const rangedExpenses = expenses.filter((expense) => {
       const day = expense.date;
-      return day && !dayjs(day).isBefore(dayjs(startDate), 'day') && !dayjs(day).isAfter(dayjs(endDate), 'day');
+      return (
+        day &&
+        !dayjs(day).isBefore(dayjs(startDate), 'day') &&
+        !dayjs(day).isAfter(dayjs(endDate), 'day')
+      );
     });
     setExporting(true);
     try {
@@ -235,13 +399,60 @@ export default function ExportDataPanel() {
     }
   };
 
+  const rangeLabel = `${dayjs(startDate).format('D MMM YYYY')} – ${dayjs(endDate).format('D MMM YYYY')}`;
+  const allSummaryText = rangeValid
+    ? [
+        `${allSummary.total} item${allSummary.total === 1 ? '' : 's'}`,
+        allSummary.income > 0 ? `${allSummary.income} income` : null,
+        allSummary.expenses > 0 ? `${allSummary.expenses} expenses` : null,
+        allSummary.transfers > 0 ? `${allSummary.transfers} transfers` : null,
+        allSummary.incomeTotal > 0 ? `In ${formatINR(allSummary.incomeTotal)}` : null,
+        allSummary.expenseTotal > 0 ? `Out ${formatINR(allSummary.expenseTotal)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+
+  if (previewOpen && mode === 'all') {
+    return (
+      <ExportPreview
+        heading={rangeLabel}
+        summaryText={allSummaryText}
+        rows={allPreviewRows}
+        message={message}
+        exporting={exporting}
+        onBack={closePreview}
+        onExportPdf={handleExportAllReport}
+        onExportCsv={handleExportAllCsv}
+      />
+    );
+  }
+
+  if (previewOpen && mode === 'tag') {
+    return (
+      <ExportPreview
+        heading={`“${trimmedTag}”`}
+        summaryText={`${tagResults.length} expense${tagResults.length === 1 ? '' : 's'} · ${formatINR(tagTotal)}`}
+        rows={tagPreviewRows}
+        message={message}
+        exporting={exporting}
+        onBack={closePreview}
+        onExportPdf={handleExportTagReport}
+        onExportCsv={handleExportTagCsv}
+        onExportSplit={handleShareableSplitReport}
+        splitReadyCount={splitReadyCount}
+      />
+    );
+  }
+
   return (
-    <section className="card">
-      <h2 className="card-title mb-1">Export data</h2>
-      <p className="card-desc mb-3">
-        Download a PDF report with charts (works on mobile), or CSV for spreadsheets. Search a tag
-        like #trip to export only those expenses — or a shareable split PDF for your group.
-      </p>
+    <section className={embedded ? '' : 'card'}>
+      {!embedded && (
+        <>
+          <h2 className="card-title mb-1">Export data</h2>
+          <p className="card-desc mb-3">Preview first, then download PDF or CSV.</p>
+        </>
+      )}
 
       <div className="mb-4 grid grid-cols-2 gap-2">
         <button
@@ -253,6 +464,7 @@ export default function ExportDataPanel() {
           }`}
           onClick={() => {
             setMode('all');
+            setPreviewOpen(false);
             setMessage('');
           }}
         >
@@ -267,6 +479,7 @@ export default function ExportDataPanel() {
           }`}
           onClick={() => {
             setMode('tag');
+            setPreviewOpen(false);
             setMessage('');
           }}
         >
@@ -306,34 +519,16 @@ export default function ExportDataPanel() {
             </label>
           </div>
 
-          {rangeValid && (
-            <p className="mt-3 mb-0 text-sm text-muted">
-              {allSummary.total} item{allSummary.total === 1 ? '' : 's'}
-              {allSummary.income > 0 ? ` · ${allSummary.income} income` : ''}
-              {allSummary.expenses > 0 ? ` · ${allSummary.expenses} expenses` : ''}
-              {allSummary.transfers > 0 ? ` · ${allSummary.transfers} transfers` : ''}
-              {allSummary.incomeTotal > 0 ? ` · In ${formatINR(allSummary.incomeTotal)}` : ''}
-              {allSummary.expenseTotal > 0 ? ` · Out ${formatINR(allSummary.expenseTotal)}` : ''}
-            </p>
-          )}
-
+          {rangeValid && <p className="mt-3 mb-0 text-sm text-muted">{allSummaryText || '0 items'}</p>}
           {message && <p className="mt-2 mb-0 text-sm text-danger">{message}</p>}
 
           <button
             type="button"
             className="btn-primary btn-full mt-4"
-            onClick={handleExportAllReport}
-            disabled={!rangeValid || exporting}
+            onClick={handlePreview}
+            disabled={!rangeValid}
           >
-            {exporting ? 'Creating PDF…' : 'Export PDF'}
-          </button>
-          <button
-            type="button"
-            className="btn-outline btn-full mt-2"
-            onClick={handleExportAllCsv}
-            disabled={!rangeValid || exporting}
-          >
-            Export CSV
+            Preview
           </button>
         </>
       ) : (
@@ -353,8 +548,7 @@ export default function ExportDataPanel() {
 
           {!trimmedTag ? (
             <p className="mb-0 mt-3 text-xs text-muted">
-              Type a tag to find matching expenses. Remove any you don’t want, then export or share
-              splits.
+              Type a tag, remove any extras, then preview.
             </p>
           ) : tagMatches.length === 0 ? (
             <p className="empty-state-sm mt-3 mb-0">No matches for “{trimmedTag}”.</p>
@@ -372,9 +566,7 @@ export default function ExportDataPanel() {
                   {tagResults.length} selected
                   {removedCount > 0 ? ` · ${removedCount} removed` : ''}
                   {` · ${formatINR(tagTotal)}`}
-                  {splitReadyCount > 0
-                    ? ` · ${splitReadyCount} with split`
-                    : ''}
+                  {splitReadyCount > 0 ? ` · ${splitReadyCount} with split` : ''}
                 </p>
                 {removedCount > 0 && (
                   <button
@@ -388,9 +580,7 @@ export default function ExportDataPanel() {
               </div>
               <ul className="m-0 max-h-[min(40vh,16rem)] list-none overflow-y-auto overscroll-contain p-0">
                 {tagResults.slice(0, 40).map((expense) => {
-                  const dateLabel = dayjs(expense.date).isValid()
-                    ? dayjs(expense.date).format('D MMM YYYY')
-                    : 'Unknown date';
+                  const dateLabel = formatPreviewDate(expense.date);
                   const category = resolveMainCategoryName(expense.category, mainCategories);
                   const tags = normalizeTags(expense.tags);
                   const hasSplit = Boolean(normalizeExpenseSplit(expense.split, peopleGroups));
@@ -430,7 +620,7 @@ export default function ExportDataPanel() {
               </ul>
               {tagResults.length > 40 && (
                 <p className="mb-0 mt-2 text-xs text-muted">
-                  Showing first 40 · export includes all {tagResults.length} selected
+                  Showing first 40 · preview includes all {tagResults.length} selected
                 </p>
               )}
             </>
@@ -441,29 +631,10 @@ export default function ExportDataPanel() {
           <button
             type="button"
             className="btn-primary btn-full mt-4"
-            onClick={handleShareableSplitReport}
-            disabled={!trimmedTag || tagResults.length === 0 || exporting}
+            onClick={handlePreview}
+            disabled={!trimmedTag || tagResults.length === 0}
           >
-            {exporting ? 'Creating PDF…' : 'Shareable split PDF'}
-          </button>
-          <p className="mb-0 mt-1.5 text-xs text-muted">
-            Split expenses only · charts included · opens on phones · no banks or income
-          </p>
-          <button
-            type="button"
-            className="btn-outline btn-full mt-3"
-            onClick={handleExportTagReport}
-            disabled={!trimmedTag || tagResults.length === 0 || exporting}
-          >
-            Export full PDF
-          </button>
-          <button
-            type="button"
-            className="btn-outline btn-full mt-2"
-            onClick={handleExportTagCsv}
-            disabled={!trimmedTag || tagResults.length === 0 || exporting}
-          >
-            Export CSV
+            Preview
           </button>
         </>
       )}

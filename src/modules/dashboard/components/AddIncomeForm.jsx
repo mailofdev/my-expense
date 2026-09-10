@@ -11,9 +11,7 @@ import {
   removeWalletCredit,
   selectFilterMonthKey,
   selectFilteredMonthLabel,
-  selectMonthIncome,
   selectMonthIncomeEntries,
-  selectIsFilterCurrentMonth,
   selectAccounts,
   selectFilterDate,
 } from '../store/dashboardSlice';
@@ -26,8 +24,6 @@ export default function AddIncomeForm() {
   const cashAccounts = accounts.filter(isCashAccount);
   const monthKey = useSelector(selectFilterMonthKey);
   const monthLabel = useSelector(selectFilteredMonthLabel);
-  const monthIncome = useSelector(selectMonthIncome);
-  const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
   const incomeEntries = useSelector(selectMonthIncomeEntries);
   const filterDate = useSelector(selectFilterDate);
 
@@ -40,6 +36,7 @@ export default function AddIncomeForm() {
   const [accountId, setAccountId] = useState(salaryAccountId);
   const [date, setDate] = useState(filterDate || getTodayString());
   const [message, setMessage] = useState('');
+  const [showMore, setShowMore] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
   const [editAmount, setEditAmount] = useState('');
@@ -153,6 +150,7 @@ export default function AddIncomeForm() {
         setDate(filterDate || getTodayString());
         const accountName = accounts.find((a) => a.id === accountId)?.name || 'account';
         setMessage(`+${formatINR(value)} → ${accountName}`);
+        setShowMore(false);
       } else {
         setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add money.');
       }
@@ -161,16 +159,7 @@ export default function AddIncomeForm() {
 
   return (
     <section className="card">
-      <h2 className="card-title mb-1">Add income</h2>
-      <p className="card-desc mb-3">
-        {monthIncome > 0
-          ? `${formatINR(monthIncome)} added this month. More income = more to spend.`
-          : 'Start by adding your salary or any money you received this month.'}
-      </p>
-
-      {!isCurrentMonth && (
-        <p className="mb-3 mt-0 text-xs text-muted">Applies to {monthLabel}.</p>
-      )}
+      <h2 className="card-title mb-3">Add income</h2>
 
       <form className="space-y-3" onSubmit={handleSubmit}>
         <input
@@ -205,33 +194,48 @@ export default function AddIncomeForm() {
           </select>
         )}
 
-        <input
-          className="input"
-          type="date"
-          max={getTodayString()}
-          value={date}
-          onChange={(e) => {
-            setDate(e.target.value);
-            setMessage('');
-          }}
-          aria-label="Income date"
-        />
+        {showMore && (
+          <div className="space-y-3">
+            <input
+              className="input"
+              type="date"
+              max={getTodayString()}
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setMessage('');
+              }}
+              aria-label="Income date"
+            />
+            <input
+              className="input"
+              type="text"
+              value={note}
+              onChange={(e) => {
+                setNote(e.target.value);
+                setMessage('');
+              }}
+              placeholder="Note (optional)"
+              aria-label="Note"
+            />
+          </div>
+        )}
 
-        <input
-          className="input"
-          type="text"
-          value={note}
-          onChange={(e) => {
-            setNote(e.target.value);
-            setMessage('');
-          }}
-          placeholder="Note (optional) — Salary, freelance…"
-          aria-label="Note"
-        />
-
-        <button type="submit" className="btn-primary btn-full" disabled={saving || editingId}>
-          {saving && !editingId ? 'Adding…' : 'Add income'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving || editingId}>
+            {saving && !editingId ? 'Adding…' : 'Add income'}
+          </button>
+          <button
+            type="button"
+            className={`btn-outline shrink-0 px-3 ${
+              showMore || note ? 'border-primary/50 text-primary' : ''
+            }`}
+            onClick={() => setShowMore((open) => !open)}
+            aria-expanded={showMore}
+          >
+            {showMore ? 'Less' : 'Options'}
+          </button>
+        </div>
       </form>
 
       {incomeEntries.length > 0 && (

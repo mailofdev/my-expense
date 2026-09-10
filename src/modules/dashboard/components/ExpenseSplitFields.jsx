@@ -36,11 +36,7 @@ export default function ExpenseSplitFields({ amount, value, onChange }) {
   }, [enabled, group, amount, paidBy, memberIds, peopleGroups]);
 
   if (!peopleGroups.length) {
-    return (
-      <p className="m-0 rounded-sm border border-edge bg-surface-2 px-3 py-2 text-xs text-muted">
-        To split expenses, add a people group in Settings.
-      </p>
-    );
+    return null;
   }
 
   const patch = (partial) => {

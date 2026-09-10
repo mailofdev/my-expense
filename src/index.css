@@ -117,20 +117,21 @@
   }
 
   .dashboard-tabs {
-    @apply w-full;
+    @apply fixed inset-x-0 bottom-0 z-[190] border-t border-edge/70 bg-bg/95 backdrop-blur-sm;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  .dashboard-tabs-sticky {
-    @apply sticky z-[190] -mx-4 bg-bg/95 px-4 py-2.5 backdrop-blur-sm sm:-mx-6 sm:px-6;
-    top: calc(4rem + env(safe-area-inset-top, 0px));
+  .date-toolbar-sticky {
+    @apply sticky z-[180] -mx-4 mb-1 bg-bg/95 px-2 py-1 backdrop-blur-sm sm:-mx-6 sm:px-4;
+    top: calc(4.25rem + env(safe-area-inset-top, 0px));
   }
 
   .dashboard-tabs__track {
-    @apply grid w-full grid-cols-4 overflow-hidden rounded-lg border border-edge/70 bg-surface-2/80 p-1;
+    @apply mx-auto grid w-full max-w-lg grid-cols-4 sm:max-w-xl;
   }
 
   .dashboard-tabs__tab {
-    @apply relative flex min-h-[44px] cursor-pointer items-center justify-center rounded-md border-0 bg-transparent px-1 py-2 text-sm font-medium text-muted transition-colors;
+    @apply relative flex min-h-[56px] cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent px-1 py-1.5 text-muted transition-colors;
   }
 
   .dashboard-tabs__tab:hover:not(.is-active) {
@@ -138,15 +139,23 @@
   }
 
   .dashboard-tabs__tab.is-active {
-    @apply bg-surface text-[#f0f4f2] shadow-sm;
+    @apply text-primary;
   }
 
-  .dashboard-tabs__tab.is-active .dashboard-tabs__label {
-    @apply font-semibold text-primary;
+  .dashboard-tabs__icon {
+    @apply flex h-5 w-5 items-center justify-center;
+  }
+
+  .dashboard-tabs__icon svg {
+    @apply h-5 w-5;
   }
 
   .dashboard-tabs__label {
-    @apply truncate;
+    @apply truncate text-[11px] font-medium;
+  }
+
+  .dashboard-tabs__tab.is-active .dashboard-tabs__label {
+    @apply font-semibold;
   }
 }
 

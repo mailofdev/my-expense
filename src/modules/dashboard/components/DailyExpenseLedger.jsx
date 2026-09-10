@@ -278,10 +278,10 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
       {onFindExpenses && (
         <button
           type="button"
-          className="mt-3 w-full border-0 bg-transparent p-0 text-center text-xs font-semibold text-primary"
+          className="mt-3 w-full border-0 bg-transparent p-0 text-center text-xs text-muted hover:text-primary"
           onClick={onFindExpenses}
         >
-          Search / export
+          Search or export
         </button>
       )}
     </section>

@@ -1,5 +1,5 @@
 import { useSelector } from 'react-redux';
-import { selectInAppReminders } from '../store/dashboardSlice';
+import { selectInAppReminders, selectIsFilterCurrentMonth, selectMonthWalletFunded } from '../store/dashboardSlice';
 
 const TONE_CLASS = {
   danger: 'border-danger/40 bg-danger/10 text-red-200',
@@ -10,12 +10,21 @@ const TONE_CLASS = {
 /** Short alerts on Home — tap to go to Money tab when needed. */
 export default function HomeReminders({ onGoToMoney }) {
   const reminders = useSelector(selectInAppReminders);
+  const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
+  const monthFunded = useSelector(selectMonthWalletFunded);
 
-  if (!reminders.length) return null;
+  const visible = reminders.filter((reminder) => {
+    if (reminder.id === 'fund-month-wallet' && isCurrentMonth && monthFunded === 0) {
+      return false;
+    }
+    return true;
+  });
+
+  if (!visible.length) return null;
 
   return (
     <ul className="m-0 list-none space-y-2 p-0">
-      {reminders.map((reminder) => {
+      {visible.map((reminder) => {
         const clickable = reminder.action === 'wallet';
         const className = `m-0 w-full rounded-sm border px-3 py-2 text-left text-xs ${
           TONE_CLASS[reminder.tone] || TONE_CLASS.info

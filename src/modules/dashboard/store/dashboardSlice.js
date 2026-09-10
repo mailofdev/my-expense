@@ -1325,8 +1325,8 @@ export const selectInAppReminders = createSelector(
         tone: 'info',
         action: 'wallet',
         text: isCurrentMonth
-          ? 'Add income on the Money tab to start tracking this month.'
-          : `Add income for ${monthLabel} on the Money tab.`,
+          ? 'Add income on Money to start this month.'
+          : `Add income for ${monthLabel} on Money.`,
       });
     } else if (walletFunded > 0 && walletRemaining < 0) {
       reminders.push({

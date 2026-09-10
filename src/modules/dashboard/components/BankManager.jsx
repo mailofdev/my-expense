@@ -182,14 +182,13 @@ export default function BankManager() {
         className="border-0 bg-transparent p-0 text-xs font-semibold text-primary"
         onClick={() => setOpen((prev) => !prev)}
       >
-        {open ? 'Hide' : 'Manage accounts & cards'}
+        {open ? 'Hide' : 'Manage accounts'}
       </button>
 
       {open && (
         <div className="mt-3 space-y-3">
           <p className="m-0 text-xs text-muted">
-            Add banks, debit cards, or credit cards. Spend on a card by choosing it on an expense.
-            Pay a credit card from a bank with Transfer / Pay bill.
+            Add a bank or card. Pay a credit card with Transfer.
           </p>
 
           <form className="space-y-3" onSubmit={handleSave}>

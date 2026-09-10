@@ -40,6 +40,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
   const isToday = useSelector(selectIsTodaySelected);
   const showBankPicker = accounts.length > 1;
   const [splitUi, setSplitUi] = useState(EMPTY_SPLIT);
+  const [showMore, setShowMore] = useState(false);
 
   const categoryTouchedRef = useRef(false);
 
@@ -133,6 +134,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
         }
         categoryTouchedRef.current = false;
         setSplitUi(EMPTY_SPLIT);
+        setShowMore(false);
         reset({
           title: '',
           amount: '',
@@ -190,28 +192,35 @@ export default function AddExpenseForm({ onGoToMoney }) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            className="input"
-            type="date"
-            max={dayjs().format('YYYY-MM-DD')}
-            {...register('date')}
-            aria-label="Date"
-          />
-          <TagInput
-            className="input"
-            value={watchedTags}
-            onChange={(next) => setValue('tags', next)}
-            placeholder="Tag · #trip"
-            aria-label="Tag"
-          />
-        </div>
+        {showMore && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                className="input"
+                type="date"
+                max={dayjs().format('YYYY-MM-DD')}
+                {...register('date')}
+                aria-label="Date"
+              />
+              <TagInput
+                className="input"
+                value={watchedTags}
+                onChange={(next) => setValue('tags', next)}
+                placeholder="Tag · #trip"
+                aria-label="Tag"
+              />
+            </div>
+            <ExpenseSplitFields
+              amount={watchedAmount}
+              value={splitUi}
+              onChange={setSplitUi}
+            />
+          </div>
+        )}
 
-        <ExpenseSplitFields
-          amount={watchedAmount}
-          value={splitUi}
-          onChange={setSplitUi}
-        />
+        {!showMore && !isToday && (
+          <p className="m-0 text-xs text-muted">Saving for {dayjs(watchedDate).format('D MMM')}</p>
+        )}
 
         {expenseWallet.funded > 0 && watchedAmount > 0 && (
           <p
@@ -229,7 +238,7 @@ export default function AddExpenseForm({ onGoToMoney }) {
 
         {expenseWallet.funded === 0 && watchedAmount > 0 && onGoToMoney && (
           <p className="m-0 rounded-sm border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-yellow-100">
-            No income added this month yet.{' '}
+            No income this month yet.{' '}
             <button
               type="button"
               className="border-0 bg-transparent p-0 font-semibold text-primary underline"
@@ -240,9 +249,21 @@ export default function AddExpenseForm({ onGoToMoney }) {
           </p>
         )}
 
-        <button type="submit" className="btn-primary btn-full" disabled={saving}>
-          {saving ? '…' : 'Add'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving}>
+            {saving ? '…' : 'Add'}
+          </button>
+          <button
+            type="button"
+            className={`btn-outline shrink-0 px-3 ${
+              showMore || splitUi.enabled || watchedTags ? 'border-primary/50 text-primary' : ''
+            }`}
+            onClick={() => setShowMore((open) => !open)}
+            aria-expanded={showMore}
+          >
+            {showMore ? 'Less' : 'Options'}
+          </button>
+        </div>
 
         {(errors.title || errors.amount) && (
           <p className="text-center text-xs text-red-300">

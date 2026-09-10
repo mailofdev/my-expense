@@ -4,9 +4,11 @@ import dayjs from 'dayjs';
 import {
   setDayFilter,
   selectFilteredDayLabel,
+  selectFilteredMonthLabel,
   selectIsTodaySelected,
+  selectIsFilterCurrentMonth,
 } from '../store/dashboardSlice';
-import { getTodayString } from '../../../core/utils/date';
+import { getTodayString, resolveFilterDateForMonth } from '../../../core/utils/date';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -21,23 +23,25 @@ function CalendarIcon({ className = 'h-5 w-5' }) {
   );
 }
 
-export default function DateToolbar() {
+export default function DateToolbar({ variant = 'day' }) {
   const dispatch = useDispatch();
   const { filterMonth, filterYear, filterDate, expenses } = useSelector((state) => state.dashboard);
   const dayLabel = useSelector(selectFilteredDayLabel);
+  const monthLabel = useSelector(selectFilteredMonthLabel);
   const isToday = useSelector(selectIsTodaySelected);
-  const fullDateLabel = dayjs(filterDate).format('ddd, D MMM YYYY');
-  const selectedRef = useRef(null);
+  const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
+  const fullDateLabel = dayjs(filterDate).format('ddd, D MMM');
   const popoverRef = useRef(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(filterMonth);
   const [viewYear, setViewYear] = useState(filterYear);
   const today = getTodayString();
+  const isMonth = variant === 'month';
   const canGoNextDay = dayjs(filterDate || today).isBefore(dayjs(), 'day');
-
-  useEffect(() => {
-    selectedRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-  }, [filterDate]);
+  const canGoNextMonth = dayjs(`${filterYear}-${String(filterMonth).padStart(2, '0')}-01`).isBefore(
+    dayjs(),
+    'month'
+  );
 
   useEffect(() => {
     if (calendarOpen) {
@@ -72,6 +76,16 @@ export default function DateToolbar() {
     dispatch(setDayFilter({ date: next.format('YYYY-MM-DD') }));
   };
 
+  const shiftMonth = (delta) => {
+    const next = dayjs(`${filterYear}-${String(filterMonth).padStart(2, '0')}-01`).add(delta, 'month');
+    if (next.isAfter(dayjs(), 'month')) return;
+    dispatch(
+      setDayFilter({
+        date: resolveFilterDateForMonth(next.month() + 1, next.year(), filterDate),
+      })
+    );
+  };
+
   const shiftViewMonth = (delta) => {
     const d = dayjs(`${viewYear}-${String(viewMonth).padStart(2, '0')}-01`).add(delta, 'month');
     setViewMonth(d.month() + 1);
@@ -85,7 +99,8 @@ export default function DateToolbar() {
   };
 
   const spendDates = new Set(
-    expenses.filter((e) => dayjs(e.date).month() + 1 === viewMonth && dayjs(e.date).year() === viewYear)
+    expenses
+      .filter((e) => dayjs(e.date).month() + 1 === viewMonth && dayjs(e.date).year() === viewYear)
       .map((e) => e.date)
   );
 
@@ -108,60 +123,79 @@ export default function DateToolbar() {
     }),
   ];
 
+  const title = isMonth
+    ? monthLabel
+    : isToday || dayLabel === 'Yesterday'
+      ? dayLabel
+      : fullDateLabel;
+  const subtitle = !isMonth && (isToday || dayLabel === 'Yesterday') ? fullDateLabel : null;
+  const canGoNext = isMonth ? canGoNextMonth : canGoNextDay;
+  const showJumpBack = isMonth ? !isCurrentMonth : !isToday;
+
   return (
-    <div className="relative rounded-lg border border-edge/80 bg-surface px-3 py-3 sm:px-4" ref={popoverRef}>
-      <div className="mb-3 flex items-center gap-2">
+    <div className="relative" ref={popoverRef}>
+      <div className="flex items-center gap-1">
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg text-[#f0f4f2] hover:bg-primary/15 hover:text-primary"
-          onClick={() => shiftDay(-1)}
-          aria-label="Previous day"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-[#f0f4f2] hover:bg-surface-2 hover:text-primary"
+          onClick={() => (isMonth ? shiftMonth(-1) : shiftDay(-1))}
+          aria-label={isMonth ? 'Previous month' : 'Previous day'}
         >
           ‹
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-2 px-1">
-          <div className="min-w-0 truncate text-center">
-            <p className="m-0 truncate text-sm font-semibold text-[#f0f4f2] sm:text-base">
-              {isToday || dayLabel === 'Yesterday' ? dayLabel : fullDateLabel}
-            </p>
-            {(isToday || dayLabel === 'Yesterday') && (
-              <p className="m-0 mt-0.5 truncate text-[11px] text-muted">{fullDateLabel}</p>
-            )}
-          </div>
+        <button
+          type="button"
+          className="min-w-0 flex-1 rounded-md px-1 py-1 text-center hover:bg-surface-2/70"
+          onClick={() => setCalendarOpen((open) => !open)}
+          aria-label="Open calendar"
+          aria-expanded={calendarOpen}
+        >
+          <p className="m-0 truncate text-sm font-semibold text-[#f0f4f2]">{title}</p>
+          {subtitle && <p className="m-0 truncate text-[11px] text-muted">{subtitle}</p>}
+        </button>
 
+        {showJumpBack && (
           <button
             type="button"
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
-              calendarOpen
-                ? 'bg-primary text-bg'
-                : 'bg-surface-2 text-[#f0f4f2] hover:bg-primary/15 hover:text-primary'
-            }`}
-            onClick={() => setCalendarOpen((open) => !open)}
-            aria-label="Open calendar"
-            aria-expanded={calendarOpen}
+            className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
+            onClick={() => goToDay(today)}
           >
-            <CalendarIcon className="h-4 w-4" />
+            Today
           </button>
-        </div>
+        )}
 
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg text-[#f0f4f2] hover:bg-primary/15 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
-          onClick={() => shiftDay(1)}
-          aria-label="Next day"
-          disabled={!canGoNextDay}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+            calendarOpen
+              ? 'bg-primary text-bg'
+              : 'text-[#f0f4f2] hover:bg-surface-2 hover:text-primary'
+          }`}
+          onClick={() => setCalendarOpen((open) => !open)}
+          aria-label="Open calendar"
+          aria-expanded={calendarOpen}
+        >
+          <CalendarIcon className="h-4 w-4" />
+        </button>
+
+        <button
+          type="button"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-[#f0f4f2] hover:bg-surface-2 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+          onClick={() => (isMonth ? shiftMonth(1) : shiftDay(1))}
+          aria-label={isMonth ? 'Next month' : 'Next day'}
+          disabled={!canGoNext}
         >
           ›
         </button>
       </div>
 
       {calendarOpen && (
-        <div className="mb-3 rounded-md border border-edge/70 bg-surface-2/50 p-3">
+        <div className="mt-2 rounded-lg border border-edge/70 bg-surface p-3 shadow-card">
           <div className="mb-3 flex items-center gap-2">
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-lg text-muted hover:text-primary"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted hover:bg-surface-2 hover:text-primary"
               onClick={() => shiftViewMonth(-1)}
               aria-label="Previous month in calendar"
             >
@@ -170,7 +204,7 @@ export default function DateToolbar() {
             <span className="flex-1 text-center text-sm font-semibold">{viewLabel}</span>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-lg text-muted hover:text-primary"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted hover:bg-surface-2 hover:text-primary"
               onClick={() => shiftViewMonth(1)}
               aria-label="Next month in calendar"
             >
@@ -201,10 +235,10 @@ export default function DateToolbar() {
                     day.isSelected
                       ? 'bg-primary font-semibold text-bg'
                       : day.isToday
-                        ? 'bg-surface text-primary ring-1 ring-primary/50'
+                        ? 'bg-surface-2 text-primary ring-1 ring-primary/50'
                         : day.hasSpend
                           ? 'bg-primary/15 text-primary'
-                          : 'text-[#f0f4f2] hover:bg-surface'
+                          : 'text-[#f0f4f2] hover:bg-surface-2'
                   }`}
                 >
                   {day.dayNum}
@@ -217,18 +251,6 @@ export default function DateToolbar() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[10px] text-muted">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-primary/15 ring-1 ring-primary/35" /> Filled
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-surface ring-1 ring-primary/50" /> Today
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-primary" /> Selected
-            </span>
           </div>
         </div>
       )}

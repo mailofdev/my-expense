@@ -82,7 +82,7 @@ export default function CategoryChart() {
           />
         </div>
       ) : (
-        <p className="empty-state-sm">No expenses in this period for category breakdown</p>
+        <p className="empty-state-sm">No expenses in this period</p>
       )}
     </section>
   );

@@ -30,7 +30,7 @@ export default function InstallPWA() {
   };
 
   return (
-    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-[1000] mx-auto max-w-md rounded border border-primary bg-surface p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_20px_rgba(232,197,71,0.22)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+    <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-[1000] mx-auto max-w-md rounded border border-primary bg-surface p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_20px_rgba(232,197,71,0.22)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
       <p className="m-0 mb-3 text-sm">
         <strong>Install {APP_NAME}</strong> on your phone for quick access
       </p>

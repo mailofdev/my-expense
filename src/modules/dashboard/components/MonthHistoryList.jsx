@@ -19,7 +19,6 @@ export default function MonthHistoryList({ onOpenDay }) {
   return (
     <section className="card card-subtle">
       <h2 className="card-title">By day</h2>
-      <p className="card-desc mb-3 mt-0">Tap a day to view expenses on Home.</p>
       <ul className="m-0 list-none p-0">
         {groupedDays.map((group) => (
           <li key={group.date} className="border-t border-edge/60 first:border-0">

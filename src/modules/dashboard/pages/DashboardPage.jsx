@@ -53,7 +53,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen min-h-dvh bg-bg">
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-lg px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 sm:max-w-xl sm:px-6 sm:pb-10">
+      <main className="mx-auto w-full max-w-lg px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-2 sm:max-w-xl sm:px-6">
         {error && (
           <div className="alert-error mb-3 flex items-center justify-between gap-2">
             <span>{error}</span>
@@ -68,20 +68,16 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="dashboard-tabs-sticky">
-          <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
-        </div>
-
         {showDateToolbar && (
-          <div className="mt-4">
-            <DateToolbar />
+          <div className="date-toolbar-sticky">
+            <DateToolbar variant={activeTab === 'overview' ? 'day' : 'month'} />
           </div>
         )}
 
-        <div className="mt-4 flex flex-col gap-4 sm:gap-5">
+        <div className="mt-3 flex flex-col gap-4 sm:gap-5">
           {activeTab === 'overview' && (
             <>
-              <OverviewHero onTabChange={handleTabChange} />
+              <OverviewHero />
               <GettingStarted onGoToMoney={() => handleTabChange('wallet')} />
               <HomeReminders onGoToMoney={() => handleTabChange('wallet')} />
               <AddExpenseForm onGoToMoney={() => handleTabChange('wallet')} />
@@ -96,6 +92,7 @@ export default function DashboardPage() {
           {activeTab === 'settings' && <SettingsHub />}
         </div>
       </main>
+      <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
     </div>
   );
 }

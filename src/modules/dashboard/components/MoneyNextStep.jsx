@@ -15,14 +15,14 @@ export default function MoneyNextStep({ onGoToHome }) {
 
   return (
     <section className="rounded-lg border border-success/30 bg-success/10 px-3 py-3">
-      <p className="m-0 text-sm font-medium text-[#f0f4f2]">Income added — you&apos;re set for this month.</p>
-      <p className="m-0 mt-1 text-xs text-muted">Next, log each purchase on Home so you can track spending.</p>
+      <p className="m-0 text-sm font-medium text-[#f0f4f2]">Income added.</p>
+      <p className="m-0 mt-1 text-xs text-muted">Log purchases on Home to track spending.</p>
       <button
         type="button"
         className="mt-2 border-0 bg-transparent p-0 text-xs font-semibold text-primary"
         onClick={onGoToHome}
       >
-        Go to Home →
+        Open Home →
       </button>
     </section>
   );

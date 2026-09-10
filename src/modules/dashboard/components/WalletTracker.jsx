@@ -41,6 +41,7 @@ export default function WalletTracker({ onGoToHome }) {
   }));
   const defaultAccountId = getDefaultAccountId(accounts);
   const [showActivity, setShowActivity] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const isTxInFilteredMonth = (tx) => {
     if (tx.monthKey) return tx.monthKey === monthKey;
@@ -124,9 +125,8 @@ export default function WalletTracker({ onGoToHome }) {
       <MoneyNextStep onGoToHome={onGoToHome} />
 
       <section className="card text-center">
-        <p className="section-label m-0">{monthLabel}</p>
         <p
-          className={`text-glow m-0 mt-1 text-[clamp(1.75rem,8vw,2.5rem)] font-bold ${
+          className={`text-glow m-0 text-[clamp(1.75rem,8vw,2.5rem)] font-bold ${
             monthFunded > 0 && monthRemaining < 0
               ? 'text-danger'
               : monthFunded > 0
@@ -137,7 +137,7 @@ export default function WalletTracker({ onGoToHome }) {
           {monthFunded > 0 ? formatINR(monthRemaining) : formatINR(0)}
         </p>
         <p className="m-0 mt-1 text-sm text-muted">
-          {monthFunded > 0 ? 'left to spend' : 'Add income below to get started'}
+          {monthFunded > 0 ? 'left to spend' : 'this month'}
         </p>
 
         {monthFunded > 0 && (
@@ -165,13 +165,10 @@ export default function WalletTracker({ onGoToHome }) {
       <AddIncomeForm />
 
       <section className="card">
-        <div className="mb-1 flex items-baseline justify-between gap-2">
+        <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="card-title mb-0">Balances</h2>
           <p className="m-0 text-sm font-semibold text-primary">{formatINR(accountsTotal)}</p>
         </div>
-        <p className="card-desc mb-3">
-          Cash & debit total. Credit cards show outstanding separately.
-        </p>
         <ul className="m-0 list-none space-y-0 p-0">
           {accountsWithBal
             .filter((account) => !account.isCredit)
@@ -243,13 +240,22 @@ export default function WalletTracker({ onGoToHome }) {
         <BankManager />
 
         {accountsWithBal.length >= 2 && (
-          <div className="mt-4 border-t border-edge/50 pt-4">
-            <p className="m-0 mb-1 text-sm font-medium">Transfer / pay card bill</p>
-            <p className="m-0 mb-3 text-xs text-muted">
-              Move money between banks, or pay a credit card from a bank or debit card.
-              Card payments reduce outstanding — they don’t count as a new expense.
-            </p>
-            <TransferForm />
+          <div className="mt-4 border-t border-edge/50 pt-3">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between border-0 bg-transparent p-0 text-left"
+              onClick={() => setShowTransfer((prev) => !prev)}
+            >
+              <span className="text-sm font-medium">Transfer / pay card</span>
+              <span className="text-xs font-semibold text-primary">
+                {showTransfer ? 'Hide' : 'Show'}
+              </span>
+            </button>
+            {showTransfer && (
+              <div className="mt-3">
+                <TransferForm />
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -264,8 +270,7 @@ export default function WalletTracker({ onGoToHome }) {
             <div className="min-w-0">
               <h2 className="card-title mb-0">{monthLabel} history</h2>
               <p className="card-desc mb-0 mt-1">
-                {monthHistory.length} item{monthHistory.length === 1 ? '' : 's'} · income, expenses,
-                transfers
+                {monthHistory.length} item{monthHistory.length === 1 ? '' : 's'}
               </p>
             </div>
             <span className="shrink-0 text-xs font-semibold text-primary">

@@ -10,7 +10,7 @@ import {
   selectTotalSpent,
 } from '../store/dashboardSlice';
 
-export default function OverviewHero({ onTabChange }) {
+export default function OverviewHero() {
   const dayTotal = useSelector(selectDayTotal);
   const dayLabel = useSelector(selectFilteredDayLabel);
   const isToday = useSelector(selectIsTodaySelected);
@@ -23,11 +23,12 @@ export default function OverviewHero({ onTabChange }) {
 
   return (
     <section className="px-0.5">
-      <p className="section-label m-0">{isToday ? 'Today' : dayLabel}</p>
       <p className="text-glow m-0 text-[clamp(2.25rem,10vw,3rem)] font-bold leading-none tracking-tight text-primary">
         {formatINR(dayTotal)}
       </p>
-      <p className="m-0 mt-1 text-sm text-muted">spent</p>
+      <p className="m-0 mt-1 text-sm text-muted">
+        {isToday ? 'spent today' : `spent · ${dayLabel}`}
+      </p>
 
       <div className="mt-4 rounded-lg bg-surface-2/40 px-3 py-3">
         <div className="flex items-baseline justify-between gap-2">
@@ -41,13 +42,7 @@ export default function OverviewHero({ onTabChange }) {
               {formatINRCompact(walletRemaining)} left
             </p>
           ) : (
-            <button
-              type="button"
-              className="border-0 bg-transparent p-0 text-sm font-semibold text-primary"
-              onClick={() => onTabChange?.('wallet')}
-            >
-              Add income
-            </button>
+            <p className="m-0 text-sm text-muted">No income yet</p>
           )}
         </div>
         {walletFunded > 0 && (

@@ -40,28 +40,28 @@ export default function GettingStarted({ onGoToMoney }) {
 
   return (
     <section className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-3">
-      <p className="section-label m-0 mb-3">Get started this month</p>
+      <p className="section-label m-0 mb-3">Get started</p>
       <ol className="m-0 list-none space-y-3 p-0">
         <Step
           done={incomeDone}
           number="1"
-          title="Add your income"
-          detail="Salary, freelance, or any money you received."
+          title="Add income"
+          detail="Salary or any money you received."
           action={
             <button
               type="button"
               className="mt-2 border-0 bg-transparent p-0 text-xs font-semibold text-primary"
               onClick={onGoToMoney}
             >
-              Go to Money →
+              Open Money →
             </button>
           }
         />
         <Step
           done={monthSpent > 0}
           number="2"
-          title="Log what you spend"
-          detail={incomeDone ? 'Use the form below for each purchase.' : 'Do this after step 1.'}
+          title="Log a purchase"
+          detail={incomeDone ? 'Use the form below.' : 'Do this after adding income.'}
         />
       </ol>
     </section>
