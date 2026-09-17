@@ -8,7 +8,15 @@ import {
   buildCategoryColors,
   getCategoryLimitLevel,
   getCategoryLimitPercent,
+  getCategoryLimitWarningText,
 } from '../../../core/constants/finance';
+import {
+  clampSavingsPercent,
+  computeSpendablePool,
+  getBudgetAllocationStatus,
+  normalizeCategoryBudgetMap,
+  sumCategoryBudgets,
+} from '../utils/budgetPlan';
 import {
   getNowMonthYear,
   getTodayString,
@@ -332,6 +340,31 @@ export const updateFinanceSettings = createAsyncThunk(
           selfName: resolveSelfMemberName(getState().auth?.user),
         });
       }
+
+      if (next.habits && typeof next.habits === 'object') {
+        const mergedHabits = {
+          ...DEFAULT_HABITS,
+          ...(state.habits || {}),
+          ...next.habits,
+        };
+        mergedHabits.savingsGoalPercent = clampSavingsPercent(
+          mergedHabits.savingsGoalPercent,
+          DEFAULT_HABITS.savingsGoalPercent
+        );
+        next.habits = mergedHabits;
+      }
+
+      if (next.categoryBudgets && typeof next.categoryBudgets === 'object') {
+        const mains = ensureMainCategories(next.mainCategories || state.mainCategories);
+        next.categoryBudgets = remapCategoryBudgets(
+          normalizeCategoryBudgetMap(
+            next.categoryBudgets,
+            getAllCategoryNames(mains)
+          ),
+          mains
+        );
+      }
+
       await userService.updateProfile(uid, next);
       return next;
     } catch (error) {
@@ -672,7 +705,7 @@ const dashboardSlice = createSlice({
           state.monthlyWallets = monthlyWallets ?? profile.monthlyWallets ?? {};
           state.monthlyIncomes = profile.monthlyIncomes ?? {};
           state.monthlyIncome = profile.monthlyIncome ?? 0;
-          state.habits = profile.habits ?? { ...DEFAULT_HABITS };
+          state.habits = { ...DEFAULT_HABITS, ...(profile.habits || {}) };
           state.accounts = ensureAccounts(profile.accounts);
           state.accountOpenings = profile.accountOpenings ?? {};
           state.peopleGroups = ensurePeopleGroups(
@@ -1215,7 +1248,7 @@ export const selectCategorySpentByDate = (state, category, dateStr) => {
 
 /**
  * Per-category limit progress for the filtered month.
- * @returns {{ category: string, spent: number, limit: number, percent: number, level: null|number, color: string }[]}
+ * @returns {{ category: string, spent: number, limit: number, remaining: number, percent: number, level: null|number, color: string }[]}
  */
 export const selectCategoryLimitStatuses = (state) => {
   const { mainCategories, categoryBudgets, categoryColors } = state.dashboard;
@@ -1230,12 +1263,61 @@ export const selectCategoryLimitStatuses = (state) => {
         category,
         spent,
         limit,
+        remaining: limit - spent,
         percent: getCategoryLimitPercent(spent, limit),
         level: getCategoryLimitLevel(spent, limit),
         color: categoryColors?.[category] || buildCategoryColors(allNames)[category],
       };
     })
     .filter(Boolean);
+};
+
+/** Income − savings target = spendable pool used for category budgets. */
+export const selectMonthSpendablePool = (state) => {
+  const income = selectMonthIncome(state);
+  const savingsPercent =
+    state.dashboard.habits?.savingsGoalPercent ?? DEFAULT_HABITS.savingsGoalPercent;
+  return {
+    ...computeSpendablePool(income, savingsPercent),
+    monthLabel: selectFilteredMonthLabel(state),
+  };
+};
+
+/** Category budget setup summary for the filtered month. */
+export const selectCategoryBudgetPlan = (state) => {
+  const pool = selectMonthSpendablePool(state);
+  const { categoryBudgets, mainCategories } = state.dashboard;
+  const categoryNames = getVisibleCategoryNames(mainCategories);
+  const names = categoryNames.length > 0 ? categoryNames : getAllCategoryNames(mainCategories);
+  const budgets = normalizeCategoryBudgetMap(categoryBudgets, names);
+  const allocated = sumCategoryBudgets(budgets);
+  const allocation = getBudgetAllocationStatus(allocated, pool.spendable);
+  const statuses = selectCategoryLimitStatuses(state);
+
+  return {
+    ...pool,
+    categoryNames: names,
+    budgets,
+    allocated,
+    allocation,
+    hasAnyBudget: allocated > 0,
+    statuses,
+  };
+};
+
+/** Limit status for one category in the calendar month of `dateStr`. */
+export const selectCategoryLimitForDate = (state, category, dateStr) => {
+  const limit = Number(state.dashboard.categoryBudgets?.[category]) || 0;
+  if (limit <= 0 || !category) return null;
+  const spent = selectCategorySpentByDate(state, category, dateStr);
+  return {
+    category,
+    spent,
+    limit,
+    remaining: limit - spent,
+    percent: getCategoryLimitPercent(spent, limit),
+    level: getCategoryLimitLevel(spent, limit),
+  };
 };
 
 export const selectMainCategories = createSelector(
@@ -1315,8 +1397,9 @@ export const selectInAppReminders = createSelector(
     selectTotalSpent,
     selectIsFilterCurrentMonth,
     selectFilteredMonthLabel,
+    selectCategoryLimitStatuses,
   ],
-  (walletFunded, walletRemaining, monthSpent, isCurrentMonth, monthLabel) => {
+  (walletFunded, walletRemaining, monthSpent, isCurrentMonth, monthLabel, categoryStatuses) => {
     const reminders = [];
 
     if (walletFunded === 0 && (isCurrentMonth || monthSpent > 0)) {
@@ -1343,6 +1426,24 @@ export const selectInAppReminders = createSelector(
         text: `Only ₹${Math.max(0, walletRemaining).toLocaleString('en-IN')} left this month.`,
       });
     }
+
+    const hotCategories = (categoryStatuses || [])
+      .filter((item) => item.level != null && item.level >= 75)
+      .sort((a, b) => (b.level || 0) - (a.level || 0) || b.percent - a.percent);
+
+    hotCategories.slice(0, 2).forEach((item) => {
+      reminders.push({
+        id: `category-limit-${item.category}`,
+        tone: item.level >= 100 ? 'danger' : 'warning',
+        action: 'budgets',
+        text: getCategoryLimitWarningText(
+          item.category,
+          item.level,
+          item.spent,
+          item.limit
+        ),
+      });
+    });
 
     return reminders.slice(0, 3);
   }

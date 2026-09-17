@@ -5,9 +5,10 @@ import {
   selectMonthExpenses,
 } from '../store/dashboardSlice';
 import CategoryChart from './CategoryChart';
+import CategoryLimitsCard from './CategoryLimitsCard';
 import MonthHistoryList from './MonthHistoryList';
 
-export default function ExpenseAnalyzer({ onOpenDay }) {
+export default function ExpenseAnalyzer({ onOpenDay, onManageBudgets }) {
   const expenses = useSelector((state) => state.dashboard.expenses);
   const totalSpent = useSelector(selectTotalSpent);
   const monthExpenses = useSelector(selectMonthExpenses);
@@ -20,6 +21,8 @@ export default function ExpenseAnalyzer({ onOpenDay }) {
         </p>
         <p className="m-0 mt-1 text-sm text-muted">spent this month</p>
       </section>
+
+      <CategoryLimitsCard onManageBudgets={onManageBudgets} />
 
       <CategoryChart />
 

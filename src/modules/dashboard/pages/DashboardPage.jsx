@@ -22,9 +22,15 @@ export default function DashboardPage() {
   const { user } = useSelector((state) => state.auth);
   const { loading, loaded, error } = useSelector((state) => state.dashboard);
   const [activeTab, setActiveTab] = useState('overview');
+  const [settingsOpenId, setSettingsOpenId] = useState('budgets');
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+  };
+
+  const openBudgets = () => {
+    setSettingsOpenId('budgets');
+    setActiveTab('settings');
   };
 
   const openExpenseDay = (dateStr) => {
@@ -79,17 +85,27 @@ export default function DashboardPage() {
             <>
               <OverviewHero />
               <GettingStarted onGoToMoney={() => handleTabChange('wallet')} />
-              <HomeReminders onGoToMoney={() => handleTabChange('wallet')} />
-              <AddExpenseForm onGoToMoney={() => handleTabChange('wallet')} />
+              <HomeReminders
+                onGoToMoney={() => handleTabChange('wallet')}
+                onGoToBudgets={openBudgets}
+              />
+              <AddExpenseForm
+                onGoToMoney={() => handleTabChange('wallet')}
+              />
               <DailyExpenseLedger onFindExpenses={() => handleTabChange('settings')} />
             </>
           )}
 
           {activeTab === 'wallet' && (
-            <WalletTracker onGoToHome={() => handleTabChange('overview')} />
+            <WalletTracker
+              onGoToHome={() => handleTabChange('overview')}
+              onGoToBudgets={openBudgets}
+            />
           )}
-          {activeTab === 'analyzer' && <ExpenseAnalyzer onOpenDay={openExpenseDay} />}
-          {activeTab === 'settings' && <SettingsHub />}
+          {activeTab === 'analyzer' && (
+            <ExpenseAnalyzer onOpenDay={openExpenseDay} onManageBudgets={openBudgets} />
+          )}
+          {activeTab === 'settings' && <SettingsHub initialOpenId={settingsOpenId} />}
         </div>
       </main>
       <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />

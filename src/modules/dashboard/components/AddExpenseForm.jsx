@@ -9,6 +9,7 @@ import {
   selectFilterDate,
   selectIsTodaySelected,
   selectMonthWalletStatsByDate,
+  selectCategoryLimitForDate,
   selectAccounts,
   selectDefaultAccountId,
   selectVisibleCategories,
@@ -65,7 +66,14 @@ export default function AddExpenseForm({ onGoToMoney }) {
     (state) => selectMonthWalletStatsByDate(state, watchedDate),
     shallowEqual
   );
+  const categoryLimit = useSelector(
+    (state) => selectCategoryLimitForDate(state, watchedCategory, watchedDate),
+    shallowEqual
+  );
   const projectedRemaining = expenseWallet.remaining - watchedAmount;
+  const projectedCategoryRemaining = categoryLimit
+    ? categoryLimit.remaining - watchedAmount
+    : null;
 
   useEffect(() => {
     setValue('date', filterDate);
@@ -233,6 +241,22 @@ export default function AddExpenseForm({ onGoToMoney }) {
             {projectedRemaining < 0
               ? `${formatINR(Math.abs(projectedRemaining))} over budget after this`
               : `${formatINR(projectedRemaining)} left this month after this`}
+          </p>
+        )}
+
+        {categoryLimit && watchedAmount > 0 && (
+          <p
+            className={`m-0 rounded-sm border px-3 py-2 text-xs ${
+              projectedCategoryRemaining < 0
+                ? 'border-danger/40 bg-danger/10 text-red-200'
+                : categoryLimit.level >= 75
+                  ? 'border-accent/40 bg-accent/10 text-yellow-100'
+                  : 'border-edge bg-surface-2 text-muted'
+            }`}
+          >
+            {projectedCategoryRemaining < 0
+              ? `${watchedCategory}: ${formatINR(Math.abs(projectedCategoryRemaining))} over limit after this`
+              : `${watchedCategory}: ${formatINR(projectedCategoryRemaining)} left of ${formatINR(categoryLimit.limit)}`}
           </p>
         )}
 

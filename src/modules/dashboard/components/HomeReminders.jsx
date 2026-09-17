@@ -7,8 +7,8 @@ const TONE_CLASS = {
   info: 'border-edge bg-surface-2 text-muted',
 };
 
-/** Short alerts on Home — tap to go to Money tab when needed. */
-export default function HomeReminders({ onGoToMoney }) {
+/** Short alerts on Home — tap to go to Money or budgets when needed. */
+export default function HomeReminders({ onGoToMoney, onGoToBudgets }) {
   const reminders = useSelector(selectInAppReminders);
   const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
   const monthFunded = useSelector(selectMonthWalletFunded);
@@ -25,7 +25,9 @@ export default function HomeReminders({ onGoToMoney }) {
   return (
     <ul className="m-0 list-none space-y-2 p-0">
       {visible.map((reminder) => {
-        const clickable = reminder.action === 'wallet';
+        const goMoney = reminder.action === 'wallet';
+        const goBudgets = reminder.action === 'budgets';
+        const clickable = goMoney || goBudgets;
         const className = `m-0 w-full rounded-sm border px-3 py-2 text-left text-xs ${
           TONE_CLASS[reminder.tone] || TONE_CLASS.info
         } ${clickable ? 'cursor-pointer' : ''}`;
@@ -43,7 +45,10 @@ export default function HomeReminders({ onGoToMoney }) {
             <button
               type="button"
               className={`${className} border-solid`}
-              onClick={() => onGoToMoney?.()}
+              onClick={() => {
+                if (goBudgets) onGoToBudgets?.();
+                else onGoToMoney?.();
+              }}
             >
               {reminder.text}
             </button>

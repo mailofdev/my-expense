@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import GroupsSettings from './GroupsSettings';
 import ExportDataPanel from './ExportDataPanel';
 import ResetMonthPanel from './ResetMonthPanel';
+import CategoryBudgetsPanel from './CategoryBudgetsPanel';
 
 function SettingsSection({ id, title, hint, openId, onToggle, children }) {
   const open = openId === id;
@@ -31,11 +32,24 @@ function SettingsSection({ id, title, hint, openId, onToggle, children }) {
   );
 }
 
-export default function SettingsHub() {
-  const [openId, setOpenId] = useState('export');
+export default function SettingsHub({ initialOpenId = 'budgets' }) {
+  const [openId, setOpenId] = useState(initialOpenId);
+
+  useEffect(() => {
+    if (initialOpenId) setOpenId(initialOpenId);
+  }, [initialOpenId]);
 
   return (
     <div className="feature-panel">
+      <SettingsSection
+        id="budgets"
+        title="Category budgets"
+        hint="Limits from salary after savings"
+        openId={openId}
+        onToggle={setOpenId}
+      >
+        <CategoryBudgetsPanel embedded />
+      </SettingsSection>
       <SettingsSection
         id="export"
         title="Search & export"

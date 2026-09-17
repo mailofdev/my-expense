@@ -21,7 +21,7 @@ import {
   selectAccounts,
 } from '../store/dashboardSlice';
 
-export default function WalletTracker({ onGoToHome }) {
+export default function WalletTracker({ onGoToHome, onGoToBudgets }) {
   const { walletTransactions } = useSelector((state) => state.dashboard);
   const accounts = useSelector(selectAccounts);
   const { accounts: accountsWithBal, total: accountsTotal, creditOutstanding } = useSelector(
@@ -122,7 +122,7 @@ export default function WalletTracker({ onGoToHome }) {
 
   return (
     <div className="feature-panel">
-      <MoneyNextStep onGoToHome={onGoToHome} />
+      <MoneyNextStep onGoToHome={onGoToHome} onGoToBudgets={onGoToBudgets} />
 
       <section className="card text-center">
         <p
