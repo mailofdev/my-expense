@@ -5,6 +5,7 @@ import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
 import { getTodayString } from '../../../core/utils/date';
 import { getAccountById, getDefaultAccountId, formatAccountOptionLabel, isCashAccount } from '../utils/accounts';
 import { resolveLedgerDayKey } from '../utils/moneyFlows';
+import useConfirm from '../../../shared/hooks/useConfirm';
 import {
   addWalletFunds,
   updateWalletCredit,
@@ -37,6 +38,7 @@ export default function AddIncomeForm() {
   const [date, setDate] = useState(filterDate || getTodayString());
   const [message, setMessage] = useState('');
   const [showMore, setShowMore] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   const [editingId, setEditingId] = useState(null);
   const [editAmount, setEditAmount] = useState('');
@@ -104,11 +106,13 @@ export default function AddIncomeForm() {
     });
   };
 
-  const handleDelete = (entry) => {
-    const proceed = window.confirm(
-      `Remove ${entry.note || 'income'} (${formatINR(entry.amount)})?`
-    );
-    if (!proceed) return;
+  const handleDelete = async (entry) => {
+    const ok = await confirm({
+      title: 'Remove income?',
+      message: `Remove ${entry.note || 'income'} (${formatINR(entry.amount)})?`,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
 
     if (editingId === entry.id) cancelEdit();
     dispatch(removeWalletCredit({ uid: user.uid, txId: entry.id })).then((result) => {
@@ -152,13 +156,14 @@ export default function AddIncomeForm() {
         setMessage(`+${formatINR(value)} → ${accountName}`);
         setShowMore(false);
       } else {
-        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add money.');
+        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add income.');
       }
     });
   };
 
   return (
     <section className="card">
+      {confirmDialog}
       <h2 className="card-title mb-3">Add income</h2>
 
       <form className="space-y-3" onSubmit={handleSubmit}>
@@ -194,6 +199,22 @@ export default function AddIncomeForm() {
           </select>
         )}
 
+        <div className="flex items-center gap-2">
+          <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving || editingId}>
+            {saving && !editingId ? 'Adding…' : 'Add income'}
+          </button>
+          <button
+            type="button"
+            className={`btn-outline shrink-0 px-3 ${
+              showMore || note ? 'border-primary/50 text-primary' : ''
+            }`}
+            onClick={() => setShowMore((open) => !open)}
+            aria-expanded={showMore}
+          >
+            {showMore ? 'Less' : 'More details'}
+          </button>
+        </div>
+
         {showMore && (
           <div className="space-y-3">
             <input
@@ -220,22 +241,6 @@ export default function AddIncomeForm() {
             />
           </div>
         )}
-
-        <div className="flex items-center gap-2">
-          <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving || editingId}>
-            {saving && !editingId ? 'Adding…' : 'Add income'}
-          </button>
-          <button
-            type="button"
-            className={`btn-outline shrink-0 px-3 ${
-              showMore || note ? 'border-primary/50 text-primary' : ''
-            }`}
-            onClick={() => setShowMore((open) => !open)}
-            aria-expanded={showMore}
-          >
-            {showMore ? 'Less' : 'Options'}
-          </button>
-        </div>
       </form>
 
       {incomeEntries.length > 0 && (
@@ -249,7 +254,7 @@ export default function AddIncomeForm() {
             const entryDay = resolveLedgerDayKey(entry);
 
             return (
-              <li key={entry.id} className="rounded-sm py-2">
+              <li key={entry.id} className="rounded-sm px-1 py-2.5 hover:bg-ink/[0.04]">
                 {isEditing ? (
                   <div className="space-y-2">
                     <input
@@ -325,7 +330,7 @@ export default function AddIncomeForm() {
                     </span>
                     <button
                       type="button"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-sm text-muted hover:bg-primary/10 hover:text-primary"
+                      className="icon-btn text-sm text-muted hover:bg-primary/10 hover:text-primary"
                       disabled={saving || editingId !== null}
                       onClick={() => startEdit(entry)}
                       aria-label={`Edit ${entry.note || 'income'}`}
@@ -334,7 +339,7 @@ export default function AddIncomeForm() {
                     </button>
                     <button
                       type="button"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-lg text-muted hover:bg-danger/10 hover:text-danger"
+                      className="icon-btn text-lg text-muted hover:bg-danger/10 hover:text-danger"
                       disabled={saving || editingId !== null}
                       onClick={() => handleDelete(entry)}
                       aria-label={`Remove ${entry.note || 'income'}`}

@@ -25,7 +25,7 @@ export default function MonthHistoryList({ onOpenDay }) {
             <button
               type="button"
               className={`flex w-full items-center justify-between gap-3 border-0 bg-transparent py-3.5 text-left text-sm transition-colors ${
-                group.date === filterDate ? 'text-primary' : 'text-[#f0f4f2] hover:text-primary'
+                group.date === filterDate ? 'text-primary' : 'text-ink hover:text-primary'
               }`}
               onClick={() => onOpenDay?.(group.date)}
             >

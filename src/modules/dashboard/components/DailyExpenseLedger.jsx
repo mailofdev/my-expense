@@ -19,6 +19,7 @@ import { getAccountById, formatAccountOptionLabel } from '../utils/accounts';
 import {
   normalizeTags,
   resolveMainCategoryName,
+  shortCategoryLabel,
 } from '../utils/categories';
 import { formatSplitSummary } from '../utils/groups';
 import TagInput from './TagInput';
@@ -26,11 +27,13 @@ import ExpenseSplitFields, {
   resolveSplitPayload,
   splitUiFromExpense,
 } from './ExpenseSplitFields';
+import useConfirm from '../../../shared/hooks/useConfirm';
 
 const EMPTY_SPLIT = { enabled: false, groupId: '', paidBy: '', memberIds: [] };
 
-export default function DailyExpenseLedger({ onFindExpenses }) {
+export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
   const dispatch = useDispatch();
+  const [confirm, confirmDialog] = useConfirm();
   const { user } = useSelector((state) => state.auth);
   const { paymentModes, saving, categoryColors } = useSelector((state) => state.dashboard);
   const categories = useSelector(selectVisibleCategories);
@@ -103,7 +106,13 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
     });
   };
 
-  const handleDelete = (expense) => {
+  const handleDelete = async (expense) => {
+    const ok = await confirm({
+      title: 'Remove expense?',
+      message: `Remove ${expense.title} (${formatINR(expense.amount)})?`,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     if (editingId === expense.id) cancelEdit();
     dispatch(
       removeExpense({
@@ -124,6 +133,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
 
   return (
     <section className="card">
+      {confirmDialog}
       <header className="mb-4 flex items-baseline justify-between gap-3">
         <div>
           <h2 className="card-title mb-0.5">{title}</h2>
@@ -150,7 +160,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
             return (
               <li
                 key={expense.id}
-                className="rounded-sm py-3 pl-1 pr-0 hover:bg-surface-2/50"
+                className="rounded-sm px-2 py-3 hover:bg-ink/[0.04]"
               >
                 {isEditing ? (
                   <div className="space-y-2 pr-1">
@@ -178,9 +188,9 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                         onChange={(e) => setEditCategory(e.target.value)}
                         aria-label="Category"
                       >
-                        {categories.map((cat) => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
+                            {categories.map((cat) => (
+                              <option key={cat} value={cat}>{shortCategoryLabel(cat)}</option>
+                            ))}
                       </select>
                       {showBankPicker && (
                         <select
@@ -208,6 +218,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                       amount={Number(editAmount) || 0}
                       value={editSplitUi}
                       onChange={setEditSplitUi}
+                      onCreateGroup={onOpenGroups}
                     />
                     <div className="flex justify-end gap-2 pt-1">
                       <button
@@ -251,7 +262,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                     </span>
                     <button
                       type="button"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-sm text-muted hover:bg-primary/10 hover:text-primary"
+                      className="icon-btn text-sm text-muted hover:bg-primary/10 hover:text-primary"
                       disabled={saving || editingId !== null}
                       onClick={() => startEdit(expense)}
                       aria-label={`Edit ${expense.title}`}
@@ -260,7 +271,7 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
                     </button>
                     <button
                       type="button"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-lg text-muted hover:bg-danger/10 hover:text-danger"
+                      className="icon-btn text-lg text-muted hover:bg-danger/10 hover:text-danger"
                       disabled={saving || editingId !== null}
                       onClick={() => handleDelete(expense)}
                       aria-label={`Remove ${expense.title}`}
@@ -275,13 +286,13 @@ export default function DailyExpenseLedger({ onFindExpenses }) {
         </ul>
       )}
 
-      {onFindExpenses && (
+      {onFindExpenses && dayExpenses.length > 0 && (
         <button
           type="button"
           className="mt-3 w-full border-0 bg-transparent p-0 text-center text-xs text-muted hover:text-primary"
           onClick={onFindExpenses}
         >
-          Search or export
+          Find or download
         </button>
       )}
     </section>

@@ -20,7 +20,7 @@ export default function FormField({
         className={`input ${error ? 'border-danger' : ''}`}
         {...register}
       />
-      {error && <span className="text-xs text-red-300">{error.message}</span>}
+      {error && <span className="text-xs text-danger">{error.message}</span>}
     </div>
   );
 }

@@ -13,6 +13,24 @@ export const DEFAULT_MAIN_CATEGORIES = SYSTEM_MAIN_CATEGORIES.map(({ id, name })
 
 export const CATEGORIES = SYSTEM_MAIN_CATEGORIES.map((item) => item.name);
 
+/** Short picker labels — stored values stay the full system names. */
+export const CATEGORY_SHORT_LABELS = {
+  'Food & Groceries': 'Food',
+  'Household & Living': 'Home',
+  'Transport & Fuel': 'Travel',
+  'Shopping & Lifestyle': 'Shopping',
+  'Bills & EMIs': 'Bills',
+  'Family & Transfers': 'Family',
+  'Personal & Gifts': 'Personal',
+  Miscellaneous: 'Other',
+};
+
+export function shortCategoryLabel(name) {
+  return CATEGORY_SHORT_LABELS[name] || name;
+}
+
+export const DEFAULT_EXPENSE_CATEGORY = 'Miscellaneous';
+
 /** Map legacy flat category names → system main id. */
 export const LEGACY_CATEGORY_TO_ID = {
   Food: 'food_groceries',

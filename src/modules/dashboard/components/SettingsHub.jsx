@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import GroupsSettings from './GroupsSettings';
 import ExportDataPanel from './ExportDataPanel';
 import ResetMonthPanel from './ResetMonthPanel';
@@ -15,7 +15,7 @@ function SettingsSection({ id, title, hint, openId, onToggle, children }) {
         aria-controls={`settings-${id}`}
       >
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-[#f0f4f2]">{title}</span>
+          <span className="block text-sm font-semibold text-ink">{title}</span>
           {!open && <span className="mt-0.5 block text-xs text-muted">{hint}</span>}
         </span>
         <span className="shrink-0 text-lg leading-none text-muted" aria-hidden="true">
@@ -31,20 +31,16 @@ function SettingsSection({ id, title, hint, openId, onToggle, children }) {
   );
 }
 
-export default function SettingsHub() {
-  const [openId, setOpenId] = useState('export');
+export default function SettingsHub({ section = '' }) {
+  const [openId, setOpenId] = useState(section || '');
+
+  useEffect(() => {
+    if (section) setOpenId(section);
+  }, [section]);
 
   return (
     <div className="feature-panel">
-      <SettingsSection
-        id="export"
-        title="Search & export"
-        hint="Preview, then PDF or CSV"
-        openId={openId}
-        onToggle={setOpenId}
-      >
-        <ExportDataPanel embedded />
-      </SettingsSection>
+      <p className="m-0 px-0.5 text-sm text-muted">Search, split bills, or download.</p>
       <SettingsSection
         id="groups"
         title="People groups"
@@ -53,6 +49,15 @@ export default function SettingsHub() {
         onToggle={setOpenId}
       >
         <GroupsSettings embedded />
+      </SettingsSection>
+      <SettingsSection
+        id="export"
+        title="Find & download"
+        hint="Search, then PDF or CSV"
+        openId={openId}
+        onToggle={setOpenId}
+      >
+        <ExportDataPanel embedded />
       </SettingsSection>
       <SettingsSection
         id="reset"

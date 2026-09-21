@@ -42,6 +42,7 @@ export default function WalletTracker({ onGoToHome }) {
   const defaultAccountId = getDefaultAccountId(accounts);
   const [showActivity, setShowActivity] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showAccounts, setShowAccounts] = useState(false);
 
   const isTxInFilteredMonth = (tx) => {
     if (tx.monthKey) return tx.monthKey === monthKey;
@@ -81,7 +82,7 @@ export default function WalletTracker({ onGoToHome }) {
         id: `tx-${tx.id}`,
         type: tx.type === 'credit' ? 'credit' : tx.type,
         amount: tx.amount,
-        label: `${tx.note || (tx.source === 'income' ? 'Income' : 'Added')}${
+        label: `${tx.note || 'Income'}${
           accountName ? ` · ${accountName}` : ''
         }`,
         dayKey,
@@ -122,27 +123,38 @@ export default function WalletTracker({ onGoToHome }) {
 
   return (
     <div className="feature-panel">
+      <p className="m-0 px-0.5 text-sm text-muted">Add money you received.</p>
       <MoneyNextStep onGoToHome={onGoToHome} />
+      {monthFunded <= 0 && <AddIncomeForm />}
 
-      <section className="card text-center">
+      <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-6 text-center">
+        <div
+          className="pointer-events-none absolute left-1/2 top-0 h-40 w-56 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
+          aria-hidden="true"
+        />
         <p
-          className={`text-glow m-0 text-[clamp(1.75rem,8vw,2.5rem)] font-bold ${
+          className={`hero-amount relative ${
             monthFunded > 0 && monthRemaining < 0
               ? 'text-danger'
               : monthFunded > 0
-                ? 'text-primary'
+                ? ''
                 : 'text-muted'
           }`}
         >
           {monthFunded > 0 ? formatINR(monthRemaining) : formatINR(0)}
         </p>
-        <p className="m-0 mt-1 text-sm text-muted">
-          {monthFunded > 0 ? 'left to spend' : 'this month'}
+        <p className="relative m-0 mt-2 text-sm text-muted">
+          {monthFunded > 0 ? 'left to spend this month' : 'Add income to start this month'}
         </p>
+        {monthFunded > 0 && (
+          <p className="relative m-0 mt-2 text-xs leading-relaxed text-muted">
+            Left to spend is this month’s income minus expenses. Account totals below are what’s in each bank.
+          </p>
+        )}
 
         {monthFunded > 0 && (
-          <div className="mx-auto mt-4 max-w-xs">
-            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <div className="relative mx-auto mt-4 max-w-xs">
+            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-ink/10">
               <div
                 className={`h-full rounded-full transition-all ${
                   monthRemaining < 0
@@ -162,9 +174,28 @@ export default function WalletTracker({ onGoToHome }) {
         )}
       </section>
 
-      <AddIncomeForm />
+      {monthFunded > 0 && <AddIncomeForm />}
 
       <section className="card">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between border-0 bg-transparent p-0 text-left"
+          onClick={() => setShowAccounts((prev) => !prev)}
+        >
+          <div className="min-w-0">
+            <h2 className="card-title mb-0">Accounts</h2>
+            <p className="card-desc mb-0 mt-1">
+              {accountsWithBal.length} {accountsWithBal.length === 1 ? 'account' : 'accounts'}
+              {accountsTotal ? ` · ${formatINR(accountsTotal)}` : ''}
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-primary">
+            {showAccounts ? 'Hide' : 'Show'}
+          </span>
+        </button>
+
+        {showAccounts && (
+          <div className="mt-3">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="card-title mb-0">Balances</h2>
           <p className="m-0 text-sm font-semibold text-primary">{formatINR(accountsTotal)}</p>
@@ -179,15 +210,13 @@ export default function WalletTracker({ onGoToHome }) {
               >
                 <div className="min-w-0">
                   <p className="m-0 text-sm font-medium">{account.name}</p>
-                  {(account.kind === 'debit' || account.kind === 'other') && (
-                    <p className="m-0 text-xs text-muted">
-                      {account.kind === 'debit' ? 'Debit card' : 'Bank'}
-                    </p>
+                  {(account.kind === 'debit') && (
+                    <p className="m-0 text-xs text-muted">Debit card</p>
                   )}
                 </div>
                 <span
                   className={`text-sm font-semibold ${
-                    account.balance < 0 ? 'text-danger' : 'text-[#f0f4f2]'
+                    account.balance < 0 ? 'text-danger' : 'text-ink'
                   }`}
                 >
                   {formatINR(account.balance)}
@@ -202,7 +231,7 @@ export default function WalletTracker({ onGoToHome }) {
               <p className="m-0 text-sm font-medium">Credit cards</p>
               {creditOutstanding > 0 && (
                 <p className="m-0 text-xs text-danger">
-                  Due {formatINR(creditOutstanding)}
+                  Owed {formatINR(creditOutstanding)}
                 </p>
               )}
             </div>
@@ -221,12 +250,12 @@ export default function WalletTracker({ onGoToHome }) {
                         {account.creditLimit
                           ? ` · Limit ${formatINR(account.creditLimit)}`
                           : ''}
-                        {account.dueDay ? ` · Due ${account.dueDay}` : ''}
+                        {account.dueDay ? ` · Bill on the ${account.dueDay}` : ''}
                       </p>
                     </div>
                     <span
                       className={`text-sm font-semibold ${
-                        account.outstanding > 0 ? 'text-danger' : 'text-[#f0f4f2]'
+                        account.outstanding > 0 ? 'text-danger' : 'text-ink'
                       }`}
                     >
                       {formatINR(account.outstanding)}
@@ -246,7 +275,7 @@ export default function WalletTracker({ onGoToHome }) {
               className="flex w-full items-center justify-between border-0 bg-transparent p-0 text-left"
               onClick={() => setShowTransfer((prev) => !prev)}
             >
-              <span className="text-sm font-medium">Transfer / pay card</span>
+              <span className="text-sm font-medium">Transfer or pay card</span>
               <span className="text-xs font-semibold text-primary">
                 {showTransfer ? 'Hide' : 'Show'}
               </span>
@@ -256,6 +285,8 @@ export default function WalletTracker({ onGoToHome }) {
                 <TransferForm />
               </div>
             )}
+          </div>
+        )}
           </div>
         )}
       </section>

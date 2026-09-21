@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { APP_NAME } from '../../core/constants/brand';
 
+const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
+const DISMISS_KEY = 'glow_money_pwa_dismissed';
+const SNOOZE_KEY = 'glow_money_pwa_snooze_until';
+
 export default function InstallPWA() {
+  const location = useLocation();
+  const expenses = useSelector((state) => state.dashboard?.expenses);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem('glow_money_pwa_dismissed') === '1'
-  );
+  const [hidden, setHidden] = useState(() => {
+    if (localStorage.getItem(DISMISS_KEY) === '1') return true;
+    const until = Number(localStorage.getItem(SNOOZE_KEY) || 0);
+    return until > Date.now();
+  });
 
   useEffect(() => {
     const handler = (e) => {
@@ -16,7 +26,10 @@ export default function InstallPWA() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  if (!deferredPrompt || dismissed) return null;
+  const onDashboard = location.pathname.startsWith('/dashboard');
+  const hasExpense = Array.isArray(expenses) && expenses.length > 0;
+
+  if (!onDashboard || !hasExpense || !deferredPrompt || hidden) return null;
 
   const handleInstall = async () => {
     deferredPrompt.prompt();
@@ -25,12 +38,12 @@ export default function InstallPWA() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('glow_money_pwa_dismissed', '1');
-    setDismissed(true);
+    localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS));
+    setHidden(true);
   };
 
   return (
-    <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-[1000] mx-auto max-w-md rounded border border-primary bg-surface p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_20px_rgba(232,197,71,0.22)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+    <div className="fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] left-4 right-4 z-[1000] mx-auto max-w-md rounded-lg border border-primary/30 bg-surface p-4 shadow-dock sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
       <p className="m-0 mb-3 text-sm">
         <strong>Install {APP_NAME}</strong> on your phone for quick access
       </p>

@@ -75,7 +75,7 @@ function ExportPreview({
       >
         ← Back
       </button>
-      <h3 className="m-0 text-base font-semibold text-[#f0f4f2]">Preview</h3>
+      <h3 className="m-0 text-base font-semibold text-ink">Preview</h3>
       <p className="mb-3 mt-1 text-sm text-muted">{heading}</p>
       {summaryText && <p className="mb-3 mt-0 text-xs text-muted">{summaryText}</p>}
 
@@ -128,20 +128,18 @@ function ExportPreview({
       >
         Export CSV
       </button>
-      {onExportSplit && (
+      {onExportSplit && splitReadyCount > 0 && (
         <>
           <button
             type="button"
             className="btn-outline btn-full mt-2"
             onClick={onExportSplit}
-            disabled={exporting || splitReadyCount === 0}
+            disabled={exporting}
           >
             Shareable split PDF
           </button>
           <p className="mb-0 mt-1.5 text-xs text-muted">
-            {splitReadyCount > 0
-              ? `${splitReadyCount} split expense${splitReadyCount === 1 ? '' : 's'} · opens on phones`
-              : 'No split expenses in this preview'}
+            {splitReadyCount} split expense{splitReadyCount === 1 ? '' : 's'} · opens on phones
           </p>
         </>
       )}
@@ -282,7 +280,7 @@ export default function ExportDataPanel({ embedded = false }) {
   const validateTag = () => {
     setMessage('');
     if (!trimmedTag) {
-      setMessage('Enter a tag or search term first.');
+      setMessage('Enter a search term first.');
       return false;
     }
     if (tagResults.length === 0) {
@@ -404,7 +402,9 @@ export default function ExportDataPanel({ embedded = false }) {
     ? [
         `${allSummary.total} item${allSummary.total === 1 ? '' : 's'}`,
         allSummary.income > 0 ? `${allSummary.income} income` : null,
-        allSummary.expenses > 0 ? `${allSummary.expenses} expenses` : null,
+        allSummary.expenses > 0
+          ? `${allSummary.expenses} expense${allSummary.expenses === 1 ? '' : 's'}`
+          : null,
         allSummary.transfers > 0 ? `${allSummary.transfers} transfers` : null,
         allSummary.incomeTotal > 0 ? `In ${formatINR(allSummary.incomeTotal)}` : null,
         allSummary.expenseTotal > 0 ? `Out ${formatINR(allSummary.expenseTotal)}` : null,
@@ -483,7 +483,7 @@ export default function ExportDataPanel({ embedded = false }) {
             setMessage('');
           }}
         >
-          By tag
+          Search expenses
         </button>
       </div>
 
@@ -541,14 +541,14 @@ export default function ExportDataPanel({ embedded = false }) {
               setTagQuery(e.target.value);
               setMessage('');
             }}
-            placeholder="Search tag · #trip"
-            aria-label="Search by tag"
+            placeholder="Search by name, tag, or amount"
+            aria-label="Search expenses"
             autoComplete="off"
           />
 
           {!trimmedTag ? (
             <p className="mb-0 mt-3 text-xs text-muted">
-              Type a tag, remove any extras, then preview.
+              Type a name, tag, or amount, then preview.
             </p>
           ) : tagMatches.length === 0 ? (
             <p className="empty-state-sm mt-3 mb-0">No matches for “{trimmedTag}”.</p>
@@ -608,11 +608,11 @@ export default function ExportDataPanel({ embedded = false }) {
                       </span>
                       <button
                         type="button"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-lg text-muted hover:bg-danger/10 hover:text-danger"
+                        className="icon-btn text-xs font-semibold text-muted hover:bg-danger/10 hover:text-danger"
                         onClick={() => handleExclude(expense.id)}
-                        aria-label={`Remove ${expense.title || 'expense'} from export`}
+                        aria-label={`Leave out ${expense.title || 'expense'}`}
                       >
-                        ×
+                        Skip
                       </button>
                     </li>
                   );

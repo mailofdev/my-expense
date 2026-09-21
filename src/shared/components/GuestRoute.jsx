@@ -6,7 +6,7 @@ export default function GuestRoute({ children }) {
   const { isAuthenticated, initializing } = useSelector((state) => state.auth);
 
   if (initializing) {
-    return <LoadingSpinner message="Loading..." />;
+    return <LoadingSpinner message="Loading…" />;
   }
 
   if (isAuthenticated) {

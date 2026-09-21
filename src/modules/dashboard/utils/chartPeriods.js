@@ -9,10 +9,22 @@ export const CHART_PERIODS = [
   { id: '1y', label: '1Y', title: '1 year' },
 ];
 
-export const DEFAULT_CHART_PERIOD = '1m';
+/** Periods shown on Reports — default matches the month toolbar. */
+export const CHART_UI_PERIODS = [
+  { id: 'week', label: 'Week', title: 'this week' },
+  { id: 'month', label: 'Month', title: 'this month' },
+  { id: '3m', label: '3 mo', title: '3 months' },
+  { id: '1y', label: 'Year', title: '1 year' },
+];
+
+export const DEFAULT_CHART_PERIOD = 'month';
 
 export function getPeriodMeta(periodId) {
-  return CHART_PERIODS.find((period) => period.id === periodId) || CHART_PERIODS[2];
+  return (
+    CHART_UI_PERIODS.find((period) => period.id === periodId) ||
+    CHART_PERIODS.find((period) => period.id === periodId) ||
+    CHART_UI_PERIODS[0]
+  );
 }
 
 /** Inclusive start/end for a rolling period ending today (or endDate). */
@@ -22,6 +34,11 @@ export function getPeriodRange(periodId, endDate = dayjs()) {
   switch (periodId) {
     case '1d':
       return { start: end, end };
+    case 'week': {
+      const weekday = end.day(); // 0 Sun … 6 Sat; week starts Monday
+      const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+      return { start: end.subtract(daysFromMonday, 'day'), end };
+    }
     case '1w':
       return { start: end.subtract(6, 'day'), end };
     case '1m':

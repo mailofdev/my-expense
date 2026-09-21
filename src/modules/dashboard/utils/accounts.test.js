@@ -9,9 +9,19 @@ import {
 } from './accounts';
 
 describe('accounts helpers', () => {
-  const accounts = ensureAccounts();
+  const salarySavings = [
+    { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+    { id: 'acc_savings', name: 'Savings', kind: 'savings' },
+  ];
+  const accounts = ensureAccounts(salarySavings);
 
-  test('defaults to Salary and Savings', () => {
+  test('defaults to a single Cash account for new users', () => {
+    const fresh = ensureAccounts();
+    expect(fresh.map((a) => a.name)).toEqual(['Cash']);
+    expect(getDefaultAccountId(fresh)).toBe('acc_cash');
+  });
+
+  test('keeps an existing Salary and Savings list', () => {
     expect(accounts.map((a) => a.name)).toEqual(['Salary', 'Savings']);
     expect(getDefaultAccountId(accounts)).toBe('acc_salary');
   });

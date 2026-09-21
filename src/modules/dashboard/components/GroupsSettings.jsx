@@ -9,6 +9,7 @@ import {
   MAX_PEOPLE_GROUPS,
 } from '../utils/groups';
 import { updateFinanceSettings, selectPeopleGroups } from '../store/dashboardSlice';
+import useConfirm from '../../../shared/hooks/useConfirm';
 
 export default function GroupsSettings({ embedded = false }) {
   const dispatch = useDispatch();
@@ -22,6 +23,7 @@ export default function GroupsSettings({ embedded = false }) {
   const [newGroupName, setNewGroupName] = useState('');
   const [newMemberName, setNewMemberName] = useState('');
   const [message, setMessage] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
 
   useEffect(() => {
     setGroups(peopleGroups);
@@ -94,11 +96,13 @@ export default function GroupsSettings({ embedded = false }) {
     );
   };
 
-  const handleDeleteGroup = () => {
+  const handleDeleteGroup = async () => {
     if (!selected) return;
-    const ok = window.confirm(
-      `Remove group “${selected.name}”? Past expense splits that used it will hide split details.`
-    );
+    const ok = await confirm({
+      title: 'Remove group?',
+      message: `Remove group “${selected.name}”? Past expense splits that used it will hide split details.`,
+      confirmLabel: 'Remove',
+    });
     if (!ok) return;
     const next = groups.filter((g) => g.id !== selected.id);
     setSelectedId(next[0]?.id || '');
@@ -161,6 +165,7 @@ export default function GroupsSettings({ embedded = false }) {
 
   return (
     <section className={embedded ? '' : 'card'}>
+      {confirmDialog}
       {!embedded && (
         <>
           <h2 className="card-title mb-1">People groups</h2>
@@ -220,7 +225,7 @@ export default function GroupsSettings({ embedded = false }) {
                   className={`rounded-sm border px-2.5 py-1.5 text-sm ${
                     group.id === selectedId
                       ? 'border-primary bg-primary/15 text-primary'
-                      : 'border-edge/70 bg-surface text-[#f0f4f2]'
+                      : 'border-edge/70 bg-surface text-ink'
                   }`}
                   onClick={() => setSelectedId(group.id)}
                 >

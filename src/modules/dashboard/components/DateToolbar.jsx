@@ -134,10 +134,10 @@ export default function DateToolbar({ variant = 'day' }) {
 
   return (
     <div className="relative" ref={popoverRef}>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 rounded-full border border-edge bg-surface px-1 py-1 shadow-card">
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-[#f0f4f2] hover:bg-surface-2 hover:text-primary"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-ink hover:bg-ink/[0.05] hover:text-primary"
           onClick={() => (isMonth ? shiftMonth(-1) : shiftDay(-1))}
           aria-label={isMonth ? 'Previous month' : 'Previous day'}
         >
@@ -146,19 +146,19 @@ export default function DateToolbar({ variant = 'day' }) {
 
         <button
           type="button"
-          className="min-w-0 flex-1 rounded-md px-1 py-1 text-center hover:bg-surface-2/70"
+          className="min-w-0 flex-1 rounded-full px-1 py-1 text-center hover:bg-ink/[0.05]"
           onClick={() => setCalendarOpen((open) => !open)}
           aria-label="Open calendar"
           aria-expanded={calendarOpen}
         >
-          <p className="m-0 truncate text-sm font-semibold text-[#f0f4f2]">{title}</p>
+          <p className="m-0 truncate text-sm font-semibold text-ink">{title}</p>
           {subtitle && <p className="m-0 truncate text-[11px] text-muted">{subtitle}</p>}
         </button>
 
         {showJumpBack && (
           <button
             type="button"
-            className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
+            className="shrink-0 rounded-full bg-primary/15 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/25"
             onClick={() => goToDay(today)}
           >
             Today
@@ -167,10 +167,10 @@ export default function DateToolbar({ variant = 'day' }) {
 
         <button
           type="button"
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
             calendarOpen
-              ? 'bg-primary text-bg'
-              : 'text-[#f0f4f2] hover:bg-surface-2 hover:text-primary'
+              ? 'bg-primary text-on-primary'
+              : 'text-ink hover:bg-ink/[0.05] hover:text-primary'
           }`}
           onClick={() => setCalendarOpen((open) => !open)}
           aria-label="Open calendar"
@@ -181,7 +181,7 @@ export default function DateToolbar({ variant = 'day' }) {
 
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-[#f0f4f2] hover:bg-surface-2 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-ink hover:bg-ink/[0.05] hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
           onClick={() => (isMonth ? shiftMonth(1) : shiftDay(1))}
           aria-label={isMonth ? 'Next month' : 'Next day'}
           disabled={!canGoNext}
@@ -191,11 +191,11 @@ export default function DateToolbar({ variant = 'day' }) {
       </div>
 
       {calendarOpen && (
-        <div className="mt-2 rounded-lg border border-edge/70 bg-surface p-3 shadow-card">
+        <div className="mt-2 rounded-lg border border-edge bg-surface p-3 shadow-card">
           <div className="mb-3 flex items-center gap-2">
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted hover:bg-surface-2 hover:text-primary"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted hover:bg-ink/[0.05] hover:text-primary"
               onClick={() => shiftViewMonth(-1)}
               aria-label="Previous month in calendar"
             >
@@ -204,7 +204,7 @@ export default function DateToolbar({ variant = 'day' }) {
             <span className="flex-1 text-center text-sm font-semibold">{viewLabel}</span>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted hover:bg-surface-2 hover:text-primary"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted hover:bg-ink/[0.05] hover:text-primary"
               onClick={() => shiftViewMonth(1)}
               aria-label="Next month in calendar"
             >
@@ -221,7 +221,7 @@ export default function DateToolbar({ variant = 'day' }) {
           <div className="grid grid-cols-7 gap-1">
             {calendarCells.map((day, index) => {
               if (!day) {
-                return <span key={`empty-${index}`} className="h-9" />;
+                return <span key={`empty-${index}`} className="h-11" />;
               }
 
               return (
@@ -231,20 +231,20 @@ export default function DateToolbar({ variant = 'day' }) {
                   disabled={day.isFuture}
                   onClick={() => goToDay(day.date)}
                   aria-label={`${dayjs(day.date).format('D MMM')}${day.hasSpend ? ', has expenses' : ''}${day.isToday ? ', today' : ''}`}
-                  className={`relative flex h-9 items-center justify-center rounded-md text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-25 ${
+                  className={`relative flex h-11 items-center justify-center rounded-full text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-25 ${
                     day.isSelected
-                      ? 'bg-primary font-semibold text-bg'
+                      ? 'bg-primary font-semibold text-on-primary shadow-glow'
                       : day.isToday
-                        ? 'bg-surface-2 text-primary ring-1 ring-primary/50'
+                        ? 'bg-ink/[0.05] text-primary ring-1 ring-primary/50'
                         : day.hasSpend
                           ? 'bg-primary/15 text-primary'
-                          : 'text-[#f0f4f2] hover:bg-surface-2'
+                          : 'text-ink hover:bg-ink/[0.05]'
                   }`}
                 >
                   {day.dayNum}
                   {day.hasSpend && (
                     <span
-                      className={`absolute bottom-1 h-1 w-1 rounded-full ${day.isSelected ? 'bg-bg/80' : 'bg-primary'}`}
+                      className={`absolute bottom-1 h-1 w-1 rounded-full ${day.isSelected ? 'bg-on-primary/80' : 'bg-primary'}`}
                       aria-hidden="true"
                     />
                   )}

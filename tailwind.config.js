@@ -4,33 +4,36 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: '#0a0f0d',
+        bg: 'rgb(var(--color-bg) / <alpha-value>)',
+        ink: 'rgb(var(--color-ink) / <alpha-value>)',
+        'on-primary': 'rgb(var(--color-on-primary) / <alpha-value>)',
         surface: {
-          DEFAULT: '#121a16',
-          2: '#1a2620',
+          DEFAULT: 'rgb(var(--color-surface) / <alpha-value>)',
+          2: 'rgb(var(--color-surface-2) / <alpha-value>)',
         },
-        edge: '#2a3d32',
-        muted: '#8fa89a',
+        edge: 'rgb(var(--color-edge) / <alpha-value>)',
+        muted: 'rgb(var(--color-muted) / <alpha-value>)',
         primary: {
-          DEFAULT: '#e8c547',
-          hover: '#d4af37',
+          DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
+          hover: 'rgb(var(--color-primary-hover) / <alpha-value>)',
         },
-        accent: '#4ade80',
-        danger: '#ef4444',
-        success: '#22c55e',
-        info: '#38bdf8',
+        accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        success: 'rgb(var(--color-success) / <alpha-value>)',
+        info: 'rgb(var(--color-info) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
       },
       borderRadius: {
-        DEFAULT: '14px',
-        sm: '10px',
-        lg: '18px',
+        DEFAULT: '20px',
+        sm: '14px',
+        lg: '28px',
       },
       boxShadow: {
-        glow: '0 4px 24px rgba(232, 197, 71, 0.22)',
-        card: '0 4px 24px rgba(0, 0, 0, 0.35)',
+        glow: 'var(--shadow-glow)',
+        card: 'var(--shadow-card)',
+        dock: 'var(--shadow-dock)',
       },
       spacing: {
         'safe-top': 'env(safe-area-inset-top, 0px)',

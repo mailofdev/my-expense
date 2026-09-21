@@ -7,6 +7,7 @@ import {
   isInMonthYear,
 } from '../../../core/utils/date';
 import { resetCurrentMonth } from '../store/dashboardSlice';
+import useConfirm from '../../../shared/hooks/useConfirm';
 
 function isTxInMonth(tx, month, year, monthKey) {
   if (tx.monthKey === monthKey) return true;
@@ -23,6 +24,7 @@ export default function ResetMonthPanel({ embedded = false }) {
   const monthLabel = formatMonthYearLabel(month, year);
 
   const [message, setMessage] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
 
   const counts = useMemo(() => {
     const monthExpenses = (expenses || []).filter((expense) =>
@@ -47,7 +49,7 @@ export default function ResetMonthPanel({ embedded = false }) {
   const totalItems = counts.expenses + counts.income + counts.transfers;
   const hasData = totalItems > 0;
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!user?.uid || saving) return;
     setMessage('');
 
@@ -64,10 +66,12 @@ export default function ResetMonthPanel({ embedded = false }) {
       .filter(Boolean)
       .join(', ');
 
-    const proceed = window.confirm(
-      `Reset ${monthLabel}?\n\nThis will permanently delete ${summary}.\n\nYou can add income and expenses again from scratch.`
-    );
-    if (!proceed) return;
+    const ok = await confirm({
+      title: `Reset ${monthLabel}?`,
+      message: `This will permanently delete ${summary}.\n\nYou can add income and expenses again from scratch.`,
+      confirmLabel: `Reset ${monthLabel}`,
+    });
+    if (!ok) return;
 
     dispatch(resetCurrentMonth({ uid: user.uid })).then((result) => {
       if (!result.error) {
@@ -80,6 +84,7 @@ export default function ResetMonthPanel({ embedded = false }) {
 
   return (
     <section className={embedded ? '' : 'card'}>
+      {confirmDialog}
       {!embedded && (
         <>
           <h2 className="card-title mb-1">Reset this month</h2>
@@ -96,7 +101,7 @@ export default function ResetMonthPanel({ embedded = false }) {
 
       {hasData ? (
         <p className="m-0 mb-3 text-sm text-muted">
-          {counts.income} income · {counts.expenses} expenses
+          {counts.income} income · {counts.expenses} expense{counts.expenses === 1 ? '' : 's'}
           {counts.transfers > 0 ? ` · ${counts.transfers} transfers` : ''}
         </p>
       ) : (

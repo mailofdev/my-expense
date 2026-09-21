@@ -5,13 +5,67 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light;
+    --color-bg: 246 241 232;
+    --color-ink: 28 36 32;
+    --color-on-primary: 28 36 32;
+    --color-surface: 255 253 248;
+    --color-surface-2: 235 228 214;
+    --color-edge: 217 208 192;
+    --color-muted: 95 107 100;
+    --color-primary: 201 162 39;
+    --color-primary-hover: 184 146 28;
+    --color-accent: 45 138 90;
+    --color-danger: 196 84 74;
+    --color-success: 45 138 90;
+    --color-info: 59 126 168;
+    --shadow-glow: 0 8px 24px rgba(201, 162, 39, 0.28);
+    --shadow-card: 0 8px 28px rgba(80, 60, 30, 0.08);
+    --shadow-dock: 0 8px 32px rgba(80, 60, 30, 0.14), 0 0 0 1px rgba(201, 162, 39, 0.14);
+    --text-glow: 0 0 28px rgba(201, 162, 39, 0.35);
+    --bg-glow-top: rgba(201, 162, 39, 0.22);
+    --bg-glow-br: rgba(45, 138, 90, 0.1);
+  }
+
+  html.dark {
+    color-scheme: dark;
+    --color-bg: 7 11 9;
+    --color-ink: 243 246 244;
+    --color-on-primary: 7 11 9;
+    --color-surface: 16 23 20;
+    --color-surface-2: 24 36 30;
+    --color-edge: 43 61 52;
+    --color-muted: 155 176 166;
+    --color-primary: 232 197 71;
+    --color-primary-hover: 240 211 106;
+    --color-accent: 74 222 128;
+    --color-danger: 248 113 113;
+    --color-success: 52 211 153;
+    --color-info: 56 189 248;
+    --shadow-glow: 0 8px 32px rgba(232, 197, 71, 0.28);
+    --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.4);
+    --shadow-dock: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(232, 197, 71, 0.08);
+    --text-glow: 0 0 48px rgba(232, 197, 71, 0.35);
+    --bg-glow-top: rgba(232, 197, 71, 0.16);
+    --bg-glow-br: rgba(22, 70, 48, 0.35);
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    --dock-clearance: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+    --header-clearance: calc(8.25rem + env(safe-area-inset-top, 0px));
+    scroll-padding-top: var(--header-clearance);
+    scroll-padding-bottom: var(--dock-clearance);
   }
 
   body {
-    @apply m-0 min-h-screen min-h-dvh overflow-x-hidden bg-bg font-sans text-[#f0f4f2] antialiased;
+    @apply m-0 min-h-screen min-h-dvh overflow-x-hidden bg-bg font-sans text-ink antialiased;
+    background-image:
+      radial-gradient(ellipse 90% 55% at 50% -18%, var(--bg-glow-top), transparent 58%),
+      radial-gradient(ellipse 50% 40% at 110% 110%, var(--bg-glow-br), transparent 60%);
+    background-attachment: fixed;
   }
 
   #root {
@@ -35,25 +89,25 @@
   }
 
   ::selection {
-    @apply bg-primary/25 text-[#f0f4f2];
+    @apply bg-primary/25 text-ink;
   }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-sm border-0 px-5 py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-[48px] cursor-pointer items-center justify-center rounded-full border-0 px-5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98];
   }
 
   .btn-primary {
-    @apply btn bg-gradient-to-br from-primary to-primary-hover text-bg shadow-glow hover:-translate-y-px;
+    @apply btn bg-primary text-on-primary shadow-glow hover:bg-primary-hover;
   }
 
   .btn-outline {
-    @apply btn border border-edge bg-transparent text-[#f0f4f2] hover:border-primary hover:text-primary;
+    @apply btn border border-edge bg-surface text-ink hover:border-primary/50 hover:text-primary;
   }
 
   .btn-sm {
-    @apply min-h-[36px] px-3.5 py-1.5 text-xs;
+    @apply min-h-[44px] px-4 py-2 text-xs;
   }
 
   .btn-full {
@@ -61,19 +115,19 @@
   }
 
   .card {
-    @apply rounded-lg border border-edge/80 bg-surface p-5 sm:p-6;
+    @apply rounded-lg border border-edge bg-surface p-5 shadow-card sm:p-6;
   }
 
   .card-flat {
-    @apply border-0 bg-surface/40 shadow-none;
+    @apply border-0 bg-surface/60 shadow-none;
   }
 
   .card-subtle {
-    @apply border-0 bg-surface/30;
+    @apply border-0 bg-ink/[0.03] shadow-none;
   }
 
   .card-title {
-    @apply m-0 mb-4 text-base font-semibold text-[#f0f4f2];
+    @apply m-0 mb-4 text-base font-semibold tracking-tight text-ink;
   }
 
   .card-desc {
@@ -81,11 +135,17 @@
   }
 
   .section-label {
-    @apply mb-2 text-xs font-medium text-muted;
+    @apply mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted;
   }
 
   .input {
-    @apply w-full min-h-[44px] rounded-sm border border-edge bg-surface-2 px-3 py-2.5 text-base text-[#f0f4f2] focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20 md:min-h-[42px] md:text-[0.95rem];
+    @apply w-full min-h-[48px] rounded-sm border border-transparent bg-surface-2 px-3.5 py-2.5 text-base text-ink placeholder:text-muted/70 focus:border-primary/40 focus:outline-none focus:ring-[3px] focus:ring-primary/20 md:min-h-[46px] md:text-[0.95rem];
+  }
+
+  select.input,
+  select.input option {
+    background-color: rgb(var(--color-surface-2));
+    color: rgb(var(--color-ink));
   }
 
   .label {
@@ -100,6 +160,10 @@
     @apply py-4 text-center text-xs text-muted;
   }
 
+  .icon-btn {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-0 bg-transparent transition-colors;
+  }
+
   .chart-box {
     @apply relative h-[200px] min-h-[200px] sm:h-[220px] md:h-[240px];
   }
@@ -109,37 +173,47 @@
   }
 
   .alert-error {
-    @apply mb-4 rounded-sm border border-red-500/30 bg-red-500/15 px-4 py-3 text-sm text-red-300;
+    @apply mb-4 rounded-sm border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger;
   }
 
   .alert-success {
-    @apply mb-4 rounded-sm border border-success/30 bg-success/15 px-4 py-3 text-sm text-green-300;
+    @apply mb-4 rounded-sm border border-success/25 bg-success/10 px-4 py-3 text-sm text-success;
+  }
+
+  .hero-amount {
+    @apply text-glow m-0 font-bold leading-none tracking-tight text-primary tabular-nums;
+    font-size: clamp(2.4rem, 11vw, 3.25rem);
   }
 
   .dashboard-tabs {
-    @apply fixed inset-x-0 bottom-0 z-[190] border-t border-edge/70 bg-bg/95 backdrop-blur-sm;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    @apply pointer-events-none fixed inset-x-0 bottom-0 z-[190] px-3;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .card,
+  .btn-primary {
+    scroll-margin-bottom: var(--dock-clearance);
   }
 
   .date-toolbar-sticky {
-    @apply sticky z-[180] -mx-4 mb-1 bg-bg/95 px-2 py-1 backdrop-blur-sm sm:-mx-6 sm:px-4;
+    @apply sticky z-[180] -mx-1 mb-1 bg-bg/95 py-1.5 backdrop-blur-xl;
     top: calc(4.25rem + env(safe-area-inset-top, 0px));
   }
 
   .dashboard-tabs__track {
-    @apply mx-auto grid w-full max-w-lg grid-cols-4 sm:max-w-xl;
+    @apply pointer-events-auto mx-auto grid w-full max-w-lg grid-cols-4 gap-0.5 rounded-lg border border-edge bg-surface p-1.5 shadow-dock sm:max-w-xl;
   }
 
   .dashboard-tabs__tab {
-    @apply relative flex min-h-[56px] cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent px-1 py-1.5 text-muted transition-colors;
+    @apply relative flex min-h-[52px] cursor-pointer flex-col items-center justify-center gap-0.5 rounded-sm border-0 bg-transparent px-1 py-1.5 text-muted transition-all duration-200;
   }
 
   .dashboard-tabs__tab:hover:not(.is-active) {
-    @apply text-[#f0f4f2];
+    @apply text-ink;
   }
 
   .dashboard-tabs__tab.is-active {
-    @apply text-primary;
+    @apply bg-primary/15 text-primary;
   }
 
   .dashboard-tabs__icon {
@@ -161,7 +235,7 @@
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 40px rgba(232, 197, 71, 0.25);
+    text-shadow: var(--text-glow);
   }
 
   .scrollbar-hide {

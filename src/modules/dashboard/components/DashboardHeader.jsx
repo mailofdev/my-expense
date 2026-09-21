@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import BrandLogo from '../../../shared/components/BrandLogo';
 import { logout } from '../../auth/store/authSlice';
+import { useTheme } from '../../../shared/theme/ThemeProvider';
 
 function getInitials(user) {
   const name = user?.displayName?.trim();
@@ -30,6 +31,7 @@ export default function DashboardHeader() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user, loading } = useSelector((state) => state.auth);
+  const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -64,17 +66,17 @@ export default function DashboardHeader() {
   const email = user?.email || '';
 
   return (
-    <header className="sticky top-0 z-[200] border-b border-edge/60 bg-bg/95 px-4 py-3 backdrop-blur-sm pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6">
+    <header className="sticky top-0 z-[200] bg-bg/70 px-4 py-3 backdrop-blur-xl pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6">
       <div className="mx-auto flex max-w-lg items-center justify-between sm:max-w-xl">
-        <BrandLogo size="sm" className="!flex-row shrink-0" />
+        <BrandLogo size="sm" wordmark className="shrink-0" />
 
         <div className="relative" ref={menuRef}>
           <button
             type="button"
-            className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
+            className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
               open
-                ? 'bg-primary text-bg'
-                : 'bg-surface-2 text-[#f0f4f2] hover:bg-primary/15 hover:text-primary'
+                ? 'bg-primary text-on-primary shadow-glow'
+                : 'border border-edge bg-surface text-ink hover:border-primary/40 hover:text-primary'
             }`}
             onClick={() => setOpen((value) => !value)}
             aria-label="Open profile menu"
@@ -90,14 +92,40 @@ export default function DashboardHeader() {
 
           {open && (
             <div
-              className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-edge/80 bg-surface shadow-lg"
+              className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-edge bg-surface shadow-card"
               role="menu"
             >
               <div className="border-b border-edge/60 px-4 py-3">
-                <p className="m-0 truncate text-sm font-semibold text-[#f0f4f2]">{displayName}</p>
+                <p className="m-0 truncate text-sm font-semibold text-ink">{displayName}</p>
                 {email && <p className="m-0 mt-1 truncate text-xs text-muted">{email}</p>}
               </div>
               <div className="p-2">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="mb-1 flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2.5 text-left hover:bg-ink/[0.04]"
+                  onClick={toggleTheme}
+                  aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-ink">Theme</span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      {theme === 'dark' ? 'Dark' : 'Light'}
+                    </span>
+                  </span>
+                  <span
+                    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                      theme === 'dark' ? 'bg-primary' : 'bg-surface-2'
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <span
+                      className={`absolute top-0.5 h-6 w-6 rounded-full shadow-card transition-transform ${
+                        theme === 'dark' ? 'translate-x-5 bg-ink' : 'translate-x-0.5 bg-surface'
+                      }`}
+                    />
+                  </span>
+                </button>
                 <button
                   type="button"
                   role="menuitem"

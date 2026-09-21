@@ -115,7 +115,7 @@ export default function TagInput({
                 className={`w-full rounded-sm border-0 px-2.5 py-2 text-left text-sm ${
                   index === activeIndex
                     ? 'bg-primary/15 text-primary'
-                    : 'bg-transparent text-[#f0f4f2] hover:bg-surface-2'
+                    : 'bg-transparent text-ink hover:bg-surface-2'
                 }`}
                 onMouseDown={(event) => {
                   event.preventDefault();

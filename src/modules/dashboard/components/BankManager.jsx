@@ -7,6 +7,7 @@ import {
   createAccountId,
 } from '../utils/accounts';
 import { updateFinanceSettings, selectAccounts } from '../store/dashboardSlice';
+import useConfirm from '../../../shared/hooks/useConfirm';
 
 /** Add, rename, or remove banks and cards. */
 export default function BankManager() {
@@ -23,6 +24,8 @@ export default function BankManager() {
   const [newOpening, setNewOpening] = useState('');
   const [message, setMessage] = useState('');
   const [open, setOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   useEffect(() => {
     setRows(
@@ -41,17 +44,19 @@ export default function BankManager() {
     setMessage('');
   };
 
-  const removeRow = (id) => {
+  const removeRow = async (id) => {
     if (rows.length <= 1) {
       setMessage('Keep at least one account.');
       return;
     }
     const removed = rows.find((row) => row.id === id);
     const keepName = rows.find((row) => row.id !== id)?.name || 'another account';
-    const proceed = window.confirm(
-      `Remove ${removed?.name || 'this account'}?\n\nPast expenses and income on it will count under ${keepName}.`
-    );
-    if (!proceed) return;
+    const ok = await confirm({
+      title: 'Remove account?',
+      message: `Remove ${removed?.name || 'this account'}?\n\nPast expenses and income on it will count under ${keepName}.`,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     const nextRows = rows.filter((row) => row.id !== id);
     setRows(nextRows);
     persistRows(nextRows, undefined, 'Account removed.');
@@ -187,6 +192,7 @@ export default function BankManager() {
 
       {open && (
         <div className="mt-3 space-y-3">
+          {confirmDialog}
           <p className="m-0 text-xs text-muted">
             Add a bank or card. Pay a credit card with Transfer.
           </p>
@@ -255,7 +261,7 @@ export default function BankManager() {
           </form>
 
           <form className="space-y-2 border-t border-edge/40 pt-3" onSubmit={handleAdd}>
-            <p className="m-0 text-xs font-semibold text-[#f0f4f2]">Add account</p>
+            <p className="m-0 text-xs font-semibold text-ink">Add account</p>
             <input
               className="input py-2 text-sm"
               type="text"
@@ -297,7 +303,7 @@ export default function BankManager() {
                   />
                 </label>
                 <label className="label m-0 text-xs">
-                  Due day (optional)
+                  Bill day (optional)
                   <input
                     className="input mt-1 py-2 text-sm"
                     type="number"
@@ -308,22 +314,18 @@ export default function BankManager() {
                     placeholder="15"
                   />
                 </label>
-                <label className="label m-0 col-span-2 text-xs">
-                  Starting outstanding (optional)
-                  <input
-                    className="input mt-1 py-2 text-sm"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={newOpening}
-                    onChange={(e) => setNewOpening(e.target.value)}
-                    placeholder="0"
-                  />
-                </label>
               </div>
-            ) : (
+            ) : null}
+            <button
+              type="button"
+              className="border-0 bg-transparent p-0 text-xs font-semibold text-primary"
+              onClick={() => setShowAdvanced((prev) => !prev)}
+            >
+              {showAdvanced ? 'Hide advanced' : 'Advanced'}
+            </button>
+            {showAdvanced && (
               <label className="label m-0 text-xs">
-                Starting balance (optional)
+                {newKind === 'credit' ? 'Starting outstanding (optional)' : 'Starting balance (optional)'}
                 <input
                   className="input mt-1 py-2 text-sm"
                   type="number"

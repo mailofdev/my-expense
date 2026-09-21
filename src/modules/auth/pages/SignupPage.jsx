@@ -43,7 +43,7 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthLayout title="Create account" subtitle="Start managing your money the smart way">
+    <AuthLayout title="Create account" subtitle="Track spending in ₹">
       {error && <div className="alert-error">{error}</div>}
       <AuthForm onSubmit={handleSubmit(onSubmit)} submitLabel="Sign up" loading={loading}>
         <FormField
@@ -90,7 +90,7 @@ export default function SignupPage() {
         />
       </AuthForm>
       <p className="mt-5 text-center text-sm text-muted">
-        Already have an account? <Link to="/login" className="no-underline hover:underline">Login</Link>
+        Already have an account? <Link to="/login" className="no-underline hover:underline">Log in</Link>
       </p>
     </AuthLayout>
   );

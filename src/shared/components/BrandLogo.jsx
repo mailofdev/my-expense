@@ -6,14 +6,29 @@ const sizes = {
   sm: 'h-11 w-11',
 };
 
-export default function BrandLogo({ size = 'md', className = '' }) {
+export default function BrandLogo({ size = 'md', className = '', wordmark = false }) {
+  const row = size === 'sm';
+
   return (
-    <div className={`flex flex-col items-center gap-2 text-center ${className}`.trim()}>
+    <div
+      className={`flex items-center gap-2 text-center ${
+        row ? 'flex-row' : 'flex-col'
+      } ${className}`.trim()}
+    >
       <img
         src={LOGO_PATH}
         alt={`${APP_NAME} logo`}
-        className={`shrink-0 rounded-full border-2 border-edge object-cover shadow-glow ${sizes[size] || sizes.md}`}
+        className={`shrink-0 rounded-full border border-primary/25 object-cover shadow-glow ${sizes[size] || sizes.md}`}
       />
+      {wordmark && (
+        <span
+          className={`font-semibold tracking-tight text-ink ${
+            size === 'sm' ? 'text-[15px]' : 'text-xl'
+          }`}
+        >
+          {APP_NAME}
+        </span>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
 import { getTodayString } from '../../../core/utils/date';
 import { getAccountById, formatAccountOptionLabel, isCreditAccount, isCashAccount } from '../utils/accounts';
 import { resolveLedgerDayKey } from '../utils/moneyFlows';
+import useConfirm from '../../../shared/hooks/useConfirm';
 import {
   transferBetweenAccounts,
   updateWalletTransfer,
@@ -39,6 +40,8 @@ export default function TransferForm() {
   const [note, setNote] = useState('');
   const [date, setDate] = useState(filterDate || getTodayString());
   const [message, setMessage] = useState('');
+  const [showMore, setShowMore] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   const [editingId, setEditingId] = useState(null);
   const [editAmount, setEditAmount] = useState('');
@@ -139,13 +142,15 @@ export default function TransferForm() {
     });
   };
 
-  const handleDelete = (entry) => {
+  const handleDelete = async (entry) => {
     const fromName = getAccountById(accounts, entry.fromAccountId)?.name || 'Bank';
     const toName = getAccountById(accounts, entry.toAccountId)?.name || 'Bank';
-    const proceed = window.confirm(
-      `Remove transfer ${fromName} → ${toName} (${formatINR(entry.amount)})?`
-    );
-    if (!proceed) return;
+    const ok = await confirm({
+      title: 'Remove transfer?',
+      message: `Remove transfer ${fromName} → ${toName} (${formatINR(entry.amount)})?`,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
 
     if (editingId === entry.id) cancelEdit();
     dispatch(removeWalletTransfer({ uid: user.uid, txId: entry.id })).then((result) => {
@@ -215,6 +220,7 @@ export default function TransferForm() {
 
   return (
     <div>
+      {confirmDialog}
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
           <div>
@@ -240,7 +246,7 @@ export default function TransferForm() {
           </div>
           <button
             type="button"
-            className="mb-0.5 flex h-10 w-10 items-center justify-center rounded-md border border-edge/60 bg-transparent text-muted hover:text-[#f0f4f2]"
+            className="mb-0.5 flex h-10 w-10 items-center justify-center rounded-sm border border-edge/60 bg-transparent text-muted hover:text-ink"
             onClick={handleSwap}
             aria-label="Swap accounts"
             disabled={Boolean(editingId)}
@@ -291,6 +297,8 @@ export default function TransferForm() {
           disabled={Boolean(editingId)}
         />
 
+        {showMore && (
+          <>
         <input
           className="input"
           type="date"
@@ -313,10 +321,23 @@ export default function TransferForm() {
           aria-label="Transfer note"
           disabled={Boolean(editingId)}
         />
+          </>
+        )}
 
-        <button type="submit" className="btn-outline btn-full" disabled={saving || editingId}>
+        <div className="flex items-center gap-2">
+        <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving || editingId}>
           {saving && !editingId ? 'Moving…' : 'Transfer'}
         </button>
+          <button
+            type="button"
+            className={`btn-outline shrink-0 px-3 ${showMore || note ? 'border-primary/50 text-primary' : ''}`}
+            onClick={() => setShowMore((open) => !open)}
+            aria-expanded={showMore}
+            disabled={Boolean(editingId)}
+          >
+            {showMore ? 'Less' : 'More details'}
+          </button>
+        </div>
       </form>
 
       {transferEntries.length > 0 && (
@@ -423,7 +444,7 @@ export default function TransferForm() {
                     </span>
                     <button
                       type="button"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-sm text-muted hover:bg-primary/10 hover:text-primary"
+                      className="icon-btn text-sm text-muted hover:bg-primary/10 hover:text-primary"
                       disabled={saving || editingId !== null}
                       onClick={() => startEdit(entry)}
                       aria-label={`Edit transfer ${fromName} to ${toName}`}
@@ -432,7 +453,7 @@ export default function TransferForm() {
                     </button>
                     <button
                       type="button"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-lg text-muted hover:bg-danger/10 hover:text-danger"
+                      className="icon-btn text-lg text-muted hover:bg-danger/10 hover:text-danger"
                       disabled={saving || editingId !== null}
                       onClick={() => handleDelete(entry)}
                       aria-label={`Remove transfer ${fromName} to ${toName}`}

@@ -14,9 +14,9 @@ export const ACCOUNT_KIND_OPTIONS = [
   { value: 'credit', label: 'Credit card' },
 ];
 
+/** New profiles start with one account so pickers and transfers stay hidden. */
 export const DEFAULT_ACCOUNTS = [
-  { id: 'acc_salary', name: 'Salary', kind: 'salary' },
-  { id: 'acc_savings', name: 'Savings', kind: 'savings' },
+  { id: 'acc_cash', name: 'Cash', kind: 'other' },
 ];
 
 export function createAccountId() {
@@ -248,6 +248,8 @@ export function resolveExpenseAccountId(expense, accounts) {
 export function formatAccountOptionLabel(account) {
   if (!account) return 'Account';
   const kind = accountKindLabel(account.kind);
-  if (account.kind === 'salary' || account.kind === 'savings') return account.name;
+  if (account.kind === 'salary' || account.kind === 'savings' || account.kind === 'other') {
+    return account.name;
+  }
   return `${account.name} · ${kind}`;
 }

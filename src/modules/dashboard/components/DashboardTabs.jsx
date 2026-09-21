@@ -3,7 +3,7 @@ import { useRef } from 'react';
 const TABS = [
   {
     id: 'overview',
-    label: 'Home',
+    label: 'Today',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
         <path d="M4 11.5 12 4l8 7.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -13,7 +13,7 @@ const TABS = [
   },
   {
     id: 'wallet',
-    label: 'Money',
+    label: 'Income',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
         <rect x="3.5" y="6" width="17" height="12.5" rx="2" />
@@ -24,7 +24,7 @@ const TABS = [
   },
   {
     id: 'analyzer',
-    label: 'Charts',
+    label: 'Reports',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
         <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" strokeLinecap="round" />
@@ -33,7 +33,7 @@ const TABS = [
   },
   {
     id: 'settings',
-    label: 'More',
+    label: 'Tools',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
         <circle cx="12" cy="6.5" r="1.4" fill="currentColor" stroke="none" />

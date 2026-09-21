@@ -12,7 +12,7 @@ export default function DisclosureToggle({
       className={`group flex w-full min-h-[44px] items-center justify-between gap-3 rounded-sm border px-3 py-2.5 text-left transition-all ${
         open
           ? 'border-primary/50 bg-primary/10 text-primary'
-          : 'border-edge bg-surface-2/80 text-[#f0f4f2] hover:border-primary/35 hover:bg-surface-2'
+          : 'border-edge bg-surface-2/80 text-ink hover:border-primary/35 hover:bg-surface-2'
       }`}
       onClick={onToggle}
       aria-expanded={open}

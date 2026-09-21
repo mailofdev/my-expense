@@ -12,7 +12,7 @@ import {
  * Optional equal-split controls for add/edit expense.
  * value: { enabled, groupId, paidBy, memberIds }
  */
-export default function ExpenseSplitFields({ amount, value, onChange }) {
+export default function ExpenseSplitFields({ amount, value, onChange, onCreateGroup }) {
   const peopleGroups = useSelector(selectPeopleGroups);
   const enabled = Boolean(value?.enabled);
   const groupId = value?.groupId || peopleGroups[0]?.id || '';
@@ -36,7 +36,19 @@ export default function ExpenseSplitFields({ amount, value, onChange }) {
   }, [enabled, group, amount, paidBy, memberIds, peopleGroups]);
 
   if (!peopleGroups.length) {
-    return null;
+    if (!onCreateGroup) return null;
+    return (
+      <p className="m-0 text-sm text-muted">
+        Split with friends.{' '}
+        <button
+          type="button"
+          className="border-0 bg-transparent p-0 font-semibold text-primary"
+          onClick={onCreateGroup}
+        >
+          Create a group
+        </button>
+      </p>
+    );
   }
 
   const patch = (partial) => {
@@ -60,7 +72,7 @@ export default function ExpenseSplitFields({ amount, value, onChange }) {
 
   return (
     <div className="space-y-3">
-      <label className="flex items-center gap-2 text-sm text-[#f0f4f2]">
+      <label className="flex items-center gap-2 text-sm text-ink">
         <input
           type="checkbox"
           checked={enabled}

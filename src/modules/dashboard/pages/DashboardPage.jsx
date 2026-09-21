@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import LoadingSpinner from '../../../shared/components/LoadingSpinner';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardTabs from '../components/DashboardTabs';
@@ -12,26 +13,48 @@ import DailyExpenseLedger from '../components/DailyExpenseLedger';
 import WalletTracker from '../components/WalletTracker';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import SettingsHub from '../components/SettingsHub';
-import { fetchDashboardData, clearDashboardError, setDayFilter } from '../store/dashboardSlice';
+import {
+  fetchDashboardData,
+  clearDashboardError,
+  setDayFilter,
+  selectMonthWalletFunded,
+  selectIsFilterCurrentMonth,
+} from '../store/dashboardSlice';
+import { tabFromUrl, urlFromTab } from '../utils/tabs';
 import dayjs from 'dayjs';
 
 const DATE_TABS = ['overview', 'wallet', 'analyzer'];
 
 export default function DashboardPage() {
   const dispatch = useDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useSelector((state) => state.auth);
   const { loading, loaded, error } = useSelector((state) => state.dashboard);
-  const [activeTab, setActiveTab] = useState('overview');
+  const monthFunded = useSelector(selectMonthWalletFunded);
+  const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
+  const activeTab = tabFromUrl(searchParams.get('tab'));
+  const startHomeWithGuide = isCurrentMonth && monthFunded === 0;
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
+  const handleTabChange = (tab, extras = {}) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', urlFromTab(tab));
+    if (extras.section) {
+      next.set('section', extras.section);
+    } else if (tab !== 'settings') {
+      next.delete('section');
+    }
+    setSearchParams(next, { replace: true });
   };
 
   const openExpenseDay = (dateStr) => {
     const d = dayjs(dateStr);
     if (!dateStr || !d.isValid()) return;
     dispatch(setDayFilter({ date: d.format('YYYY-MM-DD') }));
-    setActiveTab('overview');
+    handleTabChange('overview');
   };
 
   useEffect(() => {
@@ -49,11 +72,15 @@ export default function DashboardPage() {
   }
 
   const showDateToolbar = DATE_TABS.includes(activeTab);
+  const goToIncome = () => handleTabChange('wallet');
+  const goToToday = () => handleTabChange('overview');
+  const goToSearch = () => handleTabChange('settings', { section: 'export' });
+  const goToGroups = () => handleTabChange('settings', { section: 'groups' });
 
   return (
-    <div className="min-h-screen min-h-dvh bg-bg">
+    <div className="min-h-screen min-h-dvh">
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-lg px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-2 sm:max-w-xl sm:px-6">
+      <main className="mx-auto w-full max-w-lg px-4 pb-[var(--dock-clearance)] pt-1 sm:max-w-xl sm:px-6">
         {error && (
           <div className="alert-error mb-3 flex items-center justify-between gap-2">
             <span>{error}</span>
@@ -77,19 +104,34 @@ export default function DashboardPage() {
         <div className="mt-3 flex flex-col gap-4 sm:gap-5">
           {activeTab === 'overview' && (
             <>
-              <OverviewHero />
-              <GettingStarted onGoToMoney={() => handleTabChange('wallet')} />
-              <HomeReminders onGoToMoney={() => handleTabChange('wallet')} />
-              <AddExpenseForm onGoToMoney={() => handleTabChange('wallet')} />
-              <DailyExpenseLedger onFindExpenses={() => handleTabChange('settings')} />
+              {startHomeWithGuide ? (
+                <>
+                  <GettingStarted onGoToMoney={goToIncome} />
+                  <OverviewHero />
+                  <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
+                </>
+              ) : (
+                <>
+                  <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
+                  <OverviewHero />
+                  <GettingStarted onGoToMoney={goToIncome} />
+                  <HomeReminders onGoToMoney={goToIncome} />
+                </>
+              )}
+              <DailyExpenseLedger
+                onFindExpenses={goToSearch}
+                onOpenGroups={goToGroups}
+              />
             </>
           )}
 
-          {activeTab === 'wallet' && (
-            <WalletTracker onGoToHome={() => handleTabChange('overview')} />
+          {activeTab === 'wallet' && <WalletTracker onGoToHome={goToToday} />}
+          {activeTab === 'analyzer' && (
+            <ExpenseAnalyzer onOpenDay={openExpenseDay} onAddExpense={goToToday} />
           )}
-          {activeTab === 'analyzer' && <ExpenseAnalyzer onOpenDay={openExpenseDay} />}
-          {activeTab === 'settings' && <SettingsHub />}
+          {activeTab === 'settings' && (
+            <SettingsHub section={searchParams.get('section') || ''} />
+          )}
         </div>
       </main>
       <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
