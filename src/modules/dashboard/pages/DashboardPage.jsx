@@ -10,6 +10,8 @@ import HomeReminders from '../components/HomeReminders';
 import GettingStarted from '../components/GettingStarted';
 import AddExpenseForm from '../components/AddExpenseForm';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
+import SafeToSpend from '../components/SafeToSpend';
+import RecurringPanel from '../components/RecurringPanel';
 import WalletTracker from '../components/WalletTracker';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import SettingsHub from '../components/SettingsHub';
@@ -108,12 +110,15 @@ export default function DashboardPage() {
                 <>
                   <GettingStarted onGoToMoney={goToIncome} />
                   <OverviewHero />
+                  <SafeToSpend />
                   <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
                 </>
               ) : (
                 <>
                   <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
                   <OverviewHero />
+                  <SafeToSpend />
+                  <RecurringPanel compact />
                   <GettingStarted onGoToMoney={goToIncome} />
                   <HomeReminders onGoToMoney={goToIncome} />
                 </>

@@ -9,6 +9,9 @@ import AddIncomeForm from './AddIncomeForm';
 import TransferForm from './TransferForm';
 import BankManager from './BankManager';
 import MoneyNextStep from './MoneyNextStep';
+import AllocationPlanner from './AllocationPlanner';
+import RecurringPanel from './RecurringPanel';
+import GoalsPanel from './GoalsPanel';
 import {
   selectFilterMonthKey,
   selectFilteredMonthLabel,
@@ -175,6 +178,10 @@ export default function WalletTracker({ onGoToHome }) {
       </section>
 
       {monthFunded > 0 && <AddIncomeForm />}
+
+      <AllocationPlanner />
+      <RecurringPanel />
+      <GoalsPanel />
 
       <section className="card">
         <button

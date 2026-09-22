@@ -27,6 +27,9 @@ const defaultProfile = () => ({
   peopleGroups: [],
   splitGroups: [],
   recurringExpenses: [],
+  recurringIncome: [],
+  monthlyAllocations: {},
+  goals: [],
   activityLog: [],
   onboardingSeen: false,
 });

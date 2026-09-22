@@ -23,6 +23,23 @@ import { walletService } from '../services/walletService';
 import { userService } from '../../auth/services/userService';
 import { resolveMonthIncome, advanceRecurringNextDate } from '../utils/moneyFlows';
 import {
+  commitmentsForSafeSpend,
+  compareMonths,
+  computeSafeToSpend,
+  dailySafeAmount,
+  daysRemainingInMonth,
+  essentialCategoryNames,
+  essentialSpendForMonth,
+  heldFromAllocation,
+  normalizeAllocation,
+  previousMonthParts,
+  recordDateForTemplate,
+  reviewOutlook,
+  suggestEmergencyTarget,
+  sumAmounts,
+  topCategories,
+} from '../utils/planning';
+import {
   computeAccountBalances,
   ensureAccounts,
   getDefaultAccountId,
@@ -451,6 +468,131 @@ export const deleteRecurringTemplate = createAsyncThunk(
   }
 );
 
+export const addRecurringIncomeTemplate = createAsyncThunk(
+  'dashboard/addRecurringIncomeTemplate',
+  async ({ uid, template }, { getState, rejectWithValue }) => {
+    try {
+      const current = getState().dashboard.recurringIncome;
+      const nextTemplate = {
+        id: generateId('inc'),
+        title: template.title?.trim() || 'Income',
+        amount: Number(template.amount) || 0,
+        cadence: template.cadence || 'monthly',
+        nextDate: template.nextDate || getTodayString(),
+        accountId: template.accountId || '',
+        enabled: true,
+        runCount: 0,
+      };
+      const updates = { recurringIncome: [nextTemplate, ...current] };
+      await userService.updateProfile(uid, updates);
+      return nextTemplate;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const updateRecurringIncomeTemplate = createAsyncThunk(
+  'dashboard/updateRecurringIncomeTemplate',
+  async ({ uid, templateId, updates }, { getState, rejectWithValue }) => {
+    try {
+      const current = getState().dashboard.recurringIncome;
+      const next = current.map((item) => (item.id === templateId ? { ...item, ...updates } : item));
+      await userService.updateProfile(uid, { recurringIncome: next });
+      return next;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const deleteRecurringIncomeTemplate = createAsyncThunk(
+  'dashboard/deleteRecurringIncomeTemplate',
+  async ({ uid, templateId }, { getState, rejectWithValue }) => {
+    try {
+      const current = getState().dashboard.recurringIncome;
+      const next = current.filter((item) => item.id !== templateId);
+      await userService.updateProfile(uid, { recurringIncome: next });
+      return next;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+/** Post one due expense template through the normal expense path, then move its next date. */
+export const recordRecurringExpense = createAsyncThunk(
+  'dashboard/recordRecurringExpense',
+  async ({ uid, templateId }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState().dashboard;
+      const template = state.recurringExpenses.find((item) => item.id === templateId);
+      if (!template) throw new Error('That bill was not found');
+      const today = getTodayString();
+      const date = recordDateForTemplate(template.nextDate, today);
+      if (!date) throw new Error('This bill is not due yet');
+      const created = await expenseService.create(uid, {
+        title: template.title,
+        amount: template.amount,
+        category: template.category,
+        paymentMode: template.paymentMode || 'UPI',
+        accountId: template.accountId || getDefaultAccountId(state.accounts),
+        date,
+      });
+      const nextDate = advanceRecurringNextDate(
+        dayjs(template.nextDate),
+        template.cadence || 'monthly',
+        dayjs(today)
+      ).format('YYYY-MM-DD');
+      const recurringExpenses = state.recurringExpenses.map((item) =>
+        item.id === templateId
+          ? { ...item, nextDate, runCount: (item.runCount || 0) + 1 }
+          : item
+      );
+      await userService.updateProfile(uid, { recurringExpenses });
+      return { expense: created, recurringExpenses };
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+/** Post one due income template through the normal income path, then move its next date. */
+export const recordRecurringIncome = createAsyncThunk(
+  'dashboard/recordRecurringIncome',
+  async ({ uid, templateId }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState().dashboard;
+      const template = state.recurringIncome.find((item) => item.id === templateId);
+      if (!template) throw new Error('That income was not found');
+      const today = getTodayString();
+      const date = recordDateForTemplate(template.nextDate, today);
+      if (!date) throw new Error('This income is not due yet');
+      const result = await walletService.addFunds(uid, {
+        amount: template.amount,
+        note: template.title || 'Income',
+        source: 'income',
+        accountId: template.accountId || getDefaultAccountId(state.accounts),
+        date,
+      });
+      const nextDate = advanceRecurringNextDate(
+        dayjs(template.nextDate),
+        template.cadence || 'monthly',
+        dayjs(today)
+      ).format('YYYY-MM-DD');
+      const recurringIncome = state.recurringIncome.map((item) =>
+        item.id === templateId
+          ? { ...item, nextDate, runCount: (item.runCount || 0) + 1 }
+          : item
+      );
+      await userService.updateProfile(uid, { recurringIncome });
+      return { ...result, recurringIncome };
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
 export const renameCategory = createAsyncThunk(
   'dashboard/renameCategory',
   async ({ uid, categoryId, newName }, { getState, rejectWithValue }) => {
@@ -603,6 +745,9 @@ const dashboardSlice = createSlice({
     expenses: [],
     walletTransactions: [],
     recurringExpenses: [],
+    recurringIncome: [],
+    monthlyAllocations: {},
+    goals: [],
     categories: CATEGORIES,
     mainCategories: DEFAULT_MAIN_CATEGORIES.map((item) => ({ ...item })),
     subcategories: Object.fromEntries(DEFAULT_MAIN_CATEGORIES.map((item) => [item.id, []])),
@@ -643,6 +788,9 @@ const dashboardSlice = createSlice({
       state.expenses = [];
       state.walletTransactions = [];
       state.recurringExpenses = [];
+      state.recurringIncome = [];
+      state.monthlyAllocations = {};
+      state.goals = [];
       state.categories = CATEGORIES;
       state.mainCategories = DEFAULT_MAIN_CATEGORIES.map((item) => ({ ...item }));
       state.subcategories = Object.fromEntries(
@@ -681,6 +829,9 @@ const dashboardSlice = createSlice({
             { selfName: resolveSelfMemberName(profile) }
           );
           state.recurringExpenses = profile.recurringExpenses ?? [];
+          state.recurringIncome = profile.recurringIncome ?? [];
+          state.monthlyAllocations = profile.monthlyAllocations ?? {};
+          state.goals = Array.isArray(profile.goals) ? profile.goals : [];
           const normalized = normalizeCategoryProfile(profile);
           state.mainCategories = normalized.mainCategories;
           state.subcategories = normalized.subcategories;
@@ -943,6 +1094,76 @@ const dashboardSlice = createSlice({
         state.recurringExpenses = action.payload;
       })
       .addCase(deleteRecurringTemplate.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(addRecurringIncomeTemplate.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(addRecurringIncomeTemplate.fulfilled, (state, action) => {
+        state.saving = false;
+        state.recurringIncome.unshift(action.payload);
+      })
+      .addCase(addRecurringIncomeTemplate.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(updateRecurringIncomeTemplate.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(updateRecurringIncomeTemplate.fulfilled, (state, action) => {
+        state.saving = false;
+        state.recurringIncome = action.payload;
+      })
+      .addCase(updateRecurringIncomeTemplate.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(deleteRecurringIncomeTemplate.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(deleteRecurringIncomeTemplate.fulfilled, (state, action) => {
+        state.saving = false;
+        state.recurringIncome = action.payload;
+      })
+      .addCase(deleteRecurringIncomeTemplate.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(recordRecurringExpense.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(recordRecurringExpense.fulfilled, (state, action) => {
+        state.saving = false;
+        state.expenses.unshift(action.payload.expense);
+        state.recurringExpenses = action.payload.recurringExpenses;
+      })
+      .addCase(recordRecurringExpense.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(recordRecurringIncome.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(recordRecurringIncome.fulfilled, (state, action) => {
+        state.saving = false;
+        state.monthlyWallets = action.payload.monthlyWallets;
+        if (action.payload.monthlyIncomes) {
+          state.monthlyIncomes = action.payload.monthlyIncomes;
+        }
+        if (action.payload.monthlyIncome != null) {
+          state.monthlyIncome = action.payload.monthlyIncome;
+        }
+        if (action.payload.accounts) {
+          state.accounts = ensureAccounts(action.payload.accounts);
+        }
+        state.walletTransactions.unshift({
+          ...action.payload.transaction,
+          createdAt: action.payload.transaction.createdAt || new Date().toISOString(),
+        });
+        state.recurringIncome = action.payload.recurringIncome;
+      })
+      .addCase(recordRecurringIncome.rejected, (state, action) => {
         state.saving = false;
         state.error = action.payload;
       })
@@ -1308,6 +1529,119 @@ export const selectDueRecurringExpenses = createSelector(
   }
 );
 
+export const selectMonthAllocation = createSelector(
+  [(state) => state.dashboard.monthlyAllocations, selectFilterMonthKey],
+  (monthlyAllocations, monthKey) => normalizeAllocation(monthlyAllocations?.[monthKey])
+);
+
+export const selectSafeToSpend = createSelector(
+  [
+    selectMonthWalletFunded,
+    selectTotalSpent,
+    selectMonthAllocation,
+    (state) => state.dashboard.recurringExpenses,
+    (state) => state.dashboard.filterMonth,
+    (state) => state.dashboard.filterYear,
+    selectIsFilterCurrentMonth,
+  ],
+  (funded, spent, allocation, recurringExpenses, month, year, isCurrentMonth) => {
+    const today = getTodayString();
+    const upcoming = commitmentsForSafeSpend(recurringExpenses, {
+      month,
+      year,
+      today,
+      isCurrentMonth,
+    });
+    const snapshot = computeSafeToSpend({
+      funded,
+      spent,
+      held: heldFromAllocation(allocation),
+      upcomingTotal: sumAmounts(upcoming),
+    });
+    const daysLeft = isCurrentMonth ? daysRemainingInMonth(today) : 0;
+    return {
+      ...snapshot,
+      daysLeft,
+      daily: isCurrentMonth ? dailySafeAmount(snapshot.safe, daysLeft) : null,
+      upcomingCount: upcoming.length,
+    };
+  }
+);
+
+export const selectEmergencySuggestion = createSelector(
+  [
+    selectMonthAllocation,
+    (state) => state.dashboard.expenses,
+    (state) => state.dashboard.mainCategories,
+    (state) => state.dashboard.filterMonth,
+    (state) => state.dashboard.filterYear,
+  ],
+  (allocation, expenses, mainCategories, month, year) => {
+    const names = essentialCategoryNames(ensureMainCategories(mainCategories));
+    const totals = [];
+    let cursorMonth = month;
+    let cursorYear = year;
+    for (let step = 0; step < 3; step += 1) {
+      const previous = previousMonthParts(cursorMonth, cursorYear);
+      cursorMonth = previous.month;
+      cursorYear = previous.year;
+      totals.push(essentialSpendForMonth(expenses, cursorMonth, cursorYear, names));
+    }
+    return suggestEmergencyTarget({ allocation, recentEssentialTotals: totals });
+  }
+);
+
+export const selectMonthlyReview = createSelector(
+  [
+    selectMonthWalletFunded,
+    selectTotalSpent,
+    selectMonthWalletRemaining,
+    selectMonthAllocation,
+    (state) => selectExpensesByCategory(state),
+    selectFilteredMonthLabel,
+    (state) => state.dashboard.expenses,
+    (state) => state.dashboard.monthlyWallets,
+    (state) => state.dashboard.filterMonth,
+    (state) => state.dashboard.filterYear,
+  ],
+  (
+    income,
+    spent,
+    left,
+    allocation,
+    spentByCategory,
+    monthLabel,
+    expenses,
+    monthlyWallets,
+    month,
+    year
+  ) => {
+    const previous = previousMonthParts(month, year);
+    const previousKey = getMonthKey(previous.month, previous.year);
+    const previousIncome = monthlyWallets?.[previousKey] || 0;
+    const previousSpent = (expenses || [])
+      .filter((expense) => isInMonthYear(expense.date, previous.month, previous.year))
+      .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+    const previousLeft = previousIncome > 0 ? previousIncome - previousSpent : 0;
+    const comparison = compareMonths(
+      { income, spent, left },
+      { income: previousIncome, spent: previousSpent, left: previousLeft }
+    );
+    return {
+      monthLabel,
+      previousLabel: formatMonthYearLabel(previous.month, previous.year),
+      income,
+      spent,
+      left,
+      plannedSavings: allocation.savings + allocation.goals,
+      plannedInvestment: allocation.investment,
+      top: topCategories(spentByCategory, 3),
+      comparison,
+      outlook: reviewOutlook(comparison),
+    };
+  }
+);
+
 export const selectInAppReminders = createSelector(
   [
     selectMonthWalletFunded,
@@ -1315,9 +1649,18 @@ export const selectInAppReminders = createSelector(
     selectTotalSpent,
     selectIsFilterCurrentMonth,
     selectFilteredMonthLabel,
+    selectSafeToSpend,
   ],
-  (walletFunded, walletRemaining, monthSpent, isCurrentMonth, monthLabel) => {
+  (walletFunded, walletRemaining, monthSpent, isCurrentMonth, monthLabel, safe) => {
     const reminders = [];
+
+    if (isCurrentMonth && safe.hasIncome && safe.safe < 0 && walletRemaining >= 0) {
+      reminders.push({
+        id: 'safe-over',
+        tone: 'warning',
+        text: `Safe to spend is short by ₹${Math.abs(safe.safe).toLocaleString('en-IN')} after bills and savings.`,
+      });
+    }
 
     if (walletFunded === 0 && (isCurrentMonth || monthSpent > 0)) {
       reminders.push({

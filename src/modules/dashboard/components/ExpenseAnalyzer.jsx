@@ -7,6 +7,7 @@ import {
 } from '../store/dashboardSlice';
 import CategoryChart from './CategoryChart';
 import MonthHistoryList from './MonthHistoryList';
+import MonthlyReview from './MonthlyReview';
 
 export default function ExpenseAnalyzer({ onOpenDay, onAddExpense }) {
   const totalSpent = useSelector(selectTotalSpent);
@@ -16,6 +17,7 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense }) {
   return (
     <div className="feature-panel">
       <p className="m-0 px-0.5 text-sm text-muted">See where it went.</p>
+      <MonthlyReview />
       <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-6 text-center">
         <div
           className="pointer-events-none absolute left-1/2 top-0 h-40 w-56 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
