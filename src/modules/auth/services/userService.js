@@ -1,6 +1,9 @@
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  increment,
   setDoc,
   updateDoc,
   serverTimestamp,
@@ -32,6 +35,10 @@ const defaultProfile = () => ({
   goals: [],
   activityLog: [],
   onboardingSeen: false,
+  role: 'user',
+  loginCount: 0,
+  lastLoginAt: null,
+  lastSeenAt: null,
 });
 
 export const userService = {
@@ -72,5 +79,33 @@ export const userService = {
     const ref = doc(db, 'users', uid);
     await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() });
     return { uid, ...updates };
+  },
+
+  /** Best-effort. A tracking write must not block sign-in. */
+  async recordLogin(uid) {
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        lastLoginAt: serverTimestamp(),
+        loginCount: increment(1),
+      });
+    } catch {
+      // Ignore so sign-in still succeeds.
+    }
+  },
+
+  /** Best-effort presence stamp when an existing session resumes. */
+  async recordLastSeen(uid) {
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        lastSeenAt: serverTimestamp(),
+      });
+    } catch {
+      // Ignore so the session still loads.
+    }
+  },
+
+  async listUsers() {
+    const snap = await getDocs(collection(db, 'users'));
+    return snap.docs.map((item) => sanitizeProfileDates({ uid: item.id, ...item.data() }));
   },
 };

@@ -6,6 +6,7 @@ import GuestRoute from '../shared/components/GuestRoute';
 import { initAuthListener } from '../modules/auth/store/authSlice';
 import { authRoutes } from '../modules/auth/routes';
 import { dashboardRoutes } from '../modules/dashboard/routes';
+import AdminRoute from '../modules/admin/components/AdminRoute';
 import InstallPWA from '../shared/components/InstallPWA';
 
 function App() {
@@ -31,6 +32,15 @@ function App() {
             element={<GuestRoute>{element}</GuestRoute>}
           />
         ))}
+
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Navigate to="/dashboard?tab=admin" replace />
+            </AdminRoute>
+          }
+        />
 
         {dashboardRoutes.map(({ path, element, protected: isProtected }) => (
           <Route

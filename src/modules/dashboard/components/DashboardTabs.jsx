@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useSelector } from 'react-redux';
 
 const TABS = [
   {
@@ -44,13 +45,26 @@ const TABS = [
   },
 ];
 
+const ADMIN_TAB = {
+  id: 'admin',
+  label: 'Admin',
+  icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 3.5 5.5 6.2v5.6c0 4.2 2.7 6.4 6.5 7.7 3.8-1.3 6.5-3.5 6.5-7.7V6.2L12 3.5z" strokeLinejoin="round" />
+      <path d="M9.2 12.1 11 13.9 14.8 10" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
+
 export default function DashboardTabs({ activeTab, onTabChange }) {
+  const role = useSelector((state) => state.auth.user?.role);
+  const tabs = role === 'admin' ? [...TABS, ADMIN_TAB] : TABS;
   const tabRefs = useRef([]);
 
   const focusTabAt = (index) => {
-    const next = (index + TABS.length) % TABS.length;
+    const next = (index + tabs.length) % tabs.length;
     tabRefs.current[next]?.focus();
-    onTabChange(TABS[next].id);
+    onTabChange(tabs[next].id);
   };
 
   const handleKeyDown = (event, index) => {
@@ -65,14 +79,19 @@ export default function DashboardTabs({ activeTab, onTabChange }) {
       focusTabAt(0);
     } else if (event.key === 'End') {
       event.preventDefault();
-      focusTabAt(TABS.length - 1);
+      focusTabAt(tabs.length - 1);
     }
   };
 
   return (
     <nav className="dashboard-tabs" aria-label="Sections">
-      <div className="dashboard-tabs__track" role="tablist" aria-orientation="horizontal">
-        {TABS.map((tab, index) => {
+      <div
+        className="dashboard-tabs__track"
+        role="tablist"
+        aria-orientation="horizontal"
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      >
+        {tabs.map((tab, index) => {
           const isActive = activeTab === tab.id;
           return (
             <button

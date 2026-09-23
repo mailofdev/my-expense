@@ -15,6 +15,7 @@ import RecurringPanel from '../components/RecurringPanel';
 import WalletTracker from '../components/WalletTracker';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import SettingsHub from '../components/SettingsHub';
+import AdminPage from '../../admin/pages/AdminPage';
 import {
   fetchDashboardData,
   clearDashboardError,
@@ -34,7 +35,8 @@ export default function DashboardPage() {
   const { loading, loaded, error } = useSelector((state) => state.dashboard);
   const monthFunded = useSelector(selectMonthWalletFunded);
   const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
-  const activeTab = tabFromUrl(searchParams.get('tab'));
+  const requestedTab = tabFromUrl(searchParams.get('tab'));
+  const activeTab = requestedTab === 'admin' && user?.role !== 'admin' ? 'overview' : requestedTab;
   const startHomeWithGuide = isCurrentMonth && monthFunded === 0;
 
   useEffect(() => {
@@ -82,7 +84,11 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen min-h-dvh">
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-lg px-4 pb-[var(--dock-clearance)] pt-1 sm:max-w-xl sm:px-6">
+      <main
+        className={`mx-auto w-full px-4 pb-[var(--dock-clearance)] pt-1 sm:px-6 ${
+          activeTab === 'admin' ? 'max-w-content' : 'max-w-lg sm:max-w-xl'
+        }`}
+      >
         {error && (
           <div className="alert-error mb-3 flex items-center justify-between gap-2">
             <span>{error}</span>
@@ -137,6 +143,7 @@ export default function DashboardPage() {
           {activeTab === 'settings' && (
             <SettingsHub section={searchParams.get('section') || ''} />
           )}
+          {activeTab === 'admin' && <AdminPage embedded />}
         </div>
       </main>
       <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />

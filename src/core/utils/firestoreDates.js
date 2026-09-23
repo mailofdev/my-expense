@@ -27,5 +27,7 @@ export function sanitizeProfileDates(profile) {
     ...profile,
     createdAt: toSerializableDate(profile.createdAt),
     updatedAt: toSerializableDate(profile.updatedAt),
+    lastLoginAt: toSerializableDate(profile.lastLoginAt),
+    lastSeenAt: toSerializableDate(profile.lastSeenAt),
   };
 }

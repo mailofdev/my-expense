@@ -4,6 +4,7 @@ export const TAB_IDS = {
   wallet: 'wallet',
   analyzer: 'analyzer',
   settings: 'settings',
+  admin: 'admin',
 };
 
 export const TAB_TO_URL = {
@@ -11,6 +12,7 @@ export const TAB_TO_URL = {
   wallet: 'income',
   analyzer: 'reports',
   settings: 'tools',
+  admin: 'admin',
 };
 
 const URL_TO_TAB = {
@@ -22,6 +24,7 @@ const URL_TO_TAB = {
   wallet: 'wallet',
   analyzer: 'analyzer',
   settings: 'settings',
+  admin: 'admin',
   home: 'overview',
   money: 'wallet',
   charts: 'analyzer',

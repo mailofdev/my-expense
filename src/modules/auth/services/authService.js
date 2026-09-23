@@ -9,6 +9,10 @@ import { auth } from '../../../core/config/firebase';
 import { userService } from './userService';
 import { toSerializableDate } from '../../../core/utils/firestoreDates';
 
+export function normalizeRole(value) {
+  return String(value || '').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
+}
+
 const mapFirebaseUser = (firebaseUser, token, profile = null) => ({
   uid: firebaseUser.uid,
   email: firebaseUser.email,
@@ -24,6 +28,7 @@ const mapFirebaseUser = (firebaseUser, token, profile = null) => ({
   categoryBudgets: profile?.categoryBudgets ?? {},
   habits: profile?.habits ?? null,
   createdAt: toSerializableDate(profile?.createdAt) ?? null,
+  role: normalizeRole(profile?.role),
 });
 
 export const authService = {
@@ -46,6 +51,7 @@ export const authService = {
       email: credential.user.email,
       displayName: credential.user.displayName,
     });
+    await userService.recordLogin(credential.user.uid);
     const token = await credential.user.getIdToken();
     return mapFirebaseUser(credential.user, token, profile);
   },
@@ -63,6 +69,7 @@ export const authService = {
       email: firebaseUser.email,
       displayName: firebaseUser.displayName,
     });
+    await userService.recordLastSeen(firebaseUser.uid);
     const token = await firebaseUser.getIdToken(true);
     return mapFirebaseUser(firebaseUser, token, profile);
   },

@@ -126,6 +126,19 @@ export default function DashboardHeader() {
                     />
                   </span>
                 </button>
+                {user?.role === 'admin' && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="mb-1 flex w-full items-center rounded-sm px-3 py-2.5 text-left text-sm font-semibold text-ink hover:bg-ink/[0.04]"
+                    onClick={() => {
+                      setOpen(false);
+                      navigate('/admin');
+                    }}
+                  >
+                    Admin
+                  </button>
+                )}
                 <button
                   type="button"
                   role="menuitem"
