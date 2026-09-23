@@ -16,6 +16,7 @@ import MoneyNextStep from "./MoneyNextStep";
 import AllocationPlanner from "./AllocationPlanner";
 import RecurringPanel from "./RecurringPanel";
 import GoalsPanel from "./GoalsPanel";
+import SpendPlanNote from "./SafeToSpend";
 import {
   selectFilterMonthKey,
   selectFilteredMonthLabel,
@@ -176,10 +177,11 @@ export default function WalletTracker({ onGoToHome }) {
             : "Add income to start this month"}
         </p>
         {monthFunded > 0 && (
-          <p className="relative m-0 mt-2 text-xs leading-relaxed text-muted">
-            {setAsideParked > 0
-              ? "Left to spend is this month’s income minus expenses, leaving out money in set-aside accounts."
-              : "Left to spend is this month’s income minus expenses. Account totals below are what’s in each bank."}
+          <SpendPlanNote className="relative m-0 mt-2 text-xs leading-relaxed text-muted" />
+        )}
+        {monthFunded > 0 && setAsideParked > 0 && (
+          <p className="relative m-0 mt-1 text-xs leading-relaxed text-muted">
+            {formatINR(setAsideParked)} in a set-aside account is not included.
           </p>
         )}
 
@@ -207,6 +209,8 @@ export default function WalletTracker({ onGoToHome }) {
           </div>
         )}
       </section>
+
+      {monthFunded > 0 && <AddIncomeForm />}
 
       <section className="card">
         <button
@@ -381,8 +385,6 @@ export default function WalletTracker({ onGoToHome }) {
           </div>
         )}
       </section>
-
-      {monthFunded > 0 && <AddIncomeForm />}
 
       <AllocationPlanner />
       <RecurringPanel />

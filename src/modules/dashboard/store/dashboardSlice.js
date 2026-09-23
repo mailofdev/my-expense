@@ -1719,7 +1719,7 @@ export const selectInAppReminders = createSelector(
       reminders.push({
         id: 'safe-over',
         tone: 'warning',
-        text: `Safe to spend is short by ₹${Math.abs(safe.safe).toLocaleString('en-IN')} after bills and savings.`,
+        text: `Bills and planned savings are ₹${Math.abs(safe.safe).toLocaleString('en-IN')} more than you have left.`,
       });
     }
 

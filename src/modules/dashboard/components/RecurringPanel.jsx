@@ -37,7 +37,7 @@ export default function RecurringPanel({ compact = false }) {
   const { user } = useSelector((state) => state.auth);
   const { saving, recurringExpenses, recurringIncome } = useSelector((state) => state.dashboard);
   const categories = useSelector(selectVisibleCategories);
-  const [open, setOpen] = useState(!compact);
+  const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [kind, setKind] = useState('expense');
   const [title, setTitle] = useState('');
@@ -142,6 +142,7 @@ export default function RecurringPanel({ compact = false }) {
   };
 
   if (compact) {
+    if (!upcoming.length) return null;
     return (
       <section className="card">
         {confirmDialog}

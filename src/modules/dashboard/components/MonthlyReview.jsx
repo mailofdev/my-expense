@@ -47,7 +47,7 @@ export default function MonthlyReview() {
           </dl>
 
           <div>
-            <p className="section-label">Set aside</p>
+            <p className="section-label">Planned savings</p>
             <p className="m-0 text-sm text-ink">
               Savings {formatINR(review.plannedSavings)} · Investment {formatINR(review.plannedInvestment)}
             </p>

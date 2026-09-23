@@ -4,7 +4,8 @@ import dayjs from 'dayjs';
 import { formatINR } from '../../../core/utils/currency';
 import useConfirm from '../../../shared/hooks/useConfirm';
 import { goalProgress } from '../utils/planning';
-import { selectEmergencySuggestion, updateFinanceSettings } from '../store/dashboardSlice';
+import { selectAccounts, selectEmergencySuggestion, updateFinanceSettings } from '../store/dashboardSlice';
+import { isSetAsideAccount } from '../utils/accounts';
 
 const emptyDraft = () => ({
   name: '',
@@ -23,7 +24,9 @@ export default function GoalsPanel() {
   const { user } = useSelector((state) => state.auth);
   const { saving, goals } = useSelector((state) => state.dashboard);
   const suggestion = useSelector(selectEmergencySuggestion);
-  const [open, setOpen] = useState(true);
+  const accounts = useSelector(selectAccounts);
+  const hasBackupAccount = accounts.some(isSetAsideAccount);
+  const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [editingId, setEditingId] = useState(null);
@@ -120,7 +123,11 @@ export default function GoalsPanel() {
         <div className="min-w-0">
           <h2 className="card-title mb-0">Goals</h2>
           <p className="card-desc mb-0 mt-1">
-            {list.length ? `${list.length} goal${list.length === 1 ? '' : 's'}` : 'Emergency fund and other targets'}
+            {list.length
+              ? `${list.length} goal${list.length === 1 ? '' : 's'}`
+              : hasBackupAccount
+                ? 'Targets. Backup money stays in its account.'
+                : 'Emergency fund and other targets'}
           </p>
         </div>
         <span className="shrink-0 text-xs font-semibold text-primary">{open ? 'Hide' : 'Show'}</span>
@@ -128,7 +135,13 @@ export default function GoalsPanel() {
 
       {open && (
         <div className="mt-4 space-y-4">
-          {!hasEmergency && (
+          {hasBackupAccount && !hasEmergency && (
+            <p className="m-0 text-xs leading-relaxed text-muted">
+              Backup money already sits in a set-aside account. A goal here is only a target, and it does not move that money.
+            </p>
+          )}
+
+          {!hasEmergency && !hasBackupAccount && (
             <div className="rounded-md border border-edge/70 px-3 py-3">
               <p className="m-0 text-sm font-medium">Emergency fund</p>
               <p className="m-0 mt-1 text-xs leading-relaxed text-muted">

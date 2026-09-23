@@ -18,7 +18,7 @@ export default function AllocationPlanner() {
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const stored = useSelector(selectMonthAllocation);
   const income = useSelector(selectMonthWalletFunded);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(stored);
   const [message, setMessage] = useState('');
 

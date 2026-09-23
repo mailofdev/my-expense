@@ -1,5 +1,6 @@
 import { useSelector } from 'react-redux';
 import { formatINR, formatINRCompact } from '../../../core/utils/currency';
+import SpendPlanNote from './SafeToSpend';
 import {
   selectDayTotal,
   selectFilteredDayLabel,
@@ -57,23 +58,25 @@ export default function OverviewHero() {
         className="pointer-events-none absolute left-1/2 top-0 h-40 w-56 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
         aria-hidden="true"
       />
-      <p className="hero-amount relative">{formatINR(dayTotal)}</p>
-      <p className="relative m-0 mt-2 text-sm text-muted">
-        {isToday ? 'spent today' : `spent · ${dayLabel}`}
+      <p
+        className={`hero-amount relative ${walletRemaining < 0 ? 'text-danger' : ''}`}
+      >
+        {formatINR(walletRemaining)}
       </p>
+      <p className="relative m-0 mt-2 text-sm text-muted">left to spend</p>
+      <p className="relative m-0 mt-1 text-sm text-muted">
+        <span className="font-semibold tabular-nums text-ink">{formatINR(dayTotal)}</span>
+        {isToday ? ' spent today' : ` spent · ${dayLabel}`}
+      </p>
+      <SpendPlanNote className="relative m-0 mt-2 text-xs leading-relaxed text-muted" />
+      {setAsideParked > 0 && (
+        <p className="relative m-0 mt-1 text-xs text-muted">
+          {formatINRCompact(setAsideParked)} in a set-aside account is not included
+        </p>
+      )}
 
       <div className="relative mx-auto mt-5 max-w-xs">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="m-0 text-xs text-muted">This month</p>
-          <p
-            className={`m-0 text-sm font-semibold tabular-nums ${
-              walletRemaining < 0 ? 'text-danger' : 'text-ink'
-            }`}
-          >
-            {formatINRCompact(walletRemaining)} left
-          </p>
-        </div>
-        <div className="mb-1.5 mt-2 h-1.5 overflow-hidden rounded-full bg-ink/10">
+        <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-ink/10">
           <div
             className={`h-full rounded-full transition-all ${
               walletRemaining < 0
@@ -87,7 +90,6 @@ export default function OverviewHero() {
         </div>
         <p className="m-0 text-xs text-muted">
           {formatINRCompact(monthSpent)} spent of {formatINRCompact(walletFunded)} income
-          {setAsideParked > 0 ? ` · ${formatINRCompact(setAsideParked)} set aside` : ''}
         </p>
       </div>
     </section>
