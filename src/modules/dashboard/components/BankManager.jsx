@@ -22,6 +22,7 @@ export default function BankManager() {
   const [newCreditLimit, setNewCreditLimit] = useState('');
   const [newDueDay, setNewDueDay] = useState('');
   const [newOpening, setNewOpening] = useState('');
+  const [newSetAside, setNewSetAside] = useState(false);
   const [message, setMessage] = useState('');
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -33,6 +34,7 @@ export default function BankManager() {
         id: account.id,
         name: account.name,
         kind: account.kind || 'other',
+        setAside: account.setAside === true,
         creditLimit: account.creditLimit || '',
         dueDay: account.dueDay || '',
       }))
@@ -81,6 +83,9 @@ export default function BankManager() {
 
       const kind = row.kind || 'other';
       const entry = { id: row.id, name, kind };
+      if (kind !== 'credit' && row.setAside) {
+        entry.setAside = true;
+      }
       if (kind === 'credit') {
         const limit = Number(row.creditLimit);
         if (!limit || limit < 1) {
@@ -155,6 +160,7 @@ export default function BankManager() {
       id,
       name,
       kind: newKind,
+      setAside: newKind !== 'credit' && newSetAside,
       creditLimit: newKind === 'credit' ? newCreditLimit : '',
       dueDay: newKind === 'credit' ? newDueDay : '',
     };
@@ -173,6 +179,7 @@ export default function BankManager() {
     setNewCreditLimit('');
     setNewDueDay('');
     setNewOpening('');
+    setNewSetAside(false);
     persistRows(
       nextRows,
       openingsOverride,
@@ -223,6 +230,16 @@ export default function BankManager() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-muted">{accountKindLabel(row.kind)}</span>
+                  {row.kind !== 'credit' && (
+                    <label className="flex items-center gap-1.5 text-xs text-ink">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(row.setAside)}
+                        onChange={(e) => updateRow(row.id, { setAside: e.target.checked })}
+                      />
+                      Set aside
+                    </label>
+                  )}
                   {row.kind === 'credit' && (
                     <>
                       <label className="flex min-w-[7rem] flex-1 flex-col text-xs text-muted">
@@ -253,6 +270,11 @@ export default function BankManager() {
                     </>
                   )}
                 </div>
+                {row.kind !== 'credit' && row.setAside && (
+                  <p className="m-0 text-xs text-muted">
+                    Left out of the spending total. The balance stays in this account. Save changes to apply.
+                  </p>
+                )}
               </div>
             ))}
             <button type="submit" className="btn-outline btn-full btn-sm" disabled={saving}>
@@ -315,7 +337,23 @@ export default function BankManager() {
                   />
                 </label>
               </div>
-            ) : null}
+            ) : (
+              <div>
+                <label className="flex items-center gap-1.5 text-xs text-ink">
+                  <input
+                    type="checkbox"
+                    checked={newSetAside}
+                    onChange={(e) => setNewSetAside(e.target.checked)}
+                  />
+                  Set aside
+                </label>
+                {newSetAside && (
+                  <p className="m-0 mt-1 text-xs text-muted">
+                    For emergency or backup money. It is listed, but not added to the spending total.
+                  </p>
+                )}
+              </div>
+            )}
             <button
               type="button"
               className="border-0 bg-transparent p-0 text-xs font-semibold text-primary"

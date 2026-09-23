@@ -31,6 +31,11 @@ export function isCashAccount(account) {
   return !isCreditAccount(account);
 }
 
+/** Backup or emergency money the user asked to leave out of the spending total. */
+export function isSetAsideAccount(account) {
+  return account?.setAside === true && isCashAccount(account);
+}
+
 export function accountKindLabel(kind) {
   if (kind === 'credit') return 'Credit card';
   if (kind === 'debit') return 'Debit card';
@@ -49,6 +54,9 @@ export function normalizeAccount(raw = {}) {
   const kind = Object.values(ACCOUNT_KINDS).includes(kindRaw) ? kindRaw : 'other';
 
   const account = { id, name, kind };
+  if (kind !== 'credit' && raw.setAside === true) {
+    account.setAside = true;
+  }
 
   if (kind === 'credit') {
     const limit = Number(raw.creditLimit);
@@ -190,11 +198,59 @@ export function withAccountBalanceViews(accounts = [], balances = {}) {
   });
 }
 
-/** Sum cash/debit balances only (exclude credit liabilities). */
+/** Spending total: cash and debit balances, excluding credit cards and set-aside accounts. */
 export function sumCashBalances(accounts = [], balances = {}) {
   return ensureAccounts(accounts)
-    .filter(isCashAccount)
+    .filter((account) => isCashAccount(account) && !isSetAsideAccount(account))
     .reduce((sum, account) => sum + (Number(balances[account.id]) || 0), 0);
+}
+
+/** Money kept in accounts the user marked as set aside. */
+export function sumSetAsideBalances(accounts = [], balances = {}) {
+  return ensureAccounts(accounts)
+    .filter(isSetAsideAccount)
+    .reduce((sum, account) => sum + (Number(balances[account.id]) || 0), 0);
+}
+
+/**
+ * How much of this month's income-minus-expenses is parked in set-aside accounts.
+ * Pass only this month's expenses and wallet transactions.
+ * Positive means left to spend should drop by this amount.
+ */
+export function parkedInSetAsideAccounts({
+  accounts = [],
+  expenses = [],
+  walletTransactions = [],
+} = {}) {
+  const setAsideIds = new Set(
+    ensureAccounts(accounts).filter(isSetAsideAccount).map((account) => account.id)
+  );
+  if (!setAsideIds.size) return 0;
+
+  let credits = 0;
+  let transfersIn = 0;
+  let transfersOut = 0;
+  (walletTransactions || []).forEach((tx) => {
+    const amount = Number(tx.amount) || 0;
+    if (amount <= 0) return;
+    if (tx.type === 'credit' && setAsideIds.has(tx.accountId)) {
+      credits += amount;
+      return;
+    }
+    if (tx.type !== 'transfer') return;
+    const toSetAside = setAsideIds.has(tx.toAccountId);
+    const fromSetAside = setAsideIds.has(tx.fromAccountId);
+    if (toSetAside && !fromSetAside) transfersIn += amount;
+    if (fromSetAside && !toSetAside) transfersOut += amount;
+  });
+
+  let spentFromSetAside = 0;
+  (expenses || []).forEach((expense) => {
+    if (!setAsideIds.has(expense.accountId)) return;
+    spentFromSetAside += Number(expense.amount) || 0;
+  });
+
+  return credits + transfersIn - transfersOut - spentFromSetAside;
 }
 
 /** Sum credit outstanding across cards. */
@@ -248,8 +304,9 @@ export function resolveExpenseAccountId(expense, accounts) {
 export function formatAccountOptionLabel(account) {
   if (!account) return 'Account';
   const kind = accountKindLabel(account.kind);
-  if (account.kind === 'salary' || account.kind === 'savings' || account.kind === 'other') {
-    return account.name;
-  }
-  return `${account.name} · ${kind}`;
+  const base =
+    account.kind === 'salary' || account.kind === 'savings' || account.kind === 'other'
+      ? account.name
+      : `${account.name} · ${kind}`;
+  return isSetAsideAccount(account) ? `${base} · Set aside` : base;
 }

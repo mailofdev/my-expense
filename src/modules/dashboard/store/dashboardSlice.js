@@ -46,6 +46,8 @@ import {
   normalizeAccount,
   sumCashBalances,
   sumCreditOutstanding,
+  sumSetAsideBalances,
+  parkedInSetAsideAccounts,
   withAccountBalanceViews,
   MAX_ACCOUNTS,
 } from '../utils/accounts';
@@ -1304,6 +1306,7 @@ export const selectAccountsWithBalances = createSelector(
     return {
       accounts: views,
       total: sumCashBalances(accounts, balances),
+      setAsideTotal: sumSetAsideBalances(accounts, balances),
       creditOutstanding: sumCreditOutstanding(accounts, balances),
     };
   }
@@ -1366,10 +1369,40 @@ export const selectMonthTransferEntries = (state) => {
     });
 };
 
+function transactionsInMonth(walletTransactions, monthKey, month, year) {
+  return (walletTransactions || []).filter((tx) => {
+    if (tx.monthKey) return tx.monthKey === monthKey;
+    const day = String(tx.date || tx.createdAt || '').slice(0, 10);
+    return isInMonthYear(day, month, year);
+  });
+}
+
+function parkedForMonth(state, month, year) {
+  const monthKey = getMonthKey(month, year);
+  return parkedInSetAsideAccounts({
+    accounts: state.dashboard.accounts,
+    expenses: (state.dashboard.expenses || []).filter((expense) =>
+      isInMonthYear(expense.date, month, year)
+    ),
+    walletTransactions: transactionsInMonth(
+      state.dashboard.walletTransactions,
+      monthKey,
+      month,
+      year
+    ),
+  });
+}
+
+/** Money from this month that sits in set-aside accounts and is not left to spend. */
+export const selectSetAsideParked = (state) => {
+  const { month, year } = selectFilter(state);
+  return parkedForMonth(state, month, year);
+};
+
 export const selectMonthWalletRemaining = (state) => {
   const funded = selectMonthWalletFunded(state);
   if (!funded) return 0;
-  return funded - selectTotalSpent(state);
+  return funded - selectTotalSpent(state) - selectSetAsideParked(state);
 };
 
 export const selectMonthWalletStatsByDate = createSelector(
@@ -1378,17 +1411,25 @@ export const selectMonthWalletStatsByDate = createSelector(
     (state, _dateStr, excludeExpenseId = null) => excludeExpenseId,
     (state) => state.dashboard.monthlyWallets,
     (state) => state.dashboard.expenses,
+    (state) => state.dashboard.accounts,
+    (state) => state.dashboard.walletTransactions,
   ],
-  (dateStr, excludeExpenseId, monthlyWallets, expenses) => {
+  (dateStr, excludeExpenseId, monthlyWallets, expenses, accounts, walletTransactions) => {
     const d = dayjs(dateStr);
     const monthKey = getMonthKey(d.month() + 1, d.year());
     const month = d.month() + 1;
     const year = d.year();
     const funded = monthlyWallets[monthKey] || 0;
-    const spent = expenses
-      .filter((e) => isInMonthYear(e.date, month, year) && e.id !== excludeExpenseId)
-      .reduce((sum, e) => sum + e.amount, 0);
-    const remaining = funded ? funded - spent : 0;
+    const monthExpenses = expenses.filter(
+      (e) => isInMonthYear(e.date, month, year) && e.id !== excludeExpenseId
+    );
+    const spent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const parked = parkedInSetAsideAccounts({
+      accounts,
+      expenses: monthExpenses,
+      walletTransactions: transactionsInMonth(walletTransactions, monthKey, month, year),
+    });
+    const remaining = funded ? funded - spent - parked : 0;
     return {
       monthKey,
       monthLabel: formatMonthYearLabel(month, year),
@@ -1402,8 +1443,8 @@ export const selectMonthWalletStatsByDate = createSelector(
 export const selectMonthWalletUsagePercent = (state) => {
   const funded = selectMonthWalletFunded(state);
   if (!funded) return 0;
-  const spent = selectTotalSpent(state);
-  return Math.round((spent / funded) * 100);
+  const used = selectTotalSpent(state) + selectSetAsideParked(state);
+  return Math.round((Math.max(0, used) / funded) * 100);
 };
 
 export const selectTotalSpent = (state) =>
@@ -1538,13 +1579,14 @@ export const selectSafeToSpend = createSelector(
   [
     selectMonthWalletFunded,
     selectTotalSpent,
+    selectSetAsideParked,
     selectMonthAllocation,
     (state) => state.dashboard.recurringExpenses,
     (state) => state.dashboard.filterMonth,
     (state) => state.dashboard.filterYear,
     selectIsFilterCurrentMonth,
   ],
-  (funded, spent, allocation, recurringExpenses, month, year, isCurrentMonth) => {
+  (funded, spent, parked, allocation, recurringExpenses, month, year, isCurrentMonth) => {
     const today = getTodayString();
     const upcoming = commitmentsForSafeSpend(recurringExpenses, {
       month,
@@ -1554,7 +1596,7 @@ export const selectSafeToSpend = createSelector(
     });
     const snapshot = computeSafeToSpend({
       funded,
-      spent,
+      spent: spent + parked,
       held: heldFromAllocation(allocation),
       upcomingTotal: sumAmounts(upcoming),
     });
@@ -1601,6 +1643,8 @@ export const selectMonthlyReview = createSelector(
     selectFilteredMonthLabel,
     (state) => state.dashboard.expenses,
     (state) => state.dashboard.monthlyWallets,
+    (state) => state.dashboard.accounts,
+    (state) => state.dashboard.walletTransactions,
     (state) => state.dashboard.filterMonth,
     (state) => state.dashboard.filterYear,
   ],
@@ -1613,16 +1657,33 @@ export const selectMonthlyReview = createSelector(
     monthLabel,
     expenses,
     monthlyWallets,
+    accounts,
+    walletTransactions,
     month,
     year
   ) => {
     const previous = previousMonthParts(month, year);
     const previousKey = getMonthKey(previous.month, previous.year);
     const previousIncome = monthlyWallets?.[previousKey] || 0;
-    const previousSpent = (expenses || [])
-      .filter((expense) => isInMonthYear(expense.date, previous.month, previous.year))
-      .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
-    const previousLeft = previousIncome > 0 ? previousIncome - previousSpent : 0;
+    const previousExpenses = (expenses || []).filter((expense) =>
+      isInMonthYear(expense.date, previous.month, previous.year)
+    );
+    const previousSpent = previousExpenses.reduce(
+      (sum, expense) => sum + (Number(expense.amount) || 0),
+      0
+    );
+    const previousParked = parkedInSetAsideAccounts({
+      accounts,
+      expenses: previousExpenses,
+      walletTransactions: transactionsInMonth(
+        walletTransactions,
+        previousKey,
+        previous.month,
+        previous.year
+      ),
+    });
+    const previousLeft =
+      previousIncome > 0 ? previousIncome - previousSpent - previousParked : 0;
     const comparison = compareMonths(
       { income, spent, left },
       { income: previousIncome, spent: previousSpent, left: previousLeft }

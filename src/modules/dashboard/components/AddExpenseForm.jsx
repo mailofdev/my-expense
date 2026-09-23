@@ -24,7 +24,7 @@ import {
 } from '../utils/categories';
 import TagInput from './TagInput';
 import ExpenseSplitFields, { resolveSplitPayload } from './ExpenseSplitFields';
-import { formatAccountOptionLabel } from '../utils/accounts';
+import { formatAccountOptionLabel, isSetAsideAccount } from '../utils/accounts';
 
 const EMPTY_SPLIT = { enabled: false, groupId: '', paidBy: '', memberIds: [] };
 
@@ -71,11 +71,17 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
   const watchedCategory = watch('category') || defaultCategory;
   const watchedTitle = watch('title') || '';
   const watchedTags = watch('tags') || '';
+  const watchedAccountId = watch('accountId');
+  const payingFromSetAside = accounts.some(
+    (account) => account.id === watchedAccountId && isSetAsideAccount(account)
+  );
   const expenseWallet = useSelector(
     (state) => selectMonthWalletStatsByDate(state, watchedDate),
     shallowEqual
   );
-  const projectedRemaining = expenseWallet.remaining - watchedAmount;
+  const projectedRemaining = payingFromSetAside
+    ? expenseWallet.remaining
+    : expenseWallet.remaining - watchedAmount;
 
   useEffect(() => {
     setValue('date', filterDate);
@@ -244,9 +250,11 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
                 : 'border-edge bg-surface-2 text-muted'
             }`}
           >
-            {projectedRemaining < 0
-              ? `${formatINR(Math.abs(projectedRemaining))} over budget after this`
-              : `${formatINR(projectedRemaining)} left this month after this`}
+            {payingFromSetAside
+              ? `Paid from a set-aside account. Left to spend stays ${formatINR(expenseWallet.remaining)}.`
+              : projectedRemaining < 0
+                ? `${formatINR(Math.abs(projectedRemaining))} over budget after this`
+                : `${formatINR(projectedRemaining)} left this month after this`}
           </p>
         )}
 

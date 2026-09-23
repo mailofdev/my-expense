@@ -4,7 +4,10 @@ import {
   getDefaultAccountId,
   openingsForDesiredBalances,
   creditOutstandingFromBalance,
+  formatAccountOptionLabel,
+  parkedInSetAsideAccounts,
   sumCashBalances,
+  sumSetAsideBalances,
   withAccountBalanceViews,
 } from './accounts';
 
@@ -153,6 +156,59 @@ describe('accounts helpers', () => {
 
     expect(balances.acc_salary).toBe(17000);
     expect(balances.acc_savings).toBe(3000);
+  });
+
+  test('set aside money stays on the account and leaves the spending total', () => {
+    const list = ensureAccounts([
+      { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+      { id: 'acc_daily', name: 'Regular', kind: 'other' },
+      { id: 'acc_backup', name: 'Backup', kind: 'savings', setAside: true },
+      { id: 'acc_cc', name: 'Card', kind: 'credit', creditLimit: 10000, setAside: true },
+    ]);
+    expect(list.find((account) => account.id === 'acc_backup').setAside).toBe(true);
+    expect(list.find((account) => account.id === 'acc_cc').setAside).toBeUndefined();
+
+    const balances = computeAccountBalances({
+      accounts: list,
+      accountOpenings: { acc_salary: 40000, acc_daily: 8000, acc_backup: 20000, acc_cc: 0 },
+      walletTransactions: [
+        {
+          type: 'transfer',
+          fromAccountId: 'acc_salary',
+          toAccountId: 'acc_backup',
+          amount: 5000,
+        },
+      ],
+      expenses: [],
+    });
+
+    expect(balances.acc_salary).toBe(35000);
+    expect(balances.acc_backup).toBe(25000);
+    expect(sumCashBalances(list, balances)).toBe(35000 + 8000);
+    expect(sumSetAsideBalances(list, balances)).toBe(25000);
+    expect(formatAccountOptionLabel(list.find((account) => account.id === 'acc_backup'))).toBe(
+      'Backup · Set aside'
+    );
+  });
+
+  test('left to spend ignores money parked in a set-aside account', () => {
+    const list = ensureAccounts([
+      { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+      { id: 'acc_backup', name: 'Backup', kind: 'other', setAside: true },
+    ]);
+    const month = [
+      { type: 'credit', accountId: 'acc_salary', amount: 97639, source: 'income' },
+      { type: 'transfer', fromAccountId: 'acc_salary', toAccountId: 'acc_backup', amount: 11655 },
+    ];
+    const expenses = [
+      { accountId: 'acc_salary', amount: 79549 },
+      { accountId: 'acc_backup', amount: 500 },
+    ];
+
+    expect(parkedInSetAsideAccounts({ accounts: list, walletTransactions: month, expenses })).toBe(
+      11655 - 500
+    );
+    expect(parkedInSetAsideAccounts({ accounts: list })).toBe(0);
   });
 
   test('openings match desired bank amounts', () => {

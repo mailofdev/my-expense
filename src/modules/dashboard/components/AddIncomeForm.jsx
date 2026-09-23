@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { formatINR, ledgerAmountClass } from '../../../core/utils/currency';
 import { getTodayString } from '../../../core/utils/date';
-import { getAccountById, getDefaultAccountId, formatAccountOptionLabel, isCashAccount } from '../utils/accounts';
+import { getAccountById, getDefaultAccountId, formatAccountOptionLabel, isCashAccount, isSetAsideAccount } from '../utils/accounts';
 import { resolveLedgerDayKey } from '../utils/moneyFlows';
 import useConfirm from '../../../shared/hooks/useConfirm';
 import {
@@ -199,6 +199,12 @@ export default function AddIncomeForm() {
           </select>
         )}
 
+        {isSetAsideAccount(cashAccounts.find((account) => account.id === accountId)) && (
+          <p className="m-0 text-xs text-muted">
+            This goes into a set-aside account, so it is not added to left to spend.
+          </p>
+        )}
+
         <div className="flex items-center gap-2">
           <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving || editingId}>
             {saving && !editingId ? 'Adding…' : 'Add income'}
@@ -279,6 +285,11 @@ export default function AddIncomeForm() {
                           </option>
                         ))}
                       </select>
+                    )}
+                    {isSetAsideAccount(cashAccounts.find((account) => account.id === editAccountId)) && (
+                      <p className="m-0 text-xs text-muted">
+                        This stays in a set-aside account, so it is not part of left to spend.
+                      </p>
                     )}
                     <input
                       className="input py-2 text-sm"

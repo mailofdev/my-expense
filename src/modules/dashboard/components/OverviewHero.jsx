@@ -8,6 +8,7 @@ import {
   selectMonthWalletRemaining,
   selectMonthWalletFunded,
   selectMonthWalletUsagePercent,
+  selectSetAsideParked,
   selectTotalSpent,
 } from '../store/dashboardSlice';
 
@@ -20,6 +21,7 @@ export default function OverviewHero() {
   const walletFunded = useSelector(selectMonthWalletFunded);
   const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
   const monthSpent = useSelector(selectTotalSpent);
+  const setAsideParked = useSelector(selectSetAsideParked);
 
   const walletBarPercent = walletFunded > 0 ? Math.min(100, walletUsagePercent) : 0;
 
@@ -85,6 +87,7 @@ export default function OverviewHero() {
         </div>
         <p className="m-0 text-xs text-muted">
           {formatINRCompact(monthSpent)} spent of {formatINRCompact(walletFunded)} income
+          {setAsideParked > 0 ? ` · ${formatINRCompact(setAsideParked)} set aside` : ''}
         </p>
       </div>
     </section>
