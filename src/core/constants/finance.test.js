@@ -58,6 +58,11 @@ describe('category limit thresholds', () => {
     expect(getCategoryLimitPercent(3000, 3000)).toBe(100);
   });
 
+  test('uses only the thresholds the user turned on', () => {
+    expect(getCategoryLimitLevel(800, 1000, [100])).toBeNull();
+    expect(getCategoryLimitLevel(1000, 1000, [100])).toBe(100);
+  });
+
   test('warning text for over and under 100', () => {
     expect(getCategoryLimitWarningText('Food & Groceries', 100, 3100, 3000)).toContain('limit reached');
     expect(getCategoryLimitWarningText('Food & Groceries', 75, 2250, 3000)).toContain('75%');

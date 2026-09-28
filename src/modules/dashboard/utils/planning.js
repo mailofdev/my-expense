@@ -107,17 +107,15 @@ export function listUpcoming(items, { today, horizonDays = 35 } = {}) {
 }
 
 /**
- * Date to post when the user records a due template.
- * Future dates are not recorded. Dates in the viewed current month keep their day.
- * Older overdue items are recorded today so a past month is left unchanged.
+ * Date to post when a due template is recorded.
+ * The occurrence keeps its own due date. Future dates are not recorded.
  */
 export function recordDateForTemplate(nextDate, today) {
   const next = dayjs(nextDate);
   const now = dayjs(today);
   if (!next.isValid() || !now.isValid()) return null;
   if (next.isAfter(now, 'day')) return null;
-  if (next.isSame(now, 'month')) return next.format('YYYY-MM-DD');
-  return now.format('YYYY-MM-DD');
+  return next.format('YYYY-MM-DD');
 }
 
 /**

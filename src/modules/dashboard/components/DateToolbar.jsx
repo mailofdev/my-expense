@@ -128,7 +128,7 @@ export default function DateToolbar({ variant = 'day' }) {
     : isToday || dayLabel === 'Yesterday'
       ? dayLabel
       : fullDateLabel;
-  const subtitle = !isMonth && (isToday || dayLabel === 'Yesterday') ? fullDateLabel : null;
+  const subtitle = isMonth ? 'Month view' : dayjs(filterDate).format('D MMM · MMMM');
   const canGoNext = isMonth ? canGoNextMonth : canGoNextDay;
   const showJumpBack = isMonth ? !isCurrentMonth : !isToday;
 

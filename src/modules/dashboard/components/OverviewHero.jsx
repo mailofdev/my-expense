@@ -1,6 +1,6 @@
 import { useSelector } from 'react-redux';
 import { formatINR, formatINRCompact } from '../../../core/utils/currency';
-import SpendPlanNote from './SafeToSpend';
+import SafeToSpend from './SafeToSpend';
 import {
   selectDayTotal,
   selectFilteredDayLabel,
@@ -8,44 +8,51 @@ import {
   selectIsTodaySelected,
   selectMonthWalletRemaining,
   selectMonthWalletFunded,
-  selectMonthWalletUsagePercent,
+  selectMonthIncome,
   selectSetAsideParked,
   selectTotalSpent,
 } from '../store/dashboardSlice';
 
-export default function OverviewHero() {
+function Stat({ label, value, tone = '' }) {
+  return (
+    <div className="min-w-0 text-center">
+      <p className="m-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">{label}</p>
+      <p className={`m-0 mt-1 truncate text-sm font-semibold tabular-nums ${tone}`}>{value}</p>
+    </div>
+  );
+}
+
+export default function OverviewHero({ onAddIncome }) {
   const dayTotal = useSelector(selectDayTotal);
   const dayLabel = useSelector(selectFilteredDayLabel);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const isToday = useSelector(selectIsTodaySelected);
   const walletRemaining = useSelector(selectMonthWalletRemaining);
   const walletFunded = useSelector(selectMonthWalletFunded);
-  const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
+  const monthIncome = useSelector(selectMonthIncome);
   const monthSpent = useSelector(selectTotalSpent);
   const setAsideParked = useSelector(selectSetAsideParked);
-
-  const walletBarPercent = walletFunded > 0 ? Math.min(100, walletUsagePercent) : 0;
+  const income = monthIncome > 0 ? monthIncome : walletFunded;
 
   if (walletFunded <= 0) {
     return (
-      <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-5">
-        <div
-          className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-primary/15 blur-3xl"
-          aria-hidden="true"
-        />
-        <p className="relative m-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80">
+      <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-5 text-left">
+        <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80">
           {monthLabel}
         </p>
-        <p className="relative m-0 mt-2 text-2xl font-semibold tracking-tight text-ink">
-          No income yet
+        <p className="m-0 mt-2 text-2xl font-semibold tracking-tight text-ink">No income yet</p>
+        <p className="m-0 mt-1.5 text-sm leading-relaxed text-muted">
+          Add what you received. Left to spend and safe to spend appear after that.
         </p>
-        <p className="relative m-0 mt-1.5 text-sm leading-relaxed text-muted">
-          Add money you received to see how much you have left this month.
-        </p>
+        {onAddIncome && (
+          <button type="button" className="btn-primary btn-full mt-4 min-h-11" onClick={onAddIncome}>
+            Add income
+          </button>
+        )}
         {dayTotal > 0 && (
-          <p className="relative m-0 mt-3 text-sm text-muted">
+          <p className="m-0 mt-3 text-sm text-muted">
             <span className="font-semibold tabular-nums text-ink">{formatINR(dayTotal)}</span>
-            {isToday ? ' spent today' : ` spent · ${dayLabel}`}
+            {isToday ? ' already spent today' : ` spent · ${dayLabel}`}
           </p>
         )}
       </section>
@@ -53,45 +60,36 @@ export default function OverviewHero() {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-6 text-center">
+    <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-5">
       <div
-        className="pointer-events-none absolute left-1/2 top-0 h-40 w-56 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-0 h-32 w-48 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl"
         aria-hidden="true"
       />
-      <p
-        className={`hero-amount relative ${walletRemaining < 0 ? 'text-danger' : ''}`}
-      >
+      <p className="relative m-0 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+        {monthLabel}
+      </p>
+      <p className={`hero-amount relative mt-1 text-center ${walletRemaining < 0 ? 'text-danger' : ''}`}>
         {formatINR(walletRemaining)}
       </p>
-      <p className="relative m-0 mt-2 text-sm text-muted">left to spend</p>
-      <p className="relative m-0 mt-1 text-sm text-muted">
+      <p className="relative m-0 text-center text-sm text-muted">Left to spend</p>
+      <SafeToSpend prominent className="relative mt-4 border-t border-edge/60 pt-4 text-center" />
+      <dl className="relative m-0 mt-4 grid grid-cols-2 gap-3 border-t border-edge/60 pt-4 sm:grid-cols-4">
+        <Stat label="Income" value={formatINRCompact(income)} tone="text-success" />
+        <Stat label="Spent" value={formatINRCompact(monthSpent)} tone="text-danger" />
+        <Stat label="Set aside" value={formatINRCompact(setAsideParked)} />
+        <Stat
+          label="Left"
+          value={formatINRCompact(walletRemaining)}
+          tone={walletRemaining < 0 ? 'text-danger' : 'text-ink'}
+        />
+      </dl>
+      <p className="relative m-0 mt-3 text-center text-xs text-muted">
+        Left is income, minus spends
+        {setAsideParked > 0 ? ', minus money in set-aside accounts' : ''}.
+        {' '}
         <span className="font-semibold tabular-nums text-ink">{formatINR(dayTotal)}</span>
-        {isToday ? ' spent today' : ` spent · ${dayLabel}`}
+        {isToday ? ' spent today.' : ` spent · ${dayLabel}.`}
       </p>
-      <SpendPlanNote className="relative m-0 mt-2 text-xs leading-relaxed text-muted" />
-      {setAsideParked > 0 && (
-        <p className="relative m-0 mt-1 text-xs text-muted">
-          {formatINRCompact(setAsideParked)} in a set-aside account is not included
-        </p>
-      )}
-
-      <div className="relative mx-auto mt-5 max-w-xs">
-        <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-ink/10">
-          <div
-            className={`h-full rounded-full transition-all ${
-              walletRemaining < 0
-                ? 'bg-danger'
-                : walletUsagePercent >= 80
-                  ? 'bg-accent'
-                  : 'bg-primary'
-            }`}
-            style={{ width: `${walletBarPercent}%` }}
-          />
-        </div>
-        <p className="m-0 text-xs text-muted">
-          {formatINRCompact(monthSpent)} spent of {formatINRCompact(walletFunded)} income
-        </p>
-      </div>
     </section>
   );
 }

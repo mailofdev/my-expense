@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
@@ -15,18 +15,48 @@ import {
   selectMainCategories,
   selectSubcategories,
   selectPeopleGroups,
+  updateFinanceSettings,
 } from '../store/dashboardSlice';
 import {
   collectExpenseTags,
   suggestCategoryFromTitle,
   shortCategoryLabel,
   DEFAULT_EXPENSE_CATEGORY,
+  getSubcategoriesForMain,
+  getMainByName,
 } from '../utils/categories';
 import TagInput from './TagInput';
 import ExpenseSplitFields, { resolveSplitPayload } from './ExpenseSplitFields';
 import { formatAccountOptionLabel, isSetAsideAccount } from '../utils/accounts';
 
 const EMPTY_SPLIT = { enabled: false, groupId: '', paidBy: '', memberIds: [] };
+
+function ChoiceChips({ label, value, options, onChange }) {
+  if (!options.length) return null;
+  return (
+    <div>
+      <p className="m-0 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{label}</p>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {options.map((option) => {
+          const selected = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={`min-h-11 shrink-0 rounded-full px-3.5 text-sm font-medium ${
+                selected ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-2 text-ink'
+              }`}
+              aria-pressed={selected}
+              onClick={() => onChange(option.value)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function fallbackCategory(categories) {
   if (categories.includes(DEFAULT_EXPENSE_CATEGORY)) return DEFAULT_EXPENSE_CATEGORY;
@@ -50,6 +80,7 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
   const [showMore, setShowMore] = useState(false);
   const [success, setSuccess] = useState('');
   const [suggestedCategory, setSuggestedCategory] = useState('');
+  const [newSubcategory, setNewSubcategory] = useState('');
 
   const categoryTouchedRef = useRef(false);
   const defaultCategory = fallbackCategory(categories);
@@ -60,6 +91,7 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
       amount: '',
       date: filterDate,
       category: defaultCategory,
+      subcategory: '',
       tags: '',
       paymentMode: paymentModes[0],
       accountId: defaultAccountId,
@@ -69,8 +101,10 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
   const watchedDate = watch('date') || filterDate;
   const watchedAmount = Number(watch('amount')) || 0;
   const watchedCategory = watch('category') || defaultCategory;
+  const watchedSubcategory = watch('subcategory') || '';
   const watchedTitle = watch('title') || '';
   const watchedTags = watch('tags') || '';
+  const watchedPayment = watch('paymentMode') || paymentModes[0];
   const watchedAccountId = watch('accountId');
   const payingFromSetAside = accounts.some(
     (account) => account.id === watchedAccountId && isSetAsideAccount(account)
@@ -97,37 +131,74 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
 
   useEffect(() => {
     if (!accounts.length) return;
-    setValue('accountId', defaultAccountId);
-  }, [accounts, defaultAccountId, setValue]);
+    if (!accounts.some((account) => account.id === watchedAccountId)) {
+      setValue('accountId', defaultAccountId);
+    }
+  }, [accounts, watchedAccountId, defaultAccountId, setValue]);
+
+  const activeMain = getMainByName(mainCategories, watchedCategory);
+  const subcategoryOptions = getSubcategoriesForMain(subcategoriesMap, activeMain?.id);
+  const suggestion = useMemo(
+    () => suggestCategoryFromTitle(watchedTitle, mainCategories, subcategoriesMap),
+    [watchedTitle, mainCategories, subcategoriesMap]
+  );
+  const suggestionLabel = suggestion?.category
+    ? suggestion.subcategory
+      ? `${shortCategoryLabel(suggestion.category)} · ${suggestion.subcategory}`
+      : shortCategoryLabel(suggestion.category)
+    : '';
 
   useEffect(() => {
-    if (categoryTouchedRef.current) {
-      setSuggestedCategory('');
+    if (categoryTouchedRef.current || !suggestion?.category) {
+      if (!suggestion?.category) setSuggestedCategory('');
       return;
     }
-    const suggestion = suggestCategoryFromTitle(
-      watchedTitle,
-      mainCategories,
-      subcategoriesMap
-    );
-    if (suggestion?.category && suggestion.category !== watchedCategory) {
-      setSuggestedCategory(suggestion.category);
-      return;
-    }
-    setSuggestedCategory('');
-  }, [watchedTitle, mainCategories, subcategoriesMap, watchedCategory]);
+    setValue('category', suggestion.category);
+    setValue('subcategory', suggestion.subcategory || '');
+    setSuggestedCategory(suggestionLabel);
+  }, [suggestion, suggestionLabel, setValue]);
 
-  const handleCategoryChange = (event) => {
+  const pickCategory = (name) => {
     categoryTouchedRef.current = true;
     setSuggestedCategory('');
-    setValue('category', event.target.value);
+    setValue('category', name);
+    setValue('subcategory', '');
   };
 
   const applySuggestion = () => {
-    if (!suggestedCategory) return;
-    setValue('category', suggestedCategory);
-    categoryTouchedRef.current = true;
-    setSuggestedCategory('');
+    if (!suggestion?.category) return;
+    categoryTouchedRef.current = false;
+    setValue('category', suggestion.category);
+    setValue('subcategory', suggestion.subcategory || '');
+    setSuggestedCategory(suggestionLabel);
+  };
+
+  const addSubcategory = () => {
+    const name = newSubcategory.trim();
+    const main = getMainByName(mainCategories, watchedCategory);
+    if (!name || !main) return;
+    const current = getSubcategoriesForMain(subcategoriesMap, main.id);
+    if (current.some((item) => item.toLowerCase() === name.toLowerCase())) {
+      setValue('subcategory', current.find((item) => item.toLowerCase() === name.toLowerCase()) || name);
+      setNewSubcategory('');
+      return;
+    }
+    dispatch(
+      updateFinanceSettings({
+        uid: user.uid,
+        updates: {
+          subcategories: {
+            ...subcategoriesMap,
+            [main.id]: [...current, name],
+          },
+        },
+      })
+    ).then((result) => {
+      if (!result.error) {
+        setValue('subcategory', name);
+        setNewSubcategory('');
+      }
+    });
   };
 
   const onSubmit = (data) => {
@@ -147,9 +218,9 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
           title: data.title,
           amount,
           category,
-          subcategory: '',
+          subcategory: data.subcategory || '',
           tags,
-          paymentMode: paymentModes[0],
+          paymentMode: data.paymentMode || paymentModes[0],
           accountId: data.accountId || defaultAccountId,
           date: expenseDate,
           split: split || null,
@@ -170,6 +241,7 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
           amount: '',
           date: expenseDate,
           category: defaultCategory,
+          subcategory: '',
           tags: '',
           paymentMode: paymentModes[0],
           accountId: defaultAccountId,
@@ -200,47 +272,66 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
           })}
         />
 
-        <div className={`grid gap-2 ${showBankPicker ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          <label className="label m-0">
-            Category
-            <select
-              className="input mt-1"
-              value={watchedCategory}
-              onChange={handleCategoryChange}
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{shortCategoryLabel(cat)}</option>
-              ))}
-            </select>
-          </label>
-
-          {showBankPicker && (
-            <label className="label m-0">
-              Paid from
-              <select className="input mt-1" {...register('accountId')}>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {formatAccountOptionLabel(account)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-
-        {suggestedCategory && (
+        {suggestionLabel && suggestedCategory !== suggestionLabel && (
           <button
             type="button"
-            className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"
+            className="min-h-11 rounded-full border border-primary/40 bg-primary/10 px-3.5 text-sm font-medium text-primary"
             onClick={applySuggestion}
           >
-            Suggested: {shortCategoryLabel(suggestedCategory)}
+            Use {suggestionLabel}
           </button>
         )}
-
-        {!isToday && (
-          <p className="m-0 text-xs text-muted">Saving for {dayjs(watchedDate).format('D MMM')}</p>
+        {suggestedCategory && suggestedCategory === suggestionLabel && (
+          <p className="m-0 text-xs text-muted">Using {suggestionLabel}. Tap another category to change it.</p>
         )}
+
+        <ChoiceChips
+          label="Category"
+          value={watchedCategory}
+          options={categories.map((name) => ({ value: name, label: shortCategoryLabel(name) }))}
+          onChange={pickCategory}
+        />
+
+        {subcategoryOptions.length > 0 && (
+          <ChoiceChips
+            label="Subcategory"
+            value={watchedSubcategory}
+            options={[{ value: '', label: 'None' }, ...subcategoryOptions.map((name) => ({ value: name, label: name }))]}
+            onChange={(name) => {
+              categoryTouchedRef.current = true;
+              setValue('subcategory', name);
+            }}
+          />
+        )}
+
+        <ChoiceChips
+          label="Paid with"
+          value={watchedPayment}
+          options={paymentModes.map((mode) => ({ value: mode, label: mode }))}
+          onChange={(mode) => setValue('paymentMode', mode)}
+        />
+
+        {showBankPicker && (
+          <ChoiceChips
+            label="Account"
+            value={watchedAccountId}
+            options={accounts.map((account) => ({
+              value: account.id,
+              label: formatAccountOptionLabel(account),
+            }))}
+            onChange={(id) => setValue('accountId', id)}
+          />
+        )}
+
+        <label className="label m-0">
+          Date
+          <input
+            className="input mt-1 min-h-11"
+            type="date"
+            max={dayjs().format('YYYY-MM-DD')}
+            {...register('date')}
+          />
+        </label>
 
         {expenseWallet.funded > 0 && watchedAmount > 0 && (
           <p
@@ -289,28 +380,34 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
 
         {showMore && (
           <div className="space-y-3">
-            <p className="m-0 text-xs text-muted">Date, tag, split</p>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="label m-0">
-                Date
-                <input
-                  className="input mt-1"
-                  type="date"
-                  max={dayjs().format('YYYY-MM-DD')}
-                  {...register('date')}
-                />
-              </label>
-              <label className="label m-0">
-                Tag
-                <TagInput
-                  className="input mt-1"
-                  value={watchedTags}
-                  onChange={(next) => setValue('tags', next)}
-                  placeholder="Tag, e.g. Goa trip"
-                  aria-label="Tag"
-                />
-              </label>
+            <p className="m-0 text-xs text-muted">Tag, subcategory, split</p>
+            <div className="flex gap-2">
+              <input
+                className="input min-w-0 flex-1"
+                value={newSubcategory}
+                onChange={(event) => setNewSubcategory(event.target.value)}
+                placeholder="Optional subcategory"
+                aria-label="New subcategory"
+              />
+              <button
+                type="button"
+                className="btn-outline shrink-0"
+                disabled={saving || !newSubcategory.trim()}
+                onClick={addSubcategory}
+              >
+                Add
+              </button>
             </div>
+            <label className="label m-0">
+              Tag
+              <TagInput
+                className="input mt-1 min-h-11"
+                value={watchedTags}
+                onChange={(next) => setValue('tags', next)}
+                placeholder="Tag, e.g. Goa trip"
+                aria-label="Tag"
+              />
+            </label>
             <ExpenseSplitFields
               amount={watchedAmount}
               value={splitUi}

@@ -1,5 +1,18 @@
 rules_version = '2';
 
+// Glow Money security model
+//
+// Collections in use:
+//   users/{userId}                              profile, settings, repeats, accounts
+//   users/{userId}/expenses/{expenseId}         spend rows, owner only
+//   users/{userId}/walletTransactions/{txId}    income and transfers, owner only
+//
+// A signed-in user can read and write only their own profile and subcollections.
+// An admin (users/{uid}.role == "admin") can read user profiles for the directory.
+// Admins cannot read or write another person's expenses or wallet transactions.
+// Clients cannot promote a profile to admin. Set role in the Firebase console.
+// Anything not listed here is denied.
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -26,24 +39,19 @@ service cloud.firestore {
         );
     }
 
-    // User profile document: users/{userId}
     match /users/{userId} {
       allow read: if isSelf(userId) || isAdmin();
       allow create: if isSelf(userId) && request.resource.data.role == 'user';
       allow update: if isSelf(userId) && roleUnchanged();
       allow delete: if isSelf(userId);
 
-      // Subcollection: users/{userId}/expenses/{expenseId}
       match /expenses/{expenseId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isSelf(userId);
       }
 
-      // Subcollection: users/{userId}/walletTransactions/{txId}
       match /walletTransactions/{txId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isSelf(userId);
       }
     }
-
-    // Everything else is denied by default (no catch-all needed)
   }
 }

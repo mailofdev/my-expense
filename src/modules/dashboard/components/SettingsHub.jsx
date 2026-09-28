@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import GroupsSettings from './GroupsSettings';
 import ExportDataPanel from './ExportDataPanel';
 import ResetMonthPanel from './ResetMonthPanel';
+import CategoryLimitsPanel from './CategoryLimitsPanel';
+import GuidePanel from './GuidePanel';
 
 function SettingsSection({ id, title, hint, openId, onToggle, children }) {
   const open = openId === id;
@@ -40,29 +42,47 @@ export default function SettingsHub({ section = '' }) {
 
   return (
     <div className="feature-panel">
-      <p className="m-0 px-0.5 text-sm text-muted">Search, split bills, or download.</p>
+      <p className="m-0 px-0.5 text-sm text-muted">A short guide, then search, split bills, export, or data.</p>
       <SettingsSection
-        id="groups"
-        title="People groups"
-        hint="Split with friends"
+        id="guide"
+        title="Guide"
+        hint="How Today, Income, Reports, and Tools work"
         openId={openId}
         onToggle={setOpenId}
       >
-        <GroupsSettings embedded />
+        <GuidePanel onDone={() => setOpenId('')} />
       </SettingsSection>
       <SettingsSection
         id="export"
-        title="Find & download"
-        hint="Search, then PDF or CSV"
+        title="Search & export"
+        hint="Find a spend, then PDF or CSV"
         openId={openId}
         onToggle={setOpenId}
       >
         <ExportDataPanel embedded />
       </SettingsSection>
       <SettingsSection
+        id="groups"
+        title="Split bills"
+        hint="People groups"
+        openId={openId}
+        onToggle={setOpenId}
+      >
+        <GroupsSettings embedded />
+      </SettingsSection>
+      <SettingsSection
+        id="limits"
+        title="Category limits"
+        hint="Optional monthly caps"
+        openId={openId}
+        onToggle={setOpenId}
+      >
+        <CategoryLimitsPanel />
+      </SettingsSection>
+      <SettingsSection
         id="reset"
-        title="Reset this month"
-        hint="Clear and start over"
+        title="Data management"
+        hint="Reset this month"
         openId={openId}
         onToggle={setOpenId}
       >

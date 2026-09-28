@@ -41,6 +41,7 @@ export const authService = {
       email,
       displayName,
     });
+    await userService.recordLogin(credential.user.uid);
     const token = await credential.user.getIdToken();
     return mapFirebaseUser(credential.user, token, profile);
   },

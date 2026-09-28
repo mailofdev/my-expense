@@ -4,10 +4,12 @@ import {
   deleteDoc,
   updateDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   orderBy,
   serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '../../../core/config/firebase';
 
@@ -29,17 +31,44 @@ export const expenseService = {
   },
 
   async create(uid, expense) {
-    const col = collection(db, 'users', uid, 'expenses');
+    const date = expense.date || new Date().toISOString().split('T')[0];
     const payload = {
       ...expense,
-      date: expense.date || new Date().toISOString().split('T')[0],
+      date,
       createdAt: serverTimestamp(),
     };
-    const ref = await addDoc(col, payload);
+    const stableId =
+      expense.recurringTemplateId && expense.occurrenceDate
+        ? `rec_${expense.recurringTemplateId}_${expense.occurrenceDate}`
+        : '';
+
+    if (stableId) {
+      const ref = doc(db, 'users', uid, 'expenses', stableId);
+      const existing = await getDoc(ref);
+      if (existing.exists()) {
+        const data = existing.data();
+        return {
+          id: existing.id,
+          ...data,
+          date: data.date || date,
+          createdAt: data.createdAt?.toDate?.()?.toISOString?.() || data.createdAt || null,
+          alreadyPosted: true,
+        };
+      }
+      await setDoc(ref, payload);
+      return {
+        id: stableId,
+        ...expense,
+        date,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    const ref = await addDoc(collection(db, 'users', uid, 'expenses'), payload);
     return {
       id: ref.id,
       ...expense,
-      date: payload.date,
+      date,
       createdAt: new Date().toISOString(),
     };
   },

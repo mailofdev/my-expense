@@ -1,16 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
-import LoadingSpinner from '../../../shared/components/LoadingSpinner';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardTabs from '../components/DashboardTabs';
 import DateToolbar from '../components/DateToolbar';
 import OverviewHero from '../components/OverviewHero';
+import ExpenseSearch from '../components/ExpenseSearch';
 import HomeReminders from '../components/HomeReminders';
 import GettingStarted from '../components/GettingStarted';
 import AddExpenseForm from '../components/AddExpenseForm';
 import DailyExpenseLedger from '../components/DailyExpenseLedger';
 import RecurringPanel from '../components/RecurringPanel';
+import SavingsHabit from '../components/SavingsHabit';
 import WalletTracker from '../components/WalletTracker';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import SettingsHub from '../components/SettingsHub';
@@ -19,9 +20,11 @@ import {
   fetchDashboardData,
   clearDashboardError,
   setDayFilter,
-  selectMonthWalletFunded,
-  selectIsFilterCurrentMonth,
+  selectTotalSpent,
+  selectDueRepeatSignature,
+  applyDueRepeats,
 } from '../store/dashboardSlice';
+import { userService } from '../../auth/services/userService';
 import { tabFromUrl, urlFromTab } from '../utils/tabs';
 import dayjs from 'dayjs';
 
@@ -32,12 +35,11 @@ export default function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useSelector((state) => state.auth);
   const { loading, loaded, error } = useSelector((state) => state.dashboard);
-  const monthFunded = useSelector(selectMonthWalletFunded);
-  const isCurrentMonth = useSelector(selectIsFilterCurrentMonth);
+  const monthSpent = useSelector(selectTotalSpent);
+  const dueRepeatSignature = useSelector(selectDueRepeatSignature);
+  const repeatAttempt = useRef('');
   const requestedTab = tabFromUrl(searchParams.get('tab'));
   const activeTab = requestedTab === 'admin' && user?.role !== 'admin' ? 'overview' : requestedTab;
-  const startHomeWithGuide = isCurrentMonth && monthFunded === 0;
-
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [activeTab]);
@@ -63,22 +65,41 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user?.uid) {
       dispatch(fetchDashboardData(user.uid));
+      userService.recordLastSeen(user.uid);
     }
   }, [user?.uid, dispatch]);
+
+  useEffect(() => {
+    if (!user?.uid || !loaded || !dueRepeatSignature) return undefined;
+    if (repeatAttempt.current === dueRepeatSignature) return undefined;
+    repeatAttempt.current = dueRepeatSignature;
+    dispatch(applyDueRepeats({ uid: user.uid }));
+    return undefined;
+  }, [user?.uid, loaded, dueRepeatSignature, dispatch]);
 
   useEffect(() => {
     return () => dispatch(clearDashboardError());
   }, [dispatch]);
 
   if (loading && !loaded) {
-    return <LoadingSpinner message="Loading…" />;
+    return (
+      <div className="min-h-screen min-h-dvh">
+        <DashboardHeader />
+        <main className="mx-auto w-full max-w-lg px-4 pt-4 sm:max-w-xl sm:px-6" role="status" aria-live="polite">
+          <div className="h-12 animate-pulse rounded-full bg-surface-2" />
+          <div className="mt-4 h-44 animate-pulse rounded-lg bg-surface" />
+          <div className="mt-4 h-28 animate-pulse rounded-lg bg-surface" />
+          <p className="mt-4 text-center text-sm text-muted">Loading your money…</p>
+        </main>
+      </div>
+    );
   }
 
   const showDateToolbar = DATE_TABS.includes(activeTab);
   const goToIncome = () => handleTabChange('wallet');
   const goToToday = () => handleTabChange('overview');
-  const goToSearch = () => handleTabChange('settings', { section: 'export' });
   const goToGroups = () => handleTabChange('settings', { section: 'groups' });
+  const goToLimits = () => handleTabChange('settings', { section: 'limits' });
 
   return (
     <div className="min-h-screen min-h-dvh">
@@ -111,31 +132,24 @@ export default function DashboardPage() {
         <div className="mt-3 flex flex-col gap-4 sm:gap-5">
           {activeTab === 'overview' && (
             <>
-              {startHomeWithGuide ? (
-                <>
-                  <GettingStarted onGoToMoney={goToIncome} />
-                  <OverviewHero />
-                  <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
-                </>
-              ) : (
-                <>
-                  <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
-                  <OverviewHero />
-                  <RecurringPanel compact />
-                  <GettingStarted onGoToMoney={goToIncome} />
-                  <HomeReminders onGoToMoney={goToIncome} />
-                </>
-              )}
-              <DailyExpenseLedger
-                onFindExpenses={goToSearch}
-                onOpenGroups={goToGroups}
-              />
+              <OverviewHero onAddIncome={goToIncome} />
+              <RecurringPanel compact />
+              <HomeReminders onGoToMoney={goToIncome} />
+              <GettingStarted />
+              {monthSpent > 0 && <SavingsHabit compact />}
+              <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
+              <ExpenseSearch onOpenDay={openExpenseDay} />
+              <DailyExpenseLedger onOpenGroups={goToGroups} />
             </>
           )}
 
           {activeTab === 'wallet' && <WalletTracker onGoToHome={goToToday} />}
           {activeTab === 'analyzer' && (
-            <ExpenseAnalyzer onOpenDay={openExpenseDay} onAddExpense={goToToday} />
+            <ExpenseAnalyzer
+              onOpenDay={openExpenseDay}
+              onAddExpense={goToToday}
+              onEditLimits={goToLimits}
+            />
           )}
           {activeTab === 'settings' && (
             <SettingsHub section={searchParams.get('section') || ''} />

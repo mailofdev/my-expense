@@ -111,7 +111,16 @@ export const walletService = {
     return monthlyWallets;
   },
 
-  async addFunds(uid, { amount, note, monthKey, source = 'manual', accountId, date }) {
+  async addFunds(uid, {
+    amount,
+    note,
+    monthKey,
+    source = 'manual',
+    accountId,
+    date,
+    recurringTemplateId,
+    occurrenceDate,
+  }) {
     const parsedAmount = Number(amount);
     const resolvedDate = normalizeLedgerDate(date || getTodayString());
     const resolvedMonthKey = monthKeyFromDate(resolvedDate) || monthKey;
@@ -136,6 +145,35 @@ export const walletService = {
         throw new Error('Choose a valid account');
       }
 
+      const stableId =
+        recurringTemplateId && (occurrenceDate || resolvedDate)
+          ? `rec_${recurringTemplateId}_${occurrenceDate || resolvedDate}`
+          : '';
+      const txRef = stableId
+        ? doc(db, 'users', uid, 'walletTransactions', stableId)
+        : doc(collection(db, 'users', uid, 'walletTransactions'));
+      if (stableId) {
+        const existing = await transaction.get(txRef);
+        if (existing.exists()) {
+          const existingData = existing.data();
+          return {
+            alreadyPosted: true,
+            monthlyWallets: data.monthlyWallets || {},
+            monthlyIncomes: data.monthlyIncomes || {},
+            monthlyIncome: data.monthlyIncome ?? 0,
+            accounts,
+            accountId: existingData.accountId || resolvedAccountId,
+            txId: existing.id,
+            amount: Number(existingData.amount) || parsedAmount,
+            note: existingData.note || safeNote,
+            date: existingData.date || resolvedDate,
+            monthKey: existingData.monthKey || resolvedMonthKey,
+            recurringTemplateId,
+            occurrenceDate: existingData.occurrenceDate || occurrenceDate || resolvedDate,
+          };
+        }
+      }
+
       const monthlyWallets = { ...(data.monthlyWallets || {}) };
       monthlyWallets[resolvedMonthKey] = (monthlyWallets[resolvedMonthKey] || 0) + parsedAmount;
 
@@ -145,7 +183,6 @@ export const walletService = {
           (Number(monthlyIncomes[resolvedMonthKey]) || 0) + parsedAmount;
       }
 
-      const txRef = doc(collection(db, 'users', uid, 'walletTransactions'));
       const profileUpdate = {
         monthlyWallets,
         accounts,
@@ -157,7 +194,7 @@ export const walletService = {
       }
 
       transaction.update(userRef, profileUpdate);
-      transaction.set(txRef, {
+      const txPayload = {
         type: 'credit',
         amount: parsedAmount,
         note: safeNote,
@@ -166,9 +203,15 @@ export const walletService = {
         date: resolvedDate,
         monthKey: resolvedMonthKey,
         createdAt: serverTimestamp(),
-      });
+      };
+      if (recurringTemplateId) {
+        txPayload.recurringTemplateId = recurringTemplateId;
+        txPayload.occurrenceDate = occurrenceDate || resolvedDate;
+      }
+      transaction.set(txRef, txPayload);
 
       return {
+        alreadyPosted: false,
         monthlyWallets,
         monthlyIncomes,
         monthlyIncome: isIncome ? monthlyIncomes[resolvedMonthKey] : data.monthlyIncome ?? 0,
@@ -179,15 +222,18 @@ export const walletService = {
     });
 
     return {
+      alreadyPosted: Boolean(result.alreadyPosted),
       transaction: {
         id: result.txId,
         type: 'credit',
-        amount: parsedAmount,
-        note: safeNote,
+        amount: result.amount || parsedAmount,
+        note: result.note || safeNote,
         source: isIncome ? 'income' : 'manual',
         accountId: result.accountId,
-        date: resolvedDate,
-        monthKey: resolvedMonthKey,
+        date: result.date || resolvedDate,
+        monthKey: result.monthKey || resolvedMonthKey,
+        recurringTemplateId: recurringTemplateId || null,
+        occurrenceDate: result.occurrenceDate || occurrenceDate || null,
         createdAt: new Date().toISOString(),
       },
       monthlyWallets: result.monthlyWallets,

@@ -115,9 +115,9 @@ describe('commitments', () => {
     expect(upcoming.map((item) => item.id)).toEqual(['emi', 'rent']);
   });
 
-  test('records a due date inside this month and catches older bills up today', () => {
+  test('records the due date itself, including an older overdue date', () => {
     expect(recordDateForTemplate('2026-09-05', '2026-09-22')).toBe('2026-09-05');
-    expect(recordDateForTemplate('2026-08-10', '2026-09-22')).toBe('2026-09-22');
+    expect(recordDateForTemplate('2026-08-10', '2026-09-22')).toBe('2026-08-10');
     expect(recordDateForTemplate('2026-09-28', '2026-09-22')).toBeNull();
   });
 });

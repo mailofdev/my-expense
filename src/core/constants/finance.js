@@ -152,15 +152,34 @@ export function getCategoryColor(category, categoryColors, categories) {
  * Highest crossed warning threshold for spent vs limit.
  * @returns {null | 50 | 75 | 90 | 100}
  */
-export function getCategoryLimitLevel(spent, limit) {
+export function getCategoryLimitLevel(spent, limit, thresholds = CATEGORY_LIMIT_THRESHOLDS) {
   const cap = Number(limit) || 0;
   if (cap <= 0) return null;
   const pct = ((Number(spent) || 0) / cap) * 100;
-  if (pct >= 100) return 100;
-  if (pct >= 90) return 90;
-  if (pct >= 75) return 75;
-  if (pct >= 50) return 50;
+  const levels = (Array.isArray(thresholds) ? thresholds : CATEGORY_LIMIT_THRESHOLDS)
+    .map((level) => Number(level))
+    .filter((level) => CATEGORY_LIMIT_THRESHOLDS.includes(level))
+    .sort((a, b) => b - a);
+  for (const level of levels) {
+    if (pct >= level) return level;
+  }
   return null;
+}
+
+/** Keep only known warning levels. Missing settings use the full default set. */
+export function normalizeLimitThresholds(value) {
+  if (!Array.isArray(value)) return [...CATEGORY_LIMIT_THRESHOLDS];
+  return CATEGORY_LIMIT_THRESHOLDS.filter((level) => value.map(Number).includes(level));
+}
+
+export function normalizeHabits(raw) {
+  const percent = Number(raw?.savingsGoalPercent);
+  return {
+    savingsGoalPercent:
+      Number.isFinite(percent) && percent >= 1 && percent <= 100 ? Math.round(percent) : 20,
+    savingsGoalEnabled: raw?.savingsGoalEnabled === true,
+    limitThresholds: normalizeLimitThresholds(raw?.limitThresholds),
+  };
 }
 
 export function getCategoryLimitPercent(spent, limit) {
@@ -182,6 +201,6 @@ export function getCategoryLimitWarningText(category, level, spent, limit) {
 
 export const DEFAULT_HABITS = {
   savingsGoalPercent: 20,
-  lastWeeklyReview: null,
-  expensesLoggedThisWeek: 0,
+  savingsGoalEnabled: false,
+  limitThresholds: [50, 75, 90, 100],
 };

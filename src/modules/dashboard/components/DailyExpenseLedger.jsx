@@ -13,6 +13,7 @@ import {
   selectDefaultAccountId,
   selectVisibleCategories,
   selectMainCategories,
+  selectSubcategories,
   selectPeopleGroups,
 } from '../store/dashboardSlice';
 import { getAccountById, formatAccountOptionLabel } from '../utils/accounts';
@@ -20,6 +21,8 @@ import {
   normalizeTags,
   resolveMainCategoryName,
   shortCategoryLabel,
+  getSubcategoriesForMain,
+  getMainByName,
 } from '../utils/categories';
 import { formatSplitSummary } from '../utils/groups';
 import TagInput from './TagInput';
@@ -38,6 +41,7 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
   const { paymentModes, saving, categoryColors } = useSelector((state) => state.dashboard);
   const categories = useSelector(selectVisibleCategories);
   const mainCategories = useSelector(selectMainCategories);
+  const subcategoriesMap = useSelector(selectSubcategories);
   const peopleGroups = useSelector(selectPeopleGroups);
   const accounts = useSelector(selectAccounts);
   const defaultAccountId = useSelector(selectDefaultAccountId);
@@ -51,6 +55,7 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
   const [editTitle, setEditTitle] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editCategory, setEditCategory] = useState('');
+  const [editSubcategory, setEditSubcategory] = useState('');
   const [editAccountId, setEditAccountId] = useState('');
   const [editTags, setEditTags] = useState('');
   const [editSplitUi, setEditSplitUi] = useState(EMPTY_SPLIT);
@@ -60,6 +65,7 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
     setEditTitle(expense.title);
     setEditAmount(String(expense.amount));
     setEditCategory(resolveMainCategoryName(expense.category, mainCategories));
+    setEditSubcategory(expense.subcategory || '');
     setEditAccountId(expense.accountId || defaultAccountId);
     const tags = normalizeTags(expense.tags);
     setEditTags(tags.map((tag) => `#${tag}`).join(' '));
@@ -71,6 +77,7 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
     setEditTitle('');
     setEditAmount('');
     setEditCategory('');
+    setEditSubcategory('');
     setEditAccountId('');
     setEditTags('');
     setEditSplitUi(EMPTY_SPLIT);
@@ -93,7 +100,7 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
           title,
           amount,
           category: editCategory,
-          subcategory: expense.subcategory || '',
+          subcategory: editSubcategory || '',
           tags: normalizeTags(editTags),
           date: expense.date,
           paymentMode: expense.paymentMode || paymentModes[0],
@@ -109,7 +116,7 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
   const handleDelete = async (expense) => {
     const ok = await confirm({
       title: 'Remove expense?',
-      message: `Remove ${expense.title} (${formatINR(expense.amount)})?`,
+      message: `Remove ${expense.title} (${formatINR(expense.amount)}) from this day. Other expenses, income, and accounts stay as they are.`,
       confirmLabel: 'Remove',
     });
     if (!ok) return;
@@ -145,13 +152,15 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
       </header>
 
       {dayExpenses.length === 0 ? (
-        <p className="empty-state-sm">Add your first expense above.</p>
+        <div>
+          <p className="m-0 text-sm text-ink">Nothing logged {isToday ? 'today' : 'for this day'}.</p>
+          <p className="mb-0 mt-1 text-sm text-muted">Add an expense above. It will show up here with its category and amount.</p>
+        </div>
       ) : (
         <ul className="m-0 list-none space-y-1 p-0">
           {dayExpenses.map((expense) => {
             const isEditing = editingId === expense.id;
             const category = resolveMainCategoryName(expense.category, mainCategories);
-            const tags = normalizeTags(expense.tags);
             const bankName = showBankPicker
               ? getAccountById(accounts, expense.accountId || defaultAccountId)?.name
               : null;
@@ -185,7 +194,10 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
                       <select
                         className="input py-2 text-sm"
                         value={editCategory}
-                        onChange={(e) => setEditCategory(e.target.value)}
+                        onChange={(e) => {
+                          setEditCategory(e.target.value);
+                          setEditSubcategory('');
+                        }}
                         aria-label="Category"
                       >
                             {categories.map((cat) => (
@@ -207,6 +219,22 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
                         </select>
                       )}
                     </div>
+                    {getSubcategoriesForMain(subcategoriesMap, getMainByName(mainCategories, editCategory)?.id).length > 0 && (
+                      <select
+                        className="input py-2 text-sm"
+                        value={editSubcategory}
+                        onChange={(e) => setEditSubcategory(e.target.value)}
+                        aria-label="Subcategory"
+                      >
+                        <option value="">No subcategory</option>
+                        {getSubcategoriesForMain(
+                          subcategoriesMap,
+                          getMainByName(mainCategories, editCategory)?.id
+                        ).map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    )}
                     <TagInput
                       className="input py-2 text-sm"
                       value={editTags}
@@ -250,14 +278,17 @@ export default function DailyExpenseLedger({ onFindExpenses, onOpenGroups }) {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="m-0 truncate text-sm font-medium">{expense.title}</p>
-                      <p className="m-0 text-xs text-muted">
-                        {category}
-                        {tags.length ? ` · ${tags.map((tag) => `#${tag}`).join(' ')}` : ''}
+                      <p className="m-0 truncate text-xs text-muted">
+                        {shortCategoryLabel(category)}
+                        {expense.subcategory ? ` · ${expense.subcategory}` : ''}
+                      </p>
+                      <p className="m-0 truncate text-xs text-muted">
+                        {expense.paymentMode || paymentModes[0]}
                         {bankName ? ` · ${bankName}` : ''}
                         {splitLabel ? ` · ${splitLabel}` : ''}
                       </p>
                     </div>
-                    <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass('debit')}`}>
+                    <span className={`shrink-0 text-base font-semibold tabular-nums ${ledgerAmountClass('debit')}`}>
                       −{formatINR(expense.amount)}
                     </span>
                     <button

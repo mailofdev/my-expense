@@ -147,7 +147,7 @@ export default function TransferForm() {
     const toName = getAccountById(accounts, entry.toAccountId)?.name || 'Bank';
     const ok = await confirm({
       title: 'Remove transfer?',
-      message: `Remove transfer ${fromName} → ${toName} (${formatINR(entry.amount)})?`,
+      message: `Remove the move from ${fromName} → ${toName} (${formatINR(entry.amount)}). Expenses and income stay. This was never counted as spending.`,
       confirmLabel: 'Remove',
     });
     if (!ok) return;
@@ -276,11 +276,11 @@ export default function TransferForm() {
           </div>
         </div>
 
-        {isCreditAccount(toAccount) && (
-          <p className="m-0 text-xs text-muted">
-            Paying {toAccount.name} reduces outstanding. This is not a new expense.
-          </p>
-        )}
+        <p className="m-0 text-xs text-muted">
+          {isCreditAccount(toAccount)
+            ? `Paying ${toAccount.name} reduces what you owe. It is not a second expense.`
+            : 'A transfer moves money. It does not count as spending.'}
+        </p>
 
         <input
           className="input"

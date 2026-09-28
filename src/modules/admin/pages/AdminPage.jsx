@@ -178,6 +178,9 @@ export default function AdminPage({ embedded = false }) {
         <div>
           <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">Directory</p>
           <h1 className="m-0 mt-1 text-2xl font-semibold tracking-tight text-ink">Users</h1>
+          <p className="m-0 mt-2 max-w-xl text-xs leading-relaxed text-muted">
+            Last login is a fresh email and password sign-in. Last seen is the latest time the app was opened, including a restored session. If Firestore rejects a tracking write, sign-in still succeeds and that stamp stays unchanged.
+          </p>
         </div>
         {!embedded && (
           <Link to="/dashboard" className="text-sm font-semibold text-primary">

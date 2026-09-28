@@ -13,10 +13,11 @@ import AddIncomeForm from "./AddIncomeForm";
 import TransferForm from "./TransferForm";
 import BankManager from "./BankManager";
 import MoneyNextStep from "./MoneyNextStep";
+import SavingsHabit from "./SavingsHabit";
 import AllocationPlanner from "./AllocationPlanner";
 import RecurringPanel from "./RecurringPanel";
 import GoalsPanel from "./GoalsPanel";
-import SpendPlanNote from "./SafeToSpend";
+import SafeToSpend from "./SafeToSpend";
 import {
   selectFilterMonthKey,
   selectFilteredMonthLabel,
@@ -56,6 +57,7 @@ export default function WalletTracker({ onGoToHome }) {
   const [showActivity, setShowActivity] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showAccounts, setShowAccounts] = useState(false);
+  const [showPlan, setShowPlan] = useState(false);
 
   const isTxInFilteredMonth = (tx) => {
     if (tx.monthKey) return tx.monthKey === monthKey;
@@ -177,7 +179,7 @@ export default function WalletTracker({ onGoToHome }) {
             : "Add income to start this month"}
         </p>
         {monthFunded > 0 && (
-          <SpendPlanNote className="relative m-0 mt-2 text-xs leading-relaxed text-muted" />
+          <SafeToSpend className="relative mx-auto mt-3 max-w-xs text-center" />
         )}
         {monthFunded > 0 && setAsideParked > 0 && (
           <p className="relative m-0 mt-1 text-xs leading-relaxed text-muted">
@@ -226,8 +228,9 @@ export default function WalletTracker({ onGoToHome }) {
               {hasSetAside
                 ? ` · ${formatINR(accountsTotal)} to use · ${formatINR(setAsideTotal)} set aside`
                 : accountsTotal
-                  ? ` · ${formatINR(accountsTotal)}`
+                  ? ` · ${formatINR(accountsTotal)} to use`
                   : ""}
+              {creditOutstanding > 0 ? ` · ${formatINR(creditOutstanding)} on cards` : ""}
             </p>
           </div>
           <span className="shrink-0 text-xs font-semibold text-primary">
@@ -324,6 +327,9 @@ export default function WalletTracker({ onGoToHome }) {
                     </p>
                   )}
                 </div>
+                <p className="m-0 mb-2 text-xs text-muted">
+                  A card spend is the purchase. Paying the card later is a transfer, not a second expense.
+                </p>
                 <ul className="m-0 list-none space-y-0 p-0">
                   {accountsWithBal
                     .filter((account) => account.isCredit)
@@ -386,9 +392,30 @@ export default function WalletTracker({ onGoToHome }) {
         )}
       </section>
 
-      <AllocationPlanner />
-      <RecurringPanel />
-      <GoalsPanel />
+      <section className="card">
+        <button
+          type="button"
+          className="flex min-h-11 w-full items-center justify-between border-0 bg-transparent p-0 text-left"
+          onClick={() => setShowPlan((open) => !open)}
+          aria-expanded={showPlan}
+        >
+          <div className="min-w-0">
+            <h2 className="card-title mb-0">Plan</h2>
+            <p className="card-desc mb-0 mt-1">Savings, goals, and repeats. Optional.</p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-primary">
+            {showPlan ? "Hide" : "Show"}
+          </span>
+        </button>
+        {showPlan && (
+          <div className="mt-4 flex flex-col gap-4">
+            <SavingsHabit />
+            <AllocationPlanner />
+            <GoalsPanel />
+            <RecurringPanel />
+          </div>
+        )}
+      </section>
 
       {monthHistory.length > 0 && (
         <section className="card">
@@ -429,8 +456,8 @@ export default function WalletTracker({ onGoToHome }) {
                           >
                             {item.type === "transfer"
                               ? item.transferKind === "card_payment"
-                                ? "Card payment"
-                                : "Transfer"
+                                ? "Card payment · not a new expense"
+                                : "Transfer · not spending"
                               : item.type === "credit"
                                 ? "Income"
                                 : "Expense"}

@@ -5,6 +5,7 @@ import { formatINR } from '../../../core/utils/currency';
 import { getTodayString } from '../../../core/utils/date';
 import useConfirm from '../../../shared/hooks/useConfirm';
 import { listUpcoming, recordDateForTemplate } from '../utils/planning';
+import { repeatStatusText } from '../utils/recurringPosts';
 import { DEFAULT_EXPENSE_CATEGORY } from '../utils/categories';
 import {
   addRecurringExpenseTemplate,
@@ -141,18 +142,25 @@ export default function RecurringPanel({ compact = false }) {
     dispatch(action({ uid: user.uid, templateId: item.id }));
   };
 
+  const visibleUpcoming = compact
+    ? upcoming
+        .filter((item) => {
+          const next = dayjs(item.nextDate);
+          if (!next.isValid()) return false;
+          return next.diff(dayjs(today), 'day') <= 14;
+        })
+        .slice(0, 4)
+    : upcoming;
+
   if (compact) {
-    if (!upcoming.length) return null;
+    if (!visibleUpcoming.length) return null;
     return (
       <section className="card">
         {confirmDialog}
         <h2 className="card-title mb-1">Upcoming</h2>
-        <p className="card-desc">Bills and income still to come.</p>
-        {upcoming.length === 0 ? (
-          <p className="m-0 text-sm text-muted">Nothing due soon. Add repeats on Income.</p>
-        ) : (
-          <ul className="m-0 list-none space-y-0 p-0">
-            {upcoming.map((item) => {
+        <p className="card-desc">Due in the next two weeks.</p>
+        <ul className="m-0 list-none space-y-0 p-0">
+            {visibleUpcoming.map((item) => {
               const canRecord = Boolean(recordDateForTemplate(item.nextDate, today));
               return (
                 <li
@@ -162,8 +170,17 @@ export default function RecurringPanel({ compact = false }) {
                   <div className="min-w-0">
                     <p className="m-0 truncate text-sm font-medium">{item.title}</p>
                     <p className="m-0 text-xs text-muted">
-                      {item.kind === 'income' ? 'Income' : 'Bill'} · {dueLabel(item.nextDate, today)}
+                      {item.kind === 'income' ? 'Income' : 'Bill'}
+                      {' · '}
+                      {CADENCE_OPTIONS.find((option) => option.id === item.cadence)?.label || 'Monthly'}
+                      {' · '}
+                      {dueLabel(item.nextDate, today)}
                     </p>
+                    {repeatStatusText(item) && (
+                      <p className={`m-0 text-xs ${item.lastPost?.status === 'failed' ? 'text-danger' : 'text-muted'}`}>
+                        {repeatStatusText(item)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <span className={`text-sm font-semibold ${item.kind === 'income' ? 'text-success' : 'text-ink'}`}>
@@ -176,7 +193,7 @@ export default function RecurringPanel({ compact = false }) {
                         disabled={saving}
                         onClick={() => handleRecord(item)}
                       >
-                        Record
+                        {item.lastPost?.status === 'failed' ? 'Retry' : 'Record'}
                       </button>
                     )}
                   </div>
@@ -184,7 +201,6 @@ export default function RecurringPanel({ compact = false }) {
               );
             })}
           </ul>
-        )}
         {message && <p className="mb-0 mt-3 text-sm text-muted">{message}</p>}
       </section>
     );
@@ -226,6 +242,11 @@ export default function RecurringPanel({ compact = false }) {
                       <p className="m-0 text-xs text-muted">
                         {item.kind === 'income' ? 'Income' : 'Bill'} · {dueLabel(item.nextDate, today)}
                       </p>
+                      {repeatStatusText(item) && (
+                        <p className={`m-0 text-xs ${item.lastPost?.status === 'failed' ? 'text-danger' : 'text-muted'}`}>
+                          {repeatStatusText(item)}
+                        </p>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className={`text-sm font-semibold ${item.kind === 'income' ? 'text-success' : 'text-ink'}`}>
@@ -238,7 +259,7 @@ export default function RecurringPanel({ compact = false }) {
                           disabled={saving}
                           onClick={() => handleRecord(item)}
                         >
-                          Record
+                          {item.lastPost?.status === 'failed' ? 'Retry' : 'Record'}
                         </button>
                       )}
                     </div>
@@ -264,6 +285,11 @@ export default function RecurringPanel({ compact = false }) {
                           {item.kind === 'income' ? 'Income' : item.category || 'Expense'} ·{' '}
                           {formatINR(item.amount)} · next {item.nextDate ? dayjs(item.nextDate).format('D MMM YYYY') : '—'}
                         </p>
+                        {repeatStatusText(item) && (
+                          <p className={`m-0 text-xs ${item.lastPost?.status === 'failed' ? 'text-danger' : 'text-muted'}`}>
+                            {repeatStatusText(item)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="mt-2 flex gap-2">

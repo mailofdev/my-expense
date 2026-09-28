@@ -68,7 +68,7 @@ export default function ResetMonthPanel({ embedded = false }) {
 
     const ok = await confirm({
       title: `Reset ${monthLabel}?`,
-      message: `This will permanently delete ${summary}.\n\nYou can add income and expenses again from scratch.`,
+      message: `This permanently deletes ${summary} for ${monthLabel}. Accounts, repeats, category limits, and other months stay as they are.`,
       confirmLabel: `Reset ${monthLabel}`,
     });
     if (!ok) return;

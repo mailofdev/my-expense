@@ -8,6 +8,7 @@ import {
   buildCategoryColors,
   getCategoryLimitLevel,
   getCategoryLimitPercent,
+  normalizeHabits,
 } from '../../../core/constants/finance';
 import {
   getNowMonthYear,
@@ -21,7 +22,7 @@ import {
 import { expenseService } from '../services/expenseService';
 import { walletService } from '../services/walletService';
 import { userService } from '../../auth/services/userService';
-import { resolveMonthIncome, advanceRecurringNextDate } from '../utils/moneyFlows';
+import { resolveMonthIncome } from '../utils/moneyFlows';
 import {
   commitmentsForSafeSpend,
   compareMonths,
@@ -33,6 +34,7 @@ import {
   heldFromAllocation,
   normalizeAllocation,
   previousMonthParts,
+  listUpcoming,
   recordDateForTemplate,
   reviewOutlook,
   suggestEmergencyTarget,
@@ -62,8 +64,11 @@ import {
   normalizeCategoryProfile,
   remapCategoryBudgets,
   resolveMainCategoryName,
+  shortCategoryLabel,
 } from '../utils/categories';
 import { ensurePeopleGroups, resolveSelfMemberName } from '../utils/groups';
+import { syncDueRepeats } from '../services/recurringPoster';
+import { dueOccurrenceDates } from '../utils/recurringPosts';
 const getErrorMessage = (error) =>
   error?.message || 'Something went wrong. Please try again.';
 
@@ -289,6 +294,10 @@ export const updateFinanceSettings = createAsyncThunk(
       const state = getState().dashboard;
       const next = { ...updates };
 
+      if (next.habits) {
+        next.habits = normalizeHabits({ ...state.habits, ...next.habits });
+      }
+
       if (Array.isArray(next.mainCategories) || next.subcategories) {
         const mainCategories = ensureMainCategories(
           next.mainCategories || state.mainCategories,
@@ -385,62 +394,28 @@ export const addRecurringExpenseTemplate = createAsyncThunk(
   }
 );
 
-export const applyDueRecurringExpenses = createAsyncThunk(
-  'dashboard/applyDueRecurringExpenses',
-  async ({ uid }, { getState, rejectWithValue }) => {
+export const applyDueRepeats = createAsyncThunk(
+  'dashboard/applyDueRepeats',
+  async ({ uid, templateId } = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState().dashboard;
-      const today = dayjs(getTodayString());
-      const due = state.recurringExpenses.filter((item) => {
-        if (!item?.enabled || !item.nextDate) return false;
-        const next = dayjs(item.nextDate);
-        if (!next.isValid()) return false;
-        if (next.isAfter(today, 'day')) return false;
-        if (item.endDate && dayjs(item.endDate).isValid() && dayjs(item.endDate).isBefore(today, 'day')) {
-          return false;
-        }
-        if (item.maxOccurrences && (item.runCount || 0) >= item.maxOccurrences) return false;
-        return true;
+      return await syncDueRepeats({
+        uid,
+        templateId,
+        recurringExpenses: state.recurringExpenses,
+        recurringIncome: state.recurringIncome,
+        expenses: state.expenses,
+        walletTransactions: state.walletTransactions,
+        accounts: state.accounts,
       });
-      if (!due.length) {
-        return { expenses: [], recurringExpenses: state.recurringExpenses };
-      }
-
-      const createdExpenses = [];
-      for (const template of due) {
-        const defaultAccountId = getDefaultAccountId(state.accounts);
-        const created = await expenseService.create(uid, {
-          title: template.title,
-          amount: template.amount,
-          category: template.category,
-          paymentMode: template.paymentMode,
-          accountId: template.accountId || defaultAccountId,
-          date: getTodayString(),
-        });
-        createdExpenses.push(created);
-      }
-
-      const advanceNextDate = (fromDate, cadence) =>
-        advanceRecurringNextDate(dayjs(fromDate), cadence, today);
-
-      const nextRecurring = state.recurringExpenses.map((item) => {
-        if (!due.some((d) => d.id === item.id)) return item;
-        const nextDate = advanceNextDate(item.nextDate, item.cadence);
-        return {
-          ...item,
-          nextDate: nextDate.format('YYYY-MM-DD'),
-          runCount: (item.runCount || 0) + 1,
-        };
-      });
-
-      const updates = { recurringExpenses: nextRecurring };
-      await userService.updateProfile(uid, updates);
-      return { expenses: createdExpenses, recurringExpenses: nextRecurring };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
   }
 );
+
+/** @deprecated Use applyDueRepeats. Kept so older imports still post due repeats. */
+export const applyDueRecurringExpenses = applyDueRepeats;
 
 export const updateRecurringTemplate = createAsyncThunk(
   'dashboard/updateRecurringTemplate',
@@ -522,7 +497,7 @@ export const deleteRecurringIncomeTemplate = createAsyncThunk(
   }
 );
 
-/** Post one due expense template through the normal expense path, then move its next date. */
+/** Post one template's due dates through the shared repeat sync. */
 export const recordRecurringExpense = createAsyncThunk(
   'dashboard/recordRecurringExpense',
   async ({ uid, templateId }, { getState, rejectWithValue }) => {
@@ -531,35 +506,25 @@ export const recordRecurringExpense = createAsyncThunk(
       const template = state.recurringExpenses.find((item) => item.id === templateId);
       if (!template) throw new Error('That bill was not found');
       const today = getTodayString();
-      const date = recordDateForTemplate(template.nextDate, today);
-      if (!date) throw new Error('This bill is not due yet');
-      const created = await expenseService.create(uid, {
-        title: template.title,
-        amount: template.amount,
-        category: template.category,
-        paymentMode: template.paymentMode || 'UPI',
-        accountId: template.accountId || getDefaultAccountId(state.accounts),
-        date,
+      if (!recordDateForTemplate(template.nextDate, today)) {
+        throw new Error('This bill is not due yet');
+      }
+      return await syncDueRepeats({
+        uid,
+        templateId,
+        recurringExpenses: state.recurringExpenses,
+        recurringIncome: state.recurringIncome,
+        expenses: state.expenses,
+        walletTransactions: state.walletTransactions,
+        accounts: state.accounts,
       });
-      const nextDate = advanceRecurringNextDate(
-        dayjs(template.nextDate),
-        template.cadence || 'monthly',
-        dayjs(today)
-      ).format('YYYY-MM-DD');
-      const recurringExpenses = state.recurringExpenses.map((item) =>
-        item.id === templateId
-          ? { ...item, nextDate, runCount: (item.runCount || 0) + 1 }
-          : item
-      );
-      await userService.updateProfile(uid, { recurringExpenses });
-      return { expense: created, recurringExpenses };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
   }
 );
 
-/** Post one due income template through the normal income path, then move its next date. */
+/** Post one income template's due dates through the shared repeat sync. */
 export const recordRecurringIncome = createAsyncThunk(
   'dashboard/recordRecurringIncome',
   async ({ uid, templateId }, { getState, rejectWithValue }) => {
@@ -568,27 +533,18 @@ export const recordRecurringIncome = createAsyncThunk(
       const template = state.recurringIncome.find((item) => item.id === templateId);
       if (!template) throw new Error('That income was not found');
       const today = getTodayString();
-      const date = recordDateForTemplate(template.nextDate, today);
-      if (!date) throw new Error('This income is not due yet');
-      const result = await walletService.addFunds(uid, {
-        amount: template.amount,
-        note: template.title || 'Income',
-        source: 'income',
-        accountId: template.accountId || getDefaultAccountId(state.accounts),
-        date,
+      if (!recordDateForTemplate(template.nextDate, today)) {
+        throw new Error('This income is not due yet');
+      }
+      return await syncDueRepeats({
+        uid,
+        templateId,
+        recurringExpenses: state.recurringExpenses,
+        recurringIncome: state.recurringIncome,
+        expenses: state.expenses,
+        walletTransactions: state.walletTransactions,
+        accounts: state.accounts,
       });
-      const nextDate = advanceRecurringNextDate(
-        dayjs(template.nextDate),
-        template.cadence || 'monthly',
-        dayjs(today)
-      ).format('YYYY-MM-DD');
-      const recurringIncome = state.recurringIncome.map((item) =>
-        item.id === templateId
-          ? { ...item, nextDate, runCount: (item.runCount || 0) + 1 }
-          : item
-      );
-      await userService.updateProfile(uid, { recurringIncome });
-      return { ...result, recurringIncome };
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -730,6 +686,22 @@ export const resetCurrentMonth = createAsyncThunk(
 
 const initialMonthYear = getNowMonthYear();
 
+function applyRepeatSync(state, payload) {
+  if (!payload?.changed) return;
+  if (payload.expenses?.length) {
+    state.expenses = [...payload.expenses, ...state.expenses];
+  }
+  if (payload.transactions?.length) {
+    state.walletTransactions = [...payload.transactions, ...state.walletTransactions];
+  }
+  if (payload.recurringExpenses) state.recurringExpenses = payload.recurringExpenses;
+  if (payload.recurringIncome) state.recurringIncome = payload.recurringIncome;
+  if (payload.monthlyWallets) state.monthlyWallets = payload.monthlyWallets;
+  if (payload.monthlyIncomes) state.monthlyIncomes = payload.monthlyIncomes;
+  if (payload.monthlyIncome != null) state.monthlyIncome = payload.monthlyIncome;
+  if (payload.accounts) state.accounts = ensureAccounts(payload.accounts);
+}
+
 const dashboardSlice = createSlice({
   name: 'dashboard',
   initialState: {
@@ -740,7 +712,7 @@ const dashboardSlice = createSlice({
     monthlyIncomes: {},
     monthlyIncome: 0,
     categoryBudgets: {},
-    habits: { ...DEFAULT_HABITS },
+    habits: normalizeHabits(DEFAULT_HABITS),
     accounts: ensureAccounts(),
     accountOpenings: {},
     peopleGroups: [],
@@ -783,7 +755,7 @@ const dashboardSlice = createSlice({
       state.monthlyIncomes = {};
       state.monthlyIncome = 0;
       state.categoryBudgets = {};
-      state.habits = { ...DEFAULT_HABITS };
+      state.habits = normalizeHabits(DEFAULT_HABITS);
       state.accounts = ensureAccounts();
       state.accountOpenings = {};
       state.peopleGroups = [];
@@ -822,7 +794,7 @@ const dashboardSlice = createSlice({
           state.monthlyWallets = monthlyWallets ?? profile.monthlyWallets ?? {};
           state.monthlyIncomes = profile.monthlyIncomes ?? {};
           state.monthlyIncome = profile.monthlyIncome ?? 0;
-          state.habits = profile.habits ?? { ...DEFAULT_HABITS };
+          state.habits = normalizeHabits(profile.habits);
           state.accounts = ensureAccounts(profile.accounts);
           state.accountOpenings = profile.accountOpenings ?? {};
           state.peopleGroups = ensurePeopleGroups(
@@ -1065,16 +1037,10 @@ const dashboardSlice = createSlice({
         state.saving = false;
         state.error = action.payload;
       })
-      .addCase(applyDueRecurringExpenses.pending, (state) => {
-        state.saving = true;
+      .addCase(applyDueRepeats.fulfilled, (state, action) => {
+        applyRepeatSync(state, action.payload);
       })
-      .addCase(applyDueRecurringExpenses.fulfilled, (state, action) => {
-        state.saving = false;
-        state.expenses = [...action.payload.expenses, ...state.expenses];
-        state.recurringExpenses = action.payload.recurringExpenses;
-      })
-      .addCase(applyDueRecurringExpenses.rejected, (state, action) => {
-        state.saving = false;
+      .addCase(applyDueRepeats.rejected, (state, action) => {
         state.error = action.payload;
       })
       .addCase(updateRecurringTemplate.pending, (state) => {
@@ -1137,8 +1103,7 @@ const dashboardSlice = createSlice({
       })
       .addCase(recordRecurringExpense.fulfilled, (state, action) => {
         state.saving = false;
-        state.expenses.unshift(action.payload.expense);
-        state.recurringExpenses = action.payload.recurringExpenses;
+        applyRepeatSync(state, action.payload);
       })
       .addCase(recordRecurringExpense.rejected, (state, action) => {
         state.saving = false;
@@ -1149,21 +1114,7 @@ const dashboardSlice = createSlice({
       })
       .addCase(recordRecurringIncome.fulfilled, (state, action) => {
         state.saving = false;
-        state.monthlyWallets = action.payload.monthlyWallets;
-        if (action.payload.monthlyIncomes) {
-          state.monthlyIncomes = action.payload.monthlyIncomes;
-        }
-        if (action.payload.monthlyIncome != null) {
-          state.monthlyIncome = action.payload.monthlyIncome;
-        }
-        if (action.payload.accounts) {
-          state.accounts = ensureAccounts(action.payload.accounts);
-        }
-        state.walletTransactions.unshift({
-          ...action.payload.transaction,
-          createdAt: action.payload.transaction.createdAt || new Date().toISOString(),
-        });
-        state.recurringIncome = action.payload.recurringIncome;
+        applyRepeatSync(state, action.payload);
       })
       .addCase(recordRecurringIncome.rejected, (state, action) => {
         state.saving = false;
@@ -1480,7 +1431,8 @@ export const selectCategorySpentByDate = (state, category, dateStr) => {
  * @returns {{ category: string, spent: number, limit: number, percent: number, level: null|number, color: string }[]}
  */
 export const selectCategoryLimitStatuses = (state) => {
-  const { mainCategories, categoryBudgets, categoryColors } = state.dashboard;
+  const { mainCategories, categoryBudgets, categoryColors, habits } = state.dashboard;
+  const thresholds = normalizeHabits(habits).limitThresholds;
   const allNames = getAllCategoryNames(mainCategories);
   const spentByCategory = selectExpensesByCategory(state);
   return allNames
@@ -1493,7 +1445,7 @@ export const selectCategoryLimitStatuses = (state) => {
         spent,
         limit,
         percent: getCategoryLimitPercent(spent, limit),
-        level: getCategoryLimitLevel(spent, limit),
+        level: getCategoryLimitLevel(spent, limit, thresholds),
         color: categoryColors?.[category] || buildCategoryColors(allNames)[category],
       };
     })
@@ -1532,7 +1484,8 @@ export const selectMonthSavingsSnapshot = (state) => {
   const income = selectMonthIncome(state);
   const spent = selectTotalSpent(state);
   const saved = income - spent;
-  const goalPercent = Number(state.dashboard.habits?.savingsGoalPercent) || 20;
+  const habits = normalizeHabits(state.dashboard.habits);
+  const goalPercent = habits.savingsGoalPercent;
   const goalAmount = income > 0 ? Math.round((income * goalPercent) / 100) : 0;
   const savingsRate = income > 0 ? Math.round((saved / income) * 100) : 0;
   const progressTowardGoal =
@@ -1546,11 +1499,27 @@ export const selectMonthSavingsSnapshot = (state) => {
     savingsRate,
     goalPercent,
     goalAmount,
+    enabled: habits.savingsGoalEnabled,
     progressTowardGoal,
     goalMet: income > 0 && saved >= goalAmount,
     hasIncome: income > 0,
   };
 };
+
+export const selectDueRepeatSignature = createSelector(
+  [
+    (state) => state.dashboard.recurringExpenses,
+    (state) => state.dashboard.recurringIncome,
+  ],
+  (recurringExpenses, recurringIncome) => {
+    const today = getTodayString();
+    return [...(recurringExpenses || []), ...(recurringIncome || [])]
+      .filter((item) => dueOccurrenceDates(item, today).length > 0)
+      .map((item) => `${item.id}:${item.nextDate}`)
+      .sort()
+      .join('|');
+  }
+);
 
 export const selectDueRecurringExpenses = createSelector(
   [(state) => state.dashboard.recurringExpenses],
@@ -1711,17 +1680,47 @@ export const selectInAppReminders = createSelector(
     selectIsFilterCurrentMonth,
     selectFilteredMonthLabel,
     selectSafeToSpend,
+    (state) => selectCategoryLimitStatuses(state),
+    (state) => state.dashboard.recurringExpenses,
   ],
-  (walletFunded, walletRemaining, monthSpent, isCurrentMonth, monthLabel, safe) => {
+  (walletFunded, walletRemaining, monthSpent, isCurrentMonth, monthLabel, safe, limits, recurringExpenses) => {
     const reminders = [];
+    const today = getTodayString();
+    const rupee = (value) => `₹${Math.abs(Math.round(Number(value) || 0)).toLocaleString('en-IN')}`;
 
-    if (isCurrentMonth && safe.hasIncome && safe.safe < 0 && walletRemaining >= 0) {
+    if (isCurrentMonth && safe.hasIncome && safe.held > walletRemaining) {
       reminders.push({
         id: 'safe-over',
         tone: 'warning',
-        text: `Bills and planned savings are ₹${Math.abs(safe.safe).toLocaleString('en-IN')} more than you have left.`,
+        text: 'Your planned savings exceed this month’s remaining money.',
       });
     }
+
+    (limits || [])
+      .filter((row) => row.level)
+      .slice(0, 2)
+      .forEach((row) => {
+        const left = row.limit - row.spent;
+        const name = shortCategoryLabel(row.category);
+        reminders.push({
+          id: `limit-${row.category}`,
+          tone: left <= 0 ? 'danger' : 'warning',
+          text: left <= 0 ? `${name} limit reached` : `${rupee(left)} left in ${name}`,
+        });
+      });
+
+    listUpcoming(recurringExpenses, { today, horizonDays: 7 })
+      .filter((item) => item.kind !== 'income')
+      .slice(0, 2)
+      .forEach((item) => {
+        const days = dayjs(item.nextDate).startOf('day').diff(dayjs(today), 'day');
+        const when = days < 0 ? 'overdue' : days === 0 ? 'due today' : days === 1 ? 'due tomorrow' : `due in ${days} days`;
+        reminders.push({
+          id: `bill-${item.id}`,
+          tone: days <= 2 ? 'warning' : 'info',
+          text: `${item.title} ${rupee(item.amount)} ${when}`,
+        });
+      });
 
     if (walletFunded === 0 && (isCurrentMonth || monthSpent > 0)) {
       reminders.push({
@@ -1729,25 +1728,25 @@ export const selectInAppReminders = createSelector(
         tone: 'info',
         action: 'wallet',
         text: isCurrentMonth
-          ? 'Add income on Income to start this month.'
-          : `Add income for ${monthLabel} on Income.`,
+          ? 'Add income to see what is left this month.'
+          : `Add income for ${monthLabel} to see what was left.`,
       });
     } else if (walletFunded > 0 && walletRemaining < 0) {
       reminders.push({
         id: 'wallet-over',
         tone: 'danger',
         action: 'wallet',
-        text: `Over by ₹${Math.abs(walletRemaining).toLocaleString('en-IN')} this month.`,
+        text: `${rupee(walletRemaining)} over this month. Add income or review spends.`,
       });
     } else if (walletFunded > 0 && walletRemaining <= walletFunded * 0.2) {
       reminders.push({
         id: 'wallet-low',
         tone: 'warning',
         action: 'wallet',
-        text: `Only ₹${Math.max(0, walletRemaining).toLocaleString('en-IN')} left this month.`,
+        text: `${rupee(walletRemaining)} left to spend this month.`,
       });
     }
 
-    return reminders.slice(0, 3);
+    return reminders.slice(0, 4);
   }
 );
