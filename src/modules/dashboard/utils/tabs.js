@@ -13,6 +13,7 @@ export const TAB_TO_URL = {
   analyzer: 'reports',
   settings: 'tools',
   admin: 'admin',
+  help: 'help',
 };
 
 const URL_TO_TAB = {
@@ -29,6 +30,7 @@ const URL_TO_TAB = {
   money: 'wallet',
   charts: 'analyzer',
   more: 'settings',
+  help: 'help',
 };
 
 export function tabFromUrl(value) {

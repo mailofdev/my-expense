@@ -15,6 +15,7 @@ import SavingsHabit from '../components/SavingsHabit';
 import WalletTracker from '../components/WalletTracker';
 import ExpenseAnalyzer from '../components/ExpenseAnalyzer';
 import SettingsHub from '../components/SettingsHub';
+import HelpHub from '../components/HelpHub';
 import AdminPage from '../../admin/pages/AdminPage';
 import {
   fetchDashboardData,
@@ -49,7 +50,7 @@ export default function DashboardPage() {
     next.set('tab', urlFromTab(tab));
     if (extras.section) {
       next.set('section', extras.section);
-    } else if (tab !== 'settings') {
+    } else if (tab !== 'settings' && tab !== 'help') {
       next.delete('section');
     }
     setSearchParams(next, { replace: true });
@@ -153,6 +154,13 @@ export default function DashboardPage() {
           )}
           {activeTab === 'settings' && (
             <SettingsHub section={searchParams.get('section') || ''} />
+          )}
+          {activeTab === 'help' && (
+            <HelpHub
+              section={searchParams.get('section') || 'whats-new'}
+              onSectionChange={(id) => handleTabChange('help', { section: id })}
+              onDone={goToToday}
+            />
           )}
           {activeTab === 'admin' && <AdminPage embedded />}
         </div>

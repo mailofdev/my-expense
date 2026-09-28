@@ -103,6 +103,28 @@ export default function DashboardHeader() {
                 <button
                   type="button"
                   role="menuitem"
+                  className="mb-1 flex min-h-11 w-full items-center rounded-sm px-3 py-2.5 text-left text-sm font-semibold text-ink hover:bg-ink/[0.04]"
+                  onClick={() => {
+                    setOpen(false);
+                    navigate('/dashboard?tab=help&section=whats-new');
+                  }}
+                >
+                  What’s new
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="mb-1 flex min-h-11 w-full items-center rounded-sm px-3 py-2.5 text-left text-sm font-semibold text-ink hover:bg-ink/[0.04]"
+                  onClick={() => {
+                    setOpen(false);
+                    navigate('/dashboard?tab=help&section=guide');
+                  }}
+                >
+                  Guide
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
                   className="mb-1 flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2.5 text-left hover:bg-ink/[0.04]"
                   onClick={toggleTheme}
                   aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}

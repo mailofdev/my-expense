@@ -3,7 +3,6 @@ import GroupsSettings from './GroupsSettings';
 import ExportDataPanel from './ExportDataPanel';
 import ResetMonthPanel from './ResetMonthPanel';
 import CategoryLimitsPanel from './CategoryLimitsPanel';
-import GuidePanel from './GuidePanel';
 
 function SettingsSection({ id, title, hint, openId, onToggle, children }) {
   const open = openId === id;
@@ -42,16 +41,7 @@ export default function SettingsHub({ section = '' }) {
 
   return (
     <div className="feature-panel">
-      <p className="m-0 px-0.5 text-sm text-muted">A short guide, then search, split bills, export, or data.</p>
-      <SettingsSection
-        id="guide"
-        title="Guide"
-        hint="How Today, Income, Reports, and Tools work"
-        openId={openId}
-        onToggle={setOpenId}
-      >
-        <GuidePanel onDone={() => setOpenId('')} />
-      </SettingsSection>
+      <p className="m-0 px-0.5 text-sm text-muted">Search, split bills, export, or manage data.</p>
       <SettingsSection
         id="export"
         title="Search & export"
