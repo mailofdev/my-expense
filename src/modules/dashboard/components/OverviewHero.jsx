@@ -82,11 +82,6 @@ export default function OverviewHero({ onAddIncome }) {
         )}
         <Stat label="Spent" value={formatINRCompact(monthSpent)} tone="text-danger" />
         <Stat label="Set aside" value={formatINRCompact(setAsideParked)} />
-        <Stat
-          label="Left"
-          value={formatINRCompact(walletRemaining)}
-          tone={walletRemaining < 0 ? 'text-danger' : 'text-ink'}
-        />
       </dl>
       <p className="relative m-0 mt-3 text-center text-xs text-muted">
         {`Left is income${moneyBack > 0 ? ', plus money back' : ''}, minus spends${

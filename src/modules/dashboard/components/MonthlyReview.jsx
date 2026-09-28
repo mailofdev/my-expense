@@ -25,7 +25,7 @@ export default function MonthlyReview() {
         <div className="space-y-4">
           {review.outlook && <p className="m-0 text-sm font-medium text-ink">{review.outlook}</p>}
 
-          <dl className="m-0 grid grid-cols-3 gap-3">
+          <dl className="m-0 grid grid-cols-3 gap-3 text-center">
             <div>
               <dt className="m-0 text-[11px] uppercase tracking-[0.12em] text-muted">Income</dt>
               <dd className="m-0 mt-1 text-sm font-semibold tabular-nums">{formatINR(review.income)}</dd>

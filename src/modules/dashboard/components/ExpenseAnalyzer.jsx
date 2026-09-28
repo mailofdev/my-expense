@@ -25,9 +25,9 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits 
     <div className="feature-panel">
       <p className="m-0 px-0.5 text-sm text-muted">Where the money went.</p>
       <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-5">
-        <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{monthLabel}</p>
-        <p className="hero-amount m-0 mt-1 text-left">{formatINR(totalSpent)}</p>
-        <p className="m-0 text-sm text-muted">spent</p>
+        <p className="m-0 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{monthLabel}</p>
+        <p className="hero-amount m-0 mt-1 text-center">{formatINR(totalSpent)}</p>
+        <p className="m-0 text-center text-sm text-muted">spent</p>
       </section>
 
       <MonthlyReview />
@@ -55,7 +55,7 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits 
         </section>
       )}
 
-      <ExpenseSearch onOpenDay={onOpenDay} />
+      <ExpenseSearch onOpenDay={onOpenDay} inputId="report-search" />
 
       <section className="card p-0">
         <button

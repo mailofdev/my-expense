@@ -252,25 +252,34 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
 
   return (
     <section className="card">
-      <h2 className="card-title mb-1">Add expense</h2>
-      <p className="m-0 mb-3 text-sm text-muted">Log what you spent.</p>
+      <h2 className="card-title mb-3">Add expense</h2>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <input
-          className="input"
+          className="input min-h-11"
           placeholder={isToday ? 'What did you buy?' : 'Expense name'}
           {...register('title', { required: 'Enter a name' })}
         />
 
-        <input
-          className="input"
-          type="number"
-          placeholder="Amount ₹"
-          min="1"
-          {...register('amount', {
-            required: 'Enter amount',
-            min: { value: 1, message: 'Min ₹1' },
-          })}
-        />
+        <div className="grid grid-cols-[1.2fr_1fr] gap-2">
+          <input
+            className="input min-h-11"
+            type="number"
+            placeholder="Amount ₹"
+            min="1"
+            aria-label="Amount"
+            {...register('amount', {
+              required: 'Enter amount',
+              min: { value: 1, message: 'Min ₹1' },
+            })}
+          />
+          <input
+            className="input min-h-11"
+            type="date"
+            max={dayjs().format('YYYY-MM-DD')}
+            aria-label="Date"
+            {...register('date')}
+          />
+        </div>
 
         {suggestionLabel && suggestedCategory !== suggestionLabel && (
           <button
@@ -281,10 +290,6 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
             Use {suggestionLabel}
           </button>
         )}
-        {suggestedCategory && suggestedCategory === suggestionLabel && (
-          <p className="m-0 text-xs text-muted">Using {suggestionLabel}. Tap another category to change it.</p>
-        )}
-
         <ChoiceChips
           label="Category"
           value={watchedCategory}
@@ -322,16 +327,6 @@ export default function AddExpenseForm({ onGoToMoney, onOpenGroups }) {
             onChange={(id) => setValue('accountId', id)}
           />
         )}
-
-        <label className="label m-0">
-          Date
-          <input
-            className="input mt-1 min-h-11"
-            type="date"
-            max={dayjs().format('YYYY-MM-DD')}
-            {...register('date')}
-          />
-        </label>
 
         {expenseWallet.funded > 0 && watchedAmount > 0 && (
           <p

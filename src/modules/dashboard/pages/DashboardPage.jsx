@@ -133,11 +133,11 @@ export default function DashboardPage() {
           {activeTab === 'overview' && (
             <>
               <OverviewHero onAddIncome={goToIncome} />
+              <GettingStarted />
+              <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
               <RecurringPanel compact />
               <HomeReminders onGoToMoney={goToIncome} />
-              <GettingStarted />
               {monthSpent > 0 && <SavingsHabit compact />}
-              <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
               <ExpenseSearch onOpenDay={openExpenseDay} />
               <DailyExpenseLedger onOpenGroups={goToGroups} />
             </>

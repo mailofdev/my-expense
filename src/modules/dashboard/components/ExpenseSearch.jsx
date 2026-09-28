@@ -6,7 +6,7 @@ import { searchExpenses } from '../utils/searchExpenses';
 import { shortCategoryLabel } from '../utils/categories';
 
 /** Visible search for merchant, tag, category, or date. Opens that day on Today. */
-export default function ExpenseSearch({ onOpenDay }) {
+export default function ExpenseSearch({ onOpenDay, inputId = 'expense-search' }) {
   const expenses = useSelector((state) => state.dashboard.expenses);
   const [query, setQuery] = useState('');
   const results = useMemo(
@@ -15,15 +15,15 @@ export default function ExpenseSearch({ onOpenDay }) {
   );
 
   return (
-    <section className="card">
-      <label className="label m-0" htmlFor="expense-search">
-        Search
+    <section>
+      <label className="m-0 block" htmlFor={inputId}>
+        <span className="sr-only">Search expenses</span>
         <input
-          id="expense-search"
-          className="input mt-1 min-h-11"
+          id={inputId}
+          className="input min-h-11"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Merchant, tag, category, or date"
+          placeholder="Search a shop, tag, category, or date"
           enterKeyHint="search"
         />
       </label>

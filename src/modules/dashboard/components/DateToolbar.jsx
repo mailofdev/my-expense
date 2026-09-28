@@ -12,17 +12,6 @@ import { getTodayString, resolveFilterDateForMonth } from '../../../core/utils/d
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-function CalendarIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 10h18" />
-      <path d="M8 3v4M16 3v4" />
-      <path d="M8 14h2M12 14h2M16 14h2M8 18h2M12 18h2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export default function DateToolbar({ variant = 'day' }) {
   const dispatch = useDispatch();
   const { filterMonth, filterYear, filterDate, expenses } = useSelector((state) => state.dashboard);
@@ -164,20 +153,6 @@ export default function DateToolbar({ variant = 'day' }) {
             Today
           </button>
         )}
-
-        <button
-          type="button"
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
-            calendarOpen
-              ? 'bg-primary text-on-primary'
-              : 'text-ink hover:bg-ink/[0.05] hover:text-primary'
-          }`}
-          onClick={() => setCalendarOpen((open) => !open)}
-          aria-label="Open calendar"
-          aria-expanded={calendarOpen}
-        >
-          <CalendarIcon className="h-4 w-4" />
-        </button>
 
         <button
           type="button"

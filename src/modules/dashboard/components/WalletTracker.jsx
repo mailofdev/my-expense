@@ -17,16 +17,13 @@ import SavingsHabit from "./SavingsHabit";
 import AllocationPlanner from "./AllocationPlanner";
 import RecurringPanel from "./RecurringPanel";
 import GoalsPanel from "./GoalsPanel";
-import SafeToSpend from "./SafeToSpend";
 import {
   selectFilterMonthKey,
   selectFilteredMonthLabel,
   selectMonthWalletFunded,
   selectMonthWalletRemaining,
-  selectMonthWalletUsagePercent,
   selectSetAsideParked,
   selectMonthExpenses,
-  selectMonthIncome,
   selectAccountsWithBalances,
   selectAccounts,
 } from "../store/dashboardSlice";
@@ -44,11 +41,8 @@ export default function WalletTracker({ onGoToHome }) {
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const monthFunded = useSelector(selectMonthWalletFunded);
   const monthRemaining = useSelector(selectMonthWalletRemaining);
-  const walletUsagePercent = useSelector(selectMonthWalletUsagePercent);
   const setAsideParked = useSelector(selectSetAsideParked);
   const monthExpenses = useSelector(selectMonthExpenses);
-  const monthIncome = useSelector(selectMonthIncome);
-  const monthSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
   const filter = useSelector((state) => ({
     month: state.dashboard.filterMonth,
     year: state.dashboard.filterYear,
@@ -142,8 +136,6 @@ export default function WalletTracker({ onGoToHome }) {
     b.localeCompare(a),
   );
 
-  const barPercent = monthFunded > 0 ? Math.min(100, walletUsagePercent) : 0;
-  const monthIn = monthIncome > 0 ? monthIncome : monthFunded;
   const spendingAccounts = accountsWithBal.filter(
     (account) => !account.isCredit && !account.setAside,
   );
@@ -154,66 +146,26 @@ export default function WalletTracker({ onGoToHome }) {
 
   return (
     <div className="feature-panel">
-      <p className="m-0 px-0.5 text-sm text-muted">Add money you received.</p>
+      <p className="m-0 px-0.5 text-sm text-muted">
+        {monthFunded > 0 ? (
+          <>
+            <button
+              type="button"
+              className={`border-0 bg-transparent p-0 font-semibold ${monthRemaining < 0 ? "text-danger" : "text-ink"}`}
+              onClick={onGoToHome}
+            >
+              {formatINR(monthRemaining)} left
+            </button>
+            {" "}
+            this month. The full picture is on Today.
+            {setAsideParked > 0 ? ` ${formatINR(setAsideParked)} set aside is not included.` : ""}
+          </>
+        ) : (
+          "Add salary or other money you earned."
+        )}
+      </p>
       <MoneyNextStep onGoToHome={onGoToHome} />
-      {monthFunded <= 0 && <AddIncomeForm />}
-
-      <section className="relative overflow-hidden rounded-lg border border-edge bg-surface px-5 py-6 text-center">
-        <div
-          className="pointer-events-none absolute left-1/2 top-0 h-40 w-56 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
-          aria-hidden="true"
-        />
-        <p
-          className={`hero-amount relative ${
-            monthFunded > 0 && monthRemaining < 0
-              ? "text-danger"
-              : monthFunded > 0
-                ? ""
-                : "text-muted"
-          }`}
-        >
-          {monthFunded > 0 ? formatINR(monthRemaining) : formatINR(0)}
-        </p>
-        <p className="relative m-0 mt-2 text-sm text-muted">
-          {monthFunded > 0
-            ? "left to spend this month"
-            : "Add income to start this month"}
-        </p>
-        {monthFunded > 0 && (
-          <SafeToSpend className="relative mx-auto mt-3 max-w-xs text-center" />
-        )}
-        {monthFunded > 0 && setAsideParked > 0 && (
-          <p className="relative m-0 mt-1 text-xs leading-relaxed text-muted">
-            {formatINR(setAsideParked)} in a set-aside account is not included.
-          </p>
-        )}
-
-        {monthFunded > 0 && (
-          <div className="relative mx-auto mt-4 max-w-xs">
-            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-ink/10">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  monthRemaining < 0
-                    ? "bg-danger"
-                    : walletUsagePercent >= 80
-                      ? "bg-accent"
-                      : "bg-primary"
-                }`}
-                style={{ width: `${barPercent}%` }}
-              />
-            </div>
-            <div className="flex justify-between gap-2 text-xs text-muted">
-              <span className="text-success">In {formatINR(monthIn)}</span>
-              {setAsideParked > 0 && (
-                <span>Set aside {formatINR(setAsideParked)}</span>
-              )}
-              <span className="text-danger">Out {formatINR(monthSpent)}</span>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {monthFunded > 0 && <AddIncomeForm />}
+      <AddIncomeForm />
 
       <section className="card">
         <button
