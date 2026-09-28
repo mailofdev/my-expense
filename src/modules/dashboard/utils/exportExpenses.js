@@ -61,10 +61,11 @@ export const buildLedgerRows = ({
 
     if (tx.type === 'credit') {
       const accountName = getAccountById(accounts, tx.accountId || defaultAccountId)?.name || '';
-      const label = tx.note || (tx.source === 'income' ? 'Income' : 'Added');
+      const isMoneyBack = tx.source === 'money_back';
+      const label = tx.note || (isMoneyBack ? 'Money back' : tx.source === 'income' ? 'Income' : 'Added');
       rows.push({
         date: dayKey,
-        type: 'Income',
+        type: isMoneyBack ? 'Money back' : 'Income',
         description: accountName ? `${label} · ${accountName}` : label,
         category: '',
         account: accountName,

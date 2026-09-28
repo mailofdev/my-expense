@@ -129,9 +129,11 @@ export const walletService = {
     }
 
     const isIncome = source === 'income';
+    const isMoneyBack = source === 'money_back';
     const safeNote =
       note?.trim() ||
-      (isIncome ? 'Salary' : 'Added to wallet');
+      (isIncome ? 'Salary' : isMoneyBack ? 'Money back' : 'Added to wallet');
+    const storedSource = isIncome ? 'income' : isMoneyBack ? 'money_back' : 'manual';
 
     const result = await runTransaction(db, async (transaction) => {
       const userRef = doc(db, 'users', uid);
@@ -198,7 +200,7 @@ export const walletService = {
         type: 'credit',
         amount: parsedAmount,
         note: safeNote,
-        source: isIncome ? 'income' : 'manual',
+        source: storedSource,
         accountId: resolvedAccountId,
         date: resolvedDate,
         monthKey: resolvedMonthKey,
@@ -228,7 +230,7 @@ export const walletService = {
         type: 'credit',
         amount: result.amount || parsedAmount,
         note: result.note || safeNote,
-        source: isIncome ? 'income' : 'manual',
+        source: storedSource,
         accountId: result.accountId,
         date: result.date || resolvedDate,
         monthKey: result.monthKey || resolvedMonthKey,
@@ -418,6 +420,101 @@ export const walletService = {
           ? monthlyIncomes[monthKey]
           : data.monthlyIncome ?? 0,
         touchedIncome: isIncome,
+      };
+    });
+
+    return result;
+  },
+
+  /**
+   * Mark an existing income credit as money back, or the reverse.
+   * Monthly wallet (left to spend) is not changed. Income total changes only when
+   * that month already has a stored income map.
+   */
+  async setCreditKind(uid, txId, kind) {
+    if (!txId) throw new Error('Missing transaction');
+    if (kind !== 'income' && kind !== 'money_back') {
+      throw new Error('Choose income or money back');
+    }
+
+    const result = await runTransaction(db, async (transaction) => {
+      const userRef = doc(db, 'users', uid);
+      const txRef = doc(db, 'users', uid, 'walletTransactions', txId);
+      const userSnap = await transaction.get(userRef);
+      const txSnap = await transaction.get(txRef);
+
+      if (!userSnap.exists()) throw new Error('User profile not found');
+      if (!txSnap.exists()) throw new Error('Income entry not found');
+
+      const existing = txSnap.data();
+      if (existing.type !== 'credit') {
+        throw new Error('Only income entries can be marked as money back');
+      }
+
+      const current = existing.source === 'money_back' ? 'money_back' : existing.source === 'income' ? 'income' : '';
+      if (!current) {
+        throw new Error('Only income entries can be marked as money back');
+      }
+
+      const data = userSnap.data();
+      const monthKey = existing.monthKey;
+      if (!monthKey) throw new Error('This entry cannot be changed');
+
+      const amount = Number(existing.amount) || 0;
+      const monthlyIncomes = { ...(data.monthlyIncomes || {}) };
+      const hasMapKey = Object.prototype.hasOwnProperty.call(monthlyIncomes, monthKey);
+      const createdAt = existing.createdAt?.toDate?.()?.toISOString?.() || null;
+
+      if (current === kind) {
+        return {
+          unchanged: true,
+          touchedIncome: false,
+          monthlyWallets: data.monthlyWallets || {},
+          monthlyIncomes,
+          monthlyIncome: data.monthlyIncome ?? 0,
+          transaction: {
+            id: txId,
+            source: current,
+            note: existing.note || '',
+            amount,
+            monthKey,
+            createdAt,
+          },
+        };
+      }
+
+      let touchedIncome = false;
+      if (hasMapKey) {
+        const currentTotal = Number(monthlyIncomes[monthKey]) || 0;
+        monthlyIncomes[monthKey] = kind === 'money_back'
+          ? clampNonNegative(currentTotal - amount)
+          : currentTotal + amount;
+        touchedIncome = true;
+      }
+
+      if (touchedIncome) {
+        transaction.update(userRef, {
+          monthlyIncomes,
+          monthlyIncome: monthlyIncomes[monthKey],
+          updatedAt: serverTimestamp(),
+        });
+      }
+      transaction.update(txRef, { source: kind });
+
+      return {
+        unchanged: false,
+        touchedIncome,
+        monthlyWallets: data.monthlyWallets || {},
+        monthlyIncomes,
+        monthlyIncome: touchedIncome ? monthlyIncomes[monthKey] : data.monthlyIncome ?? 0,
+        transaction: {
+          id: txId,
+          source: kind,
+          note: existing.note || '',
+          amount,
+          monthKey,
+          createdAt,
+        },
       };
     });
 

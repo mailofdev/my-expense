@@ -19,7 +19,8 @@ const PAGES = [
     title: 'Income',
     lead: 'Where money comes in, and where account balances live.',
     points: [
-      'Add income first. Left to spend and safe to spend appear after that.',
+      'Add income first, and choose Salary. Left to spend and safe to spend appear after that.',
+      'Money a friend sends back is Money back, not Salary. It raises left to spend and stays out of Income. An older income entry stays income until you mark it.',
       'Accounts show what is available. Set-aside balances are parked and are not part of left to spend.',
       'A card purchase is the expense. Paying the card later is a transfer, not a second expense.',
       'A transfer moves money from one account to another. It does not count as spending.',

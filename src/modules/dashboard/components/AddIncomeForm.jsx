@@ -10,6 +10,7 @@ import {
   addWalletFunds,
   updateWalletCredit,
   removeWalletCredit,
+  setWalletCreditKind,
   selectFilterMonthKey,
   selectFilteredMonthLabel,
   selectMonthIncomeEntries,
@@ -33,6 +34,7 @@ export default function AddIncomeForm() {
     cashAccounts.find((a) => a.kind === 'salary')?.id || defaultAccountId;
 
   const [amount, setAmount] = useState('');
+  const [kind, setKind] = useState('income');
   const [note, setNote] = useState('');
   const [accountId, setAccountId] = useState(salaryAccountId);
   const [date, setDate] = useState(filterDate || getTodayString());
@@ -106,10 +108,38 @@ export default function AddIncomeForm() {
     });
   };
 
-  const handleDelete = async (entry) => {
+  const handleKind = async (entry) => {
+    const isBack = entry.source === 'money_back';
     const ok = await confirm({
-      title: 'Remove income?',
-      message: `Remove ${entry.note || 'income'} (${formatINR(entry.amount)})?`,
+      title: isBack ? 'Count this as income?' : 'Mark as money back?',
+      message: isBack
+        ? `${entry.note || 'This amount'} (${formatINR(entry.amount)}) will count as income again. Left to spend stays the same.`
+        : `${entry.note || 'This amount'} (${formatINR(entry.amount)}) leaves Income and shows as money back. Left to spend stays the same.`,
+      confirmLabel: isBack ? 'Count as income' : 'Money back',
+    });
+    if (!ok) return;
+    dispatch(
+      setWalletCreditKind({
+        uid: user.uid,
+        txId: entry.id,
+        kind: isBack ? 'income' : 'money_back',
+      })
+    ).then((result) => {
+      if (!result.error) {
+        setMessage(isBack ? 'Counted as income.' : 'Marked as money back. Income no longer includes it.');
+      } else {
+        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not update.');
+      }
+    });
+  };
+
+  const handleDelete = async (entry) => {
+    const isBack = entry.source === 'money_back';
+    const ok = await confirm({
+      title: isBack ? 'Remove money back?' : 'Remove income?',
+      message: isBack
+        ? `Remove ${entry.note || 'money back'} (${formatINR(entry.amount)}). Left to spend goes down by this amount. Other income stays.`
+        : `Remove ${entry.note || 'income'} (${formatINR(entry.amount)})?`,
       confirmLabel: 'Remove',
     });
     if (!ok) return;
@@ -141,9 +171,9 @@ export default function AddIncomeForm() {
       addWalletFunds({
         uid: user.uid,
         amount: value,
-        note: note.trim() || 'Income',
+        note: note.trim() || (kind === 'money_back' ? 'Money back' : 'Income'),
         monthKey,
-        source: 'income',
+        source: kind === 'money_back' ? 'money_back' : 'income',
         accountId: accountId || defaultAccountId,
         date,
       })
@@ -151,9 +181,14 @@ export default function AddIncomeForm() {
       if (!result.error) {
         setAmount('');
         setNote('');
+        setKind('income');
         setDate(filterDate || getTodayString());
         const accountName = accounts.find((a) => a.id === accountId)?.name || 'account';
-        setMessage(`+${formatINR(value)} → ${accountName}`);
+        setMessage(
+          kind === 'money_back'
+            ? `+${formatINR(value)} money back → ${accountName}. Not counted as income.`
+            : `+${formatINR(value)} → ${accountName}`
+        );
         setShowMore(false);
       } else {
         setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add income.');
@@ -167,6 +202,36 @@ export default function AddIncomeForm() {
       <h2 className="card-title mb-3">Add income</h2>
 
       <form className="space-y-3" onSubmit={handleSubmit}>
+        <div>
+          <p className="m-0 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">This money is</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`min-h-11 flex-1 rounded-full px-3 text-sm font-medium ${
+                kind === 'income' ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-2 text-ink'
+              }`}
+              aria-pressed={kind === 'income'}
+              onClick={() => setKind('income')}
+            >
+              Salary
+            </button>
+            <button
+              type="button"
+              className={`min-h-11 flex-1 rounded-full px-3 text-sm font-medium ${
+                kind === 'money_back' ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-2 text-ink'
+              }`}
+              aria-pressed={kind === 'money_back'}
+              onClick={() => setKind('money_back')}
+            >
+              Money back
+            </button>
+          </div>
+          <p className="m-0 mt-1.5 text-xs text-muted">
+            {kind === 'money_back'
+              ? 'A friend paid their share. Left to spend goes up. Income does not.'
+              : 'Salary or other money you earned. This is your Income total.'}
+          </p>
+        </div>
         <input
           className="input"
           type="number"
@@ -207,7 +272,7 @@ export default function AddIncomeForm() {
 
         <div className="flex items-center gap-2">
           <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving || editingId}>
-            {saving && !editingId ? 'Adding…' : 'Add income'}
+            {saving && !editingId ? 'Adding…' : kind === 'money_back' ? 'Add money back' : 'Add income'}
           </button>
           <button
             type="button"
@@ -329,9 +394,10 @@ export default function AddIncomeForm() {
                   <div className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="m-0 truncate text-sm font-medium">
-                        {entry.note || 'Income'}
+                        {entry.note || (entry.source === 'money_back' ? 'Money back' : 'Income')}
                       </p>
                       <p className="m-0 text-xs text-muted">
+                        {entry.source === 'money_back' ? 'Money back · ' : 'Income · '}
                         {accountName ? `${accountName} · ` : ''}
                         {entryDay ? dayjs(entryDay).format('D MMM') : monthLabel}
                       </p>
@@ -339,6 +405,14 @@ export default function AddIncomeForm() {
                     <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass('income')}`}>
                       +{formatINR(entry.amount)}
                     </span>
+                    <button
+                      type="button"
+                      className="min-h-11 shrink-0 rounded-full px-2.5 text-xs font-semibold text-primary"
+                      disabled={saving || editingId !== null}
+                      onClick={() => handleKind(entry)}
+                    >
+                      {entry.source === 'money_back' ? 'As income' : 'Money back'}
+                    </button>
                     <button
                       type="button"
                       className="icon-btn text-sm text-muted hover:bg-primary/10 hover:text-primary"

@@ -9,6 +9,7 @@ import {
   selectMonthWalletRemaining,
   selectMonthWalletFunded,
   selectMonthIncome,
+  selectMonthMoneyBack,
   selectSetAsideParked,
   selectTotalSpent,
 } from '../store/dashboardSlice';
@@ -30,6 +31,7 @@ export default function OverviewHero({ onAddIncome }) {
   const walletRemaining = useSelector(selectMonthWalletRemaining);
   const walletFunded = useSelector(selectMonthWalletFunded);
   const monthIncome = useSelector(selectMonthIncome);
+  const moneyBack = useSelector(selectMonthMoneyBack);
   const monthSpent = useSelector(selectTotalSpent);
   const setAsideParked = useSelector(selectSetAsideParked);
   const income = monthIncome > 0 ? monthIncome : walletFunded;
@@ -75,6 +77,9 @@ export default function OverviewHero({ onAddIncome }) {
       <SafeToSpend prominent className="relative mt-4 border-t border-edge/60 pt-4 text-center" />
       <dl className="relative m-0 mt-4 grid grid-cols-2 gap-3 border-t border-edge/60 pt-4 sm:grid-cols-4">
         <Stat label="Income" value={formatINRCompact(income)} tone="text-success" />
+        {moneyBack > 0 && (
+          <Stat label="Received back" value={formatINRCompact(moneyBack)} tone="text-success" />
+        )}
         <Stat label="Spent" value={formatINRCompact(monthSpent)} tone="text-danger" />
         <Stat label="Set aside" value={formatINRCompact(setAsideParked)} />
         <Stat
@@ -84,8 +89,9 @@ export default function OverviewHero({ onAddIncome }) {
         />
       </dl>
       <p className="relative m-0 mt-3 text-center text-xs text-muted">
-        Left is income, minus spends
-        {setAsideParked > 0 ? ', minus money in set-aside accounts' : ''}.
+        {`Left is income${moneyBack > 0 ? ', plus money back' : ''}, minus spends${
+          setAsideParked > 0 ? ', minus money in set-aside accounts' : ''
+        }.`}
         {' '}
         <span className="font-semibold tabular-nums text-ink">{formatINR(dayTotal)}</span>
         {isToday ? ' spent today.' : ` spent · ${dayLabel}.`}

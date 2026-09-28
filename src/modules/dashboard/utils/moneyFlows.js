@@ -31,6 +31,18 @@ export function resolveMonthIncome({
   return 0;
 }
 
+/** Friend repayments for a month. These are not income. */
+export function sumMonthMoneyBack(walletTransactions = [], monthKey) {
+  return (walletTransactions || [])
+    .filter(
+      (tx) =>
+        tx.type === 'credit' &&
+        tx.source === 'money_back' &&
+        tx.monthKey === monthKey
+    )
+    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+}
+
 /**
  * Advance a recurring nextDate until it is strictly after `today`.
  */

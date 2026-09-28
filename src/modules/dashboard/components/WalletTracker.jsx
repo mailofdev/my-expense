@@ -103,6 +103,7 @@ export default function WalletTracker({ onGoToHome }) {
         label: `${tx.note || "Income"}${
           accountName ? ` · ${accountName}` : ""
         }`,
+        source: tx.source || "",
         dayKey,
         sortTime,
         sortId: String(tx.id || ""),
@@ -458,9 +459,11 @@ export default function WalletTracker({ onGoToHome }) {
                               ? item.transferKind === "card_payment"
                                 ? "Card payment · not a new expense"
                                 : "Transfer · not spending"
-                              : item.type === "credit"
-                                ? "Income"
-                                : "Expense"}
+                              : item.source === "money_back"
+                                ? "Money back · not income"
+                                : item.type === "credit"
+                                  ? "Income"
+                                  : "Expense"}
                           </p>
                         </div>
                         <span

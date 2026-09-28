@@ -36,17 +36,24 @@ export default function ResetMonthPanel({ embedded = false }) {
         tx.source === 'income' &&
         isTxInMonth(tx, month, year, monthKey)
     );
+    const moneyBackEntries = (walletTransactions || []).filter(
+      (tx) =>
+        tx.type === 'credit' &&
+        tx.source === 'money_back' &&
+        isTxInMonth(tx, month, year, monthKey)
+    );
     const transferEntries = (walletTransactions || []).filter(
       (tx) => tx.type === 'transfer' && isTxInMonth(tx, month, year, monthKey)
     );
     return {
       expenses: monthExpenses.length,
       income: incomeEntries.length,
+      moneyBack: moneyBackEntries.length,
       transfers: transferEntries.length,
     };
   }, [expenses, walletTransactions, month, year, monthKey]);
 
-  const totalItems = counts.expenses + counts.income + counts.transfers;
+  const totalItems = counts.expenses + counts.income + counts.moneyBack + counts.transfers;
   const hasData = totalItems > 0;
 
   const handleReset = async () => {
@@ -60,6 +67,7 @@ export default function ResetMonthPanel({ embedded = false }) {
 
     const summary = [
       counts.income > 0 ? `${counts.income} income` : null,
+      counts.moneyBack > 0 ? `${counts.moneyBack} money back` : null,
       counts.expenses > 0 ? `${counts.expenses} expense${counts.expenses === 1 ? '' : 's'}` : null,
       counts.transfers > 0 ? `${counts.transfers} transfer${counts.transfers === 1 ? '' : 's'}` : null,
     ]

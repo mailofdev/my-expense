@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import {
   resolveMonthIncome,
+  sumMonthMoneyBack,
   advanceRecurringNextDate,
   resolveLedgerDayKey,
   normalizeLedgerDate,
@@ -46,9 +47,25 @@ describe('resolveMonthIncome', () => {
         walletTransactions: [
           { type: 'credit', source: 'income', monthKey: '2026-08', amount: 2000 },
           { type: 'credit', source: 'manual', monthKey: '2026-08', amount: 500 },
+          { type: 'credit', source: 'money_back', monthKey: '2026-08', amount: 1500 },
         ],
       })
     ).toBe(2000);
+  });
+});
+
+describe('sumMonthMoneyBack', () => {
+  test('sums only money-back credits for that month', () => {
+    expect(
+      sumMonthMoneyBack(
+        [
+          { type: 'credit', source: 'income', monthKey: '2026-08', amount: 70000 },
+          { type: 'credit', source: 'money_back', monthKey: '2026-08', amount: 1500 },
+          { type: 'credit', source: 'money_back', monthKey: '2026-07', amount: 400 },
+        ],
+        '2026-08'
+      )
+    ).toBe(1500);
   });
 });
 

@@ -22,7 +22,7 @@ import {
 import { expenseService } from '../services/expenseService';
 import { walletService } from '../services/walletService';
 import { userService } from '../../auth/services/userService';
-import { resolveMonthIncome } from '../utils/moneyFlows';
+import { resolveMonthIncome, sumMonthMoneyBack } from '../utils/moneyFlows';
 import {
   commitmentsForSafeSpend,
   compareMonths,
@@ -222,6 +222,17 @@ export const updateWalletCredit = createAsyncThunk(
   async ({ uid, txId, amount, note, accountId, date }, { rejectWithValue }) => {
     try {
       return await walletService.updateCredit(uid, txId, { amount, note, accountId, date });
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const setWalletCreditKind = createAsyncThunk(
+  'dashboard/setWalletCreditKind',
+  async ({ uid, txId, kind }, { rejectWithValue }) => {
+    try {
+      return await walletService.setCreditKind(uid, txId, kind);
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -915,6 +926,26 @@ const dashboardSlice = createSlice({
         state.error = action.payload;
       })
 
+      .addCase(setWalletCreditKind.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(setWalletCreditKind.fulfilled, (state, action) => {
+        state.saving = false;
+        if (action.payload.unchanged) return;
+        if (action.payload.touchedIncome) {
+          state.monthlyIncomes = action.payload.monthlyIncomes;
+          state.monthlyIncome = action.payload.monthlyIncome;
+        }
+        const updated = action.payload.transaction;
+        state.walletTransactions = state.walletTransactions.map((tx) =>
+          tx.id === updated.id ? { ...tx, source: updated.source } : tx
+        );
+      })
+      .addCase(setWalletCreditKind.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+
       .addCase(removeWalletCredit.pending, (state) => {
         state.saving = true;
       })
@@ -1268,6 +1299,12 @@ export const selectMonthWalletFunded = (state) => {
   return state.dashboard.monthlyWallets[key] || 0;
 };
 
+/** Friend repayments logged for the filtered month. Not included in income. */
+export const selectMonthMoneyBack = (state) => {
+  const key = selectFilterMonthKey(state);
+  return sumMonthMoneyBack(state.dashboard.walletTransactions, key);
+};
+
 /** Income logged for the filtered month (from income credits). */
 export const selectMonthIncome = (state) => {
   const key = selectFilterMonthKey(state);
@@ -1286,7 +1323,7 @@ export const selectMonthIncomeEntries = (state) => {
     .filter(
       (tx) =>
         tx.type === 'credit' &&
-        tx.source === 'income' &&
+        (tx.source === 'income' || tx.source === 'money_back') &&
         tx.monthKey === monthKey
     )
     .slice()
