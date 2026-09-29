@@ -10,7 +10,7 @@ import { shortCategoryLabel } from '../utils/categories';
 import CategoryChart from './CategoryChart';
 import MonthHistoryList from './MonthHistoryList';
 import MonthlyReview from './MonthlyReview';
-import CategoryLimitStatus from './CategoryLimitStatus';
+// import CategoryLimitStatus from './CategoryLimitStatus';
 import ExpenseSearch from './ExpenseSearch';
 
 export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits }) {
@@ -18,7 +18,7 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits 
   const monthExpenses = useSelector(selectMonthExpenses);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const [showChart, setShowChart] = useState(false);
-  const [showLimits, setShowLimits] = useState(false);
+  // const [showLimits, setShowLimits] = useState(false);
   const largest = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 3);
 
   return (
@@ -74,7 +74,7 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits 
         )}
       </section>
 
-      <section className="card p-0">
+      {/* <section className="card p-0">
         <button
           type="button"
           className="flex min-h-11 w-full items-center justify-between px-5 py-4 text-left"
@@ -83,7 +83,7 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits 
         >
           <span>
             <span className="block text-sm font-semibold">Category limits</span>
-            <span className="block text-xs text-muted">Optional caps</span>
+            <span className="block text-xs text-muted">From the salary split</span>
           </span>
           <span className="text-xs font-semibold text-primary">{showLimits ? 'Hide' : 'Show'}</span>
         </button>
@@ -92,7 +92,7 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits 
             <CategoryLimitStatus onEdit={onEditLimits} />
           </div>
         )}
-      </section>
+      </section> */}
 
       {monthExpenses.length > 0 ? (
         <MonthHistoryList onOpenDay={onOpenDay} />

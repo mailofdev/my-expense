@@ -31,7 +31,6 @@ import {
   daysRemainingInMonth,
   essentialCategoryNames,
   essentialSpendForMonth,
-  heldFromAllocation,
   normalizeAllocation,
   previousMonthParts,
   listUpcoming,
@@ -67,6 +66,7 @@ import {
   shortCategoryLabel,
 } from '../utils/categories';
 import { ensurePeopleGroups, resolveSelfMemberName } from '../utils/groups';
+import { heldForSafeSpend, normalizeSalaryPlan, plannedSetAside } from '../utils/salarySplit';
 import { syncDueRepeats } from '../services/recurringPoster';
 import { dueOccurrenceDates } from '../utils/recurringPosts';
 const getErrorMessage = (error) =>
@@ -732,6 +732,7 @@ const dashboardSlice = createSlice({
     recurringExpenses: [],
     recurringIncome: [],
     monthlyAllocations: {},
+    salaryPlan: null,
     goals: [],
     categories: CATEGORIES,
     mainCategories: DEFAULT_MAIN_CATEGORIES.map((item) => ({ ...item })),
@@ -775,6 +776,7 @@ const dashboardSlice = createSlice({
       state.recurringExpenses = [];
       state.recurringIncome = [];
       state.monthlyAllocations = {};
+      state.salaryPlan = null;
       state.goals = [];
       state.categories = CATEGORIES;
       state.mainCategories = DEFAULT_MAIN_CATEGORIES.map((item) => ({ ...item }));
@@ -816,6 +818,7 @@ const dashboardSlice = createSlice({
           state.recurringExpenses = profile.recurringExpenses ?? [];
           state.recurringIncome = profile.recurringIncome ?? [];
           state.monthlyAllocations = profile.monthlyAllocations ?? {};
+          state.salaryPlan = normalizeSalaryPlan(profile.salaryPlan);
           state.goals = Array.isArray(profile.goals) ? profile.goals : [];
           const normalized = normalizeCategoryProfile(profile);
           state.mainCategories = normalized.mainCategories;
@@ -1587,12 +1590,13 @@ export const selectSafeToSpend = createSelector(
     selectTotalSpent,
     selectSetAsideParked,
     selectMonthAllocation,
+    (state) => state.dashboard.salaryPlan,
     (state) => state.dashboard.recurringExpenses,
     (state) => state.dashboard.filterMonth,
     (state) => state.dashboard.filterYear,
     selectIsFilterCurrentMonth,
   ],
-  (funded, spent, parked, allocation, recurringExpenses, month, year, isCurrentMonth) => {
+  (funded, spent, parked, allocation, salaryPlan, recurringExpenses, month, year, isCurrentMonth) => {
     const today = getTodayString();
     const upcoming = commitmentsForSafeSpend(recurringExpenses, {
       month,
@@ -1603,7 +1607,7 @@ export const selectSafeToSpend = createSelector(
     const snapshot = computeSafeToSpend({
       funded,
       spent: spent + parked,
-      held: heldFromAllocation(allocation),
+      held: heldForSafeSpend(allocation, salaryPlan),
       upcomingTotal: sumAmounts(upcoming),
     });
     const daysLeft = isCurrentMonth ? daysRemainingInMonth(today) : 0;
@@ -1645,6 +1649,7 @@ export const selectMonthlyReview = createSelector(
     selectTotalSpent,
     selectMonthWalletRemaining,
     selectMonthAllocation,
+    (state) => state.dashboard.salaryPlan,
     (state) => selectExpensesByCategory(state),
     selectFilteredMonthLabel,
     (state) => state.dashboard.expenses,
@@ -1659,6 +1664,7 @@ export const selectMonthlyReview = createSelector(
     spent,
     left,
     allocation,
+    salaryPlan,
     spentByCategory,
     monthLabel,
     expenses,
@@ -1694,14 +1700,15 @@ export const selectMonthlyReview = createSelector(
       { income, spent, left },
       { income: previousIncome, spent: previousSpent, left: previousLeft }
     );
+    const setAside = plannedSetAside(allocation, salaryPlan);
     return {
       monthLabel,
       previousLabel: formatMonthYearLabel(previous.month, previous.year),
       income,
       spent,
       left,
-      plannedSavings: allocation.savings + allocation.goals,
-      plannedInvestment: allocation.investment,
+      plannedSavings: setAside.savings,
+      plannedInvestment: setAside.investment,
       top: topCategories(spentByCategory, 3),
       comparison,
       outlook: reviewOutlook(comparison),

@@ -32,6 +32,7 @@ const defaultProfile = () => ({
   recurringExpenses: [],
   recurringIncome: [],
   monthlyAllocations: {},
+  salaryPlan: null,
   goals: [],
   activityLog: [],
   role: 'user',

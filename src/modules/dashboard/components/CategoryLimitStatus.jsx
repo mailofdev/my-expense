@@ -11,10 +11,10 @@ export default function CategoryLimitStatus({ variant = 'full', onEdit }) {
     return (
       <section className="card">
         <h2 className="card-title mb-1">Category limits</h2>
-        <p className="m-0 text-sm text-muted">No monthly limits yet. Add them in Tools if you want a heads-up.</p>
+        <p className="m-0 text-sm text-muted">No monthly limits yet. Set them from your salary on Income.</p>
         {onEdit && (
           <button type="button" className="btn-outline btn-sm mt-3" onClick={onEdit}>
-            Set limits
+            Open calculator
           </button>
         )}
       </section>

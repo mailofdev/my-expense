@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import GroupsSettings from './GroupsSettings';
 import ExportDataPanel from './ExportDataPanel';
 import ResetMonthPanel from './ResetMonthPanel';
-import CategoryLimitsPanel from './CategoryLimitsPanel';
 
 function SettingsSection({ id, title, hint, openId, onToggle, children }) {
   const open = openId === id;
@@ -59,15 +58,6 @@ export default function SettingsHub({ section = '' }) {
         onToggle={setOpenId}
       >
         <GroupsSettings embedded />
-      </SettingsSection>
-      <SettingsSection
-        id="limits"
-        title="Category limits"
-        hint="Optional monthly caps"
-        openId={openId}
-        onToggle={setOpenId}
-      >
-        <CategoryLimitsPanel />
       </SettingsSection>
       <SettingsSection
         id="reset"

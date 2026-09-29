@@ -15,7 +15,8 @@ const CHANGES = [
       'Salary is income. Money a friend sends back is Money back. It raises left to spend and does not raise Income.',
       'Entries you already saved stay income. Tap Money back on a row only when that amount was a repayment. Left to spend stays the same.',
       'This screen no longer repeats the Today dashboard. One line shows what is left and opens Today.',
-      'Accounts, transfers, and card payments stay under Accounts. Savings, goals, and repeats stay under Plan.',
+      'The money calculator suggests a salary split: 25% investment, 10% emergency fund, 15% bike/car, 15% personal, and 35% home. Edit any line, then save.',
+      'Accounts, transfers, and card payments stay under Accounts. A savings target, goals, and repeats stay under Goals & repeats.',
     ],
   },
   {
@@ -23,7 +24,7 @@ const CHANGES = [
     points: [
       'Spent is centered. The review centers Income, Spent, and Left, then compares the month and lists the largest expenses.',
       'A large expense or a day opens that day on Today. The chart and category limits stay under Show.',
-      'Guide and What’s new are in the profile menu. Tools is search and export, split bills, limits, and resetting this month.',
+      'Guide and What’s new are in the profile menu. Tools is search and export, split bills, and resetting this month. Category limits are set in the money calculator.',
       'Reset still removes only this month’s income, money back, expenses, and transfers. Accounts, repeats, and other months stay.',
     ],
   },

@@ -52,6 +52,8 @@ export default function DashboardPage() {
       next.set('section', extras.section);
     } else if (tab !== 'settings' && tab !== 'help') {
       next.delete('section');
+    } else if (searchParams.get('section') === 'calculator') {
+      next.delete('section');
     }
     setSearchParams(next, { replace: true });
   };
@@ -100,7 +102,7 @@ export default function DashboardPage() {
   const goToIncome = () => handleTabChange('wallet');
   const goToToday = () => handleTabChange('overview');
   const goToGroups = () => handleTabChange('settings', { section: 'groups' });
-  const goToLimits = () => handleTabChange('settings', { section: 'limits' });
+  const goToCalculator = () => handleTabChange('wallet', { section: 'calculator' });
 
   return (
     <div className="min-h-screen min-h-dvh">
@@ -144,12 +146,17 @@ export default function DashboardPage() {
             </>
           )}
 
-          {activeTab === 'wallet' && <WalletTracker onGoToHome={goToToday} />}
+          {activeTab === 'wallet' && (
+            <WalletTracker
+              onGoToHome={goToToday}
+              openCalculator={searchParams.get('section') === 'calculator'}
+            />
+          )}
           {activeTab === 'analyzer' && (
             <ExpenseAnalyzer
               onOpenDay={openExpenseDay}
               onAddExpense={goToToday}
-              onEditLimits={goToLimits}
+              onEditLimits={goToCalculator}
             />
           )}
           {activeTab === 'settings' && (

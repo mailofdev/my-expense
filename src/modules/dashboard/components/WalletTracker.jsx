@@ -14,7 +14,7 @@ import TransferForm from "./TransferForm";
 import BankManager from "./BankManager";
 import MoneyNextStep from "./MoneyNextStep";
 import SavingsHabit from "./SavingsHabit";
-import AllocationPlanner from "./AllocationPlanner";
+import MoneyCalculator from "./MoneyCalculator";
 import RecurringPanel from "./RecurringPanel";
 import GoalsPanel from "./GoalsPanel";
 import {
@@ -28,7 +28,7 @@ import {
   selectAccounts,
 } from "../store/dashboardSlice";
 
-export default function WalletTracker({ onGoToHome }) {
+export default function WalletTracker({ onGoToHome, openCalculator = false }) {
   const { walletTransactions } = useSelector((state) => state.dashboard);
   const accounts = useSelector(selectAccounts);
   const {
@@ -345,6 +345,8 @@ export default function WalletTracker({ onGoToHome }) {
         )}
       </section>
 
+      <MoneyCalculator startOpen={openCalculator} />
+
       <section className="card">
         <button
           type="button"
@@ -353,8 +355,8 @@ export default function WalletTracker({ onGoToHome }) {
           aria-expanded={showPlan}
         >
           <div className="min-w-0">
-            <h2 className="card-title mb-0">Plan</h2>
-            <p className="card-desc mb-0 mt-1">Savings, goals, and repeats. Optional.</p>
+            <h2 className="card-title mb-0">Goals & repeats</h2>
+            <p className="card-desc mb-0 mt-1">Savings target, goals, and repeats. Optional.</p>
           </div>
           <span className="shrink-0 text-xs font-semibold text-primary">
             {showPlan ? "Hide" : "Show"}
@@ -363,7 +365,6 @@ export default function WalletTracker({ onGoToHome }) {
         {showPlan && (
           <div className="mt-4 flex flex-col gap-4">
             <SavingsHabit />
-            <AllocationPlanner />
             <GoalsPanel />
             <RecurringPanel />
           </div>
