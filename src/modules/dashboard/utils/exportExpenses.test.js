@@ -67,6 +67,35 @@ describe('exportExpenses', () => {
     });
   });
 
+  test('exports lent as its own row, not an expense', () => {
+    const rows = buildLedgerRows({
+      expenses: [],
+      walletTransactions: [
+        {
+          id: 'lent1',
+          type: 'debit',
+          source: 'lent',
+          amount: 8000,
+          note: 'Rahul',
+          accountId: 'acc_salary',
+          date: '2026-09-12',
+          createdAt: '2026-09-12T08:00:00.000Z',
+        },
+      ],
+      accounts,
+      mainCategories,
+      startDate: '2026-09-01',
+      endDate: '2026-09-30',
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      type: 'Lent',
+      description: 'Rahul · Salary',
+      category: '',
+      amount: 8000,
+    });
+  });
+
   test('summarizes ledger rows', () => {
     const summary = summarizeLedgerRows([
       { type: 'Income', amount: 1000 },

@@ -16,6 +16,7 @@ import {
   selectMonthIncomeEntries,
   selectAccounts,
   selectFilterDate,
+  selectStillOut,
 } from '../store/dashboardSlice';
 
 export default function AddIncomeForm() {
@@ -27,6 +28,7 @@ export default function AddIncomeForm() {
   const monthKey = useSelector(selectFilterMonthKey);
   const monthLabel = useSelector(selectFilteredMonthLabel);
   const incomeEntries = useSelector(selectMonthIncomeEntries);
+  const stillOut = useSelector(selectStillOut);
   const filterDate = useSelector(selectFilterDate);
 
   const defaultAccountId = getDefaultAccountId(cashAccounts);
@@ -94,7 +96,9 @@ export default function AddIncomeForm() {
         uid: user.uid,
         txId: entry.id,
         amount: value,
-        note: editNote.trim() || 'Income',
+        note:
+          editNote.trim() ||
+          (entry.source === 'money_back' ? 'Money back' : entry.source === 'lent' ? 'Lent' : 'Income'),
         accountId: editAccountId || defaultAccountId,
         date: editDate,
       })
@@ -135,11 +139,17 @@ export default function AddIncomeForm() {
 
   const handleDelete = async (entry) => {
     const isBack = entry.source === 'money_back';
+    const isLent = entry.source === 'lent';
+    const fromSetAside = isSetAsideAccount(getAccountById(accounts, entry.accountId));
     const ok = await confirm({
-      title: isBack ? 'Remove money back?' : 'Remove income?',
-      message: isBack
-        ? `Remove ${entry.note || 'money back'} (${formatINR(entry.amount)}). Left to spend goes down by this amount. Other income stays.`
-        : `Remove ${entry.note || 'income'} (${formatINR(entry.amount)})?`,
+      title: isLent ? 'Remove lent?' : isBack ? 'Remove money back?' : 'Remove income?',
+      message: isLent
+        ? fromSetAside
+          ? `Remove ${entry.note || 'lent'} (${formatINR(entry.amount)}). It came from a set-aside account, so left to spend stays the same.`
+          : `Remove ${entry.note || 'lent'} (${formatINR(entry.amount)}). Left to spend goes up by this amount.`
+        : isBack
+          ? `Remove ${entry.note || 'money back'} (${formatINR(entry.amount)}). Left to spend goes down by this amount. Other income stays.`
+          : `Remove ${entry.note || 'income'} (${formatINR(entry.amount)})?`,
       confirmLabel: 'Remove',
     });
     if (!ok) return;
@@ -171,9 +181,9 @@ export default function AddIncomeForm() {
       addWalletFunds({
         uid: user.uid,
         amount: value,
-        note: note.trim() || (kind === 'money_back' ? 'Money back' : 'Income'),
+        note: note.trim() || (kind === 'money_back' ? 'Money back' : kind === 'lent' ? 'Lent' : 'Income'),
         monthKey,
-        source: kind === 'money_back' ? 'money_back' : 'income',
+        source: kind === 'money_back' ? 'money_back' : kind === 'lent' ? 'lent' : 'income',
         accountId: accountId || defaultAccountId,
         date,
       })
@@ -184,14 +194,19 @@ export default function AddIncomeForm() {
         setKind('income');
         setDate(filterDate || getTodayString());
         const accountName = accounts.find((a) => a.id === accountId)?.name || 'account';
+        const fromSetAside = isSetAsideAccount(accounts.find((a) => a.id === accountId));
         setMessage(
-          kind === 'money_back'
-            ? `+${formatINR(value)} money back → ${accountName}. Not counted as income.`
-            : `+${formatINR(value)} → ${accountName}`
+          kind === 'lent'
+            ? fromSetAside
+              ? `−${formatINR(value)} lent from ${accountName}. Left to spend stays the same.`
+              : `−${formatINR(value)} lent from ${accountName}. Left to spend goes down. Category limits stay the same.`
+            : kind === 'money_back'
+              ? `+${formatINR(value)} money back → ${accountName}. Not counted as income.`
+              : `+${formatINR(value)} → ${accountName}`
         );
         setShowMore(false);
       } else {
-        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add income.');
+        setMessage(typeof result.payload === 'string' ? result.payload : 'Could not add.');
       }
     });
   };
@@ -207,7 +222,7 @@ export default function AddIncomeForm() {
           <div className="flex gap-2">
             <button
               type="button"
-              className={`min-h-11 flex-1 rounded-full px-3 text-sm font-medium ${
+              className={`min-h-11 flex-1 rounded-full px-2 text-sm font-medium ${
                 kind === 'income' ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-2 text-ink'
               }`}
               aria-pressed={kind === 'income'}
@@ -217,7 +232,7 @@ export default function AddIncomeForm() {
             </button>
             <button
               type="button"
-              className={`min-h-11 flex-1 rounded-full px-3 text-sm font-medium ${
+              className={`min-h-11 flex-1 rounded-full px-2 text-sm font-medium ${
                 kind === 'money_back' ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-2 text-ink'
               }`}
               aria-pressed={kind === 'money_back'}
@@ -225,12 +240,29 @@ export default function AddIncomeForm() {
             >
               Money back
             </button>
+            <button
+              type="button"
+              className={`min-h-11 flex-1 rounded-full px-2 text-sm font-medium ${
+                kind === 'lent' ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-2 text-ink'
+              }`}
+              aria-pressed={kind === 'lent'}
+              onClick={() => setKind('lent')}
+            >
+              Lent
+            </button>
           </div>
           <p className="m-0 mt-1.5 text-xs text-muted">
-            {kind === 'money_back'
-              ? 'A friend paid their share. Left to spend goes up. Income does not.'
-              : 'Salary or other money you earned. This is your Income total.'}
+            {kind === 'lent'
+              ? 'Money you expect back. Left to spend goes down. Category limits do not change.'
+              : kind === 'money_back'
+                ? 'A friend paid you back. Left to spend goes up. Income does not.'
+                : 'Salary or other money you earned. This is your Income total.'}
           </p>
+          {stillOut > 0 && (
+            <p className="m-0 mt-1.5 text-xs text-ink">
+              {formatINR(stillOut)} is still out. Money back brings it down.
+            </p>
+          )}
         </div>
         <input
           className="input"
@@ -254,11 +286,11 @@ export default function AddIncomeForm() {
               setAccountId(e.target.value);
               setMessage('');
             }}
-            aria-label="Deposit to account"
+            aria-label={kind === 'lent' ? 'Take from account' : 'Deposit to account'}
           >
             {cashAccounts.map((account) => (
               <option key={account.id} value={account.id}>
-                Into {formatAccountOptionLabel(account)}
+                {kind === 'lent' ? 'From' : 'Into'} {formatAccountOptionLabel(account)}
               </option>
             ))}
           </select>
@@ -266,13 +298,21 @@ export default function AddIncomeForm() {
 
         {isSetAsideAccount(cashAccounts.find((account) => account.id === accountId)) && (
           <p className="m-0 text-xs text-muted">
-            This goes into a set-aside account, so it is not added to left to spend.
+            {kind === 'lent'
+              ? 'This comes from a set-aside account, so left to spend stays the same.'
+              : 'This goes into a set-aside account, so it is not added to left to spend.'}
           </p>
         )}
 
         <div className="flex items-center gap-2">
           <button type="submit" className="btn-primary min-w-0 flex-1" disabled={saving || editingId}>
-            {saving && !editingId ? 'Adding…' : kind === 'money_back' ? 'Add money back' : 'Add income'}
+            {saving && !editingId
+              ? 'Adding…'
+              : kind === 'lent'
+                ? 'Add lent'
+                : kind === 'money_back'
+                  ? 'Add money back'
+                  : 'Add income'}
           </button>
           <button
             type="button"
@@ -307,7 +347,7 @@ export default function AddIncomeForm() {
                 setNote(e.target.value);
                 setMessage('');
               }}
-              placeholder="Note (optional)"
+              placeholder={kind === 'lent' ? 'Who you lent it to' : 'Note (optional)'}
               aria-label="Note"
             />
           </div>
@@ -318,6 +358,8 @@ export default function AddIncomeForm() {
         <ul className="m-0 mt-4 list-none space-y-1 border-t border-edge/50 p-0 pt-3">
           {incomeEntries.map((entry) => {
             const isEditing = editingId === entry.id;
+            const isLent = entry.source === 'lent';
+            const isBack = entry.source === 'money_back';
             const accountName = getAccountById(
               accounts,
               entry.accountId || defaultAccountId
@@ -346,14 +388,16 @@ export default function AddIncomeForm() {
                       >
                         {cashAccounts.map((account) => (
                           <option key={account.id} value={account.id}>
-                            Into {formatAccountOptionLabel(account)}
+                            {isLent ? 'From' : 'Into'} {formatAccountOptionLabel(account)}
                           </option>
                         ))}
                       </select>
                     )}
                     {isSetAsideAccount(cashAccounts.find((account) => account.id === editAccountId)) && (
                       <p className="m-0 text-xs text-muted">
-                        This stays in a set-aside account, so it is not part of left to spend.
+                        {isLent
+                          ? 'This comes from a set-aside account, so left to spend stays the same.'
+                          : 'This stays in a set-aside account, so it is not part of left to spend.'}
                       </p>
                     )}
                     <input
@@ -394,25 +438,28 @@ export default function AddIncomeForm() {
                   <div className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="m-0 truncate text-sm font-medium">
-                        {entry.note || (entry.source === 'money_back' ? 'Money back' : 'Income')}
+                        {entry.note || (isLent ? 'Lent' : isBack ? 'Money back' : 'Income')}
                       </p>
                       <p className="m-0 text-xs text-muted">
-                        {entry.source === 'money_back' ? 'Money back · ' : 'Income · '}
+                        {isLent ? 'Lent · ' : isBack ? 'Money back · ' : 'Income · '}
                         {accountName ? `${accountName} · ` : ''}
                         {entryDay ? dayjs(entryDay).format('D MMM') : monthLabel}
                       </p>
                     </div>
-                    <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass('income')}`}>
-                      +{formatINR(entry.amount)}
+                    <span className={`shrink-0 text-sm font-semibold ${ledgerAmountClass(isLent ? 'debit' : 'income')}`}>
+                      {isLent ? '−' : '+'}
+                      {formatINR(entry.amount)}
                     </span>
-                    <button
-                      type="button"
-                      className="min-h-11 shrink-0 rounded-full px-2.5 text-xs font-semibold text-primary"
-                      disabled={saving || editingId !== null}
-                      onClick={() => handleKind(entry)}
-                    >
-                      {entry.source === 'money_back' ? 'As income' : 'Money back'}
-                    </button>
+                    {!isLent && (
+                      <button
+                        type="button"
+                        className="min-h-11 shrink-0 rounded-full px-2.5 text-xs font-semibold text-primary"
+                        disabled={saving || editingId !== null}
+                        onClick={() => handleKind(entry)}
+                      >
+                        {isBack ? 'As income' : 'Money back'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="icon-btn text-sm text-muted hover:bg-primary/10 hover:text-primary"

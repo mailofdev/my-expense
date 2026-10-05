@@ -2,6 +2,8 @@ import dayjs from 'dayjs';
 import {
   resolveMonthIncome,
   sumMonthMoneyBack,
+  sumLent,
+  sumStillOut,
   advanceRecurringNextDate,
   resolveLedgerDayKey,
   normalizeLedgerDate,
@@ -66,6 +68,27 @@ describe('sumMonthMoneyBack', () => {
         '2026-08'
       )
     ).toBe(1500);
+  });
+});
+
+describe('lent and still out', () => {
+  test('sums lent debits and ignores income', () => {
+    expect(
+      sumLent([
+        { type: 'debit', source: 'lent', amount: 8000 },
+        { type: 'credit', source: 'income', amount: 50000 },
+        { type: 'debit', source: 'lent', amount: 500 },
+      ])
+    ).toBe(8500);
+  });
+
+  test('still out is lent minus money back, and stays at zero when more comes back', () => {
+    const lent = { type: 'debit', source: 'lent', amount: 8000 };
+    const partial = { type: 'credit', source: 'money_back', amount: 3000 };
+    const rest = { type: 'credit', source: 'money_back', amount: 6000 };
+    expect(sumStillOut([lent, partial])).toBe(5000);
+    expect(sumStillOut([lent, partial, rest])).toBe(0);
+    expect(sumStillOut([{ type: 'credit', source: 'money_back', amount: 1000 }])).toBe(0);
   });
 });
 

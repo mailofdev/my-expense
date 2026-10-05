@@ -40,7 +40,7 @@ export const buildReportChartData = (rows = [], { mode = 'ledger' } = {}) => {
         incomeTotal += amount;
         return;
       }
-      if (type === 'Transfer') return;
+      if (type === 'Money back' || type === 'Transfer' || type === 'Lent') return;
     }
 
     expenseTotal += amount;

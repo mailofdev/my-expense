@@ -43,6 +43,35 @@ export function sumMonthMoneyBack(walletTransactions = [], monthKey) {
     .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 }
 
+/** Money sent to someone that is expected back. Not a category expense. */
+export function isLentTransaction(tx) {
+  return tx?.type === 'debit' && tx?.source === 'lent';
+}
+
+/** Sum lent debits. Pass a month-filtered list when the total should be for one month. */
+export function sumLent(walletTransactions = []) {
+  return (walletTransactions || []).reduce((sum, tx) => {
+    if (!isLentTransaction(tx)) return sum;
+    return sum + (Number(tx.amount) || 0);
+  }, 0);
+}
+
+/**
+ * Money still with other people: everything lent, minus money back, never below zero.
+ * Money back above the lent total does not create a negative.
+ */
+export function sumStillOut(walletTransactions = []) {
+  let lent = 0;
+  let back = 0;
+  (walletTransactions || []).forEach((tx) => {
+    const amount = Number(tx.amount) || 0;
+    if (amount <= 0) return;
+    if (isLentTransaction(tx)) lent += amount;
+    else if (tx.type === 'credit' && tx.source === 'money_back') back += amount;
+  });
+  return Math.max(0, lent - back);
+}
+
 /**
  * Advance a recurring nextDate until it is strictly after `today`.
  */

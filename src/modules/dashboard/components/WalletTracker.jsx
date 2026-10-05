@@ -23,6 +23,7 @@ import {
   selectMonthWalletFunded,
   selectMonthWalletRemaining,
   selectSetAsideParked,
+  selectStillOut,
   selectMonthExpenses,
   selectAccountsWithBalances,
   selectAccounts,
@@ -42,6 +43,7 @@ export default function WalletTracker({ onGoToHome, openCalculator = false }) {
   const monthFunded = useSelector(selectMonthWalletFunded);
   const monthRemaining = useSelector(selectMonthWalletRemaining);
   const setAsideParked = useSelector(selectSetAsideParked);
+  const stillOut = useSelector(selectStillOut);
   const monthExpenses = useSelector(selectMonthExpenses);
   const filter = useSelector((state) => ({
     month: state.dashboard.filterMonth,
@@ -159,6 +161,7 @@ export default function WalletTracker({ onGoToHome, openCalculator = false }) {
             {" "}
             this month. The full picture is on Today.
             {setAsideParked > 0 ? ` ${formatINR(setAsideParked)} set aside is not included.` : ""}
+            {stillOut > 0 ? ` ${formatINR(stillOut)} is still out.` : ""}
           </>
         ) : (
           "Add salary or other money you earned."
@@ -414,9 +417,11 @@ export default function WalletTracker({ onGoToHome, openCalculator = false }) {
                                 : "Transfer · not spending"
                               : item.source === "money_back"
                                 ? "Money back · not income"
-                                : item.type === "credit"
-                                  ? "Income"
-                                  : "Expense"}
+                                : item.source === "lent"
+                                  ? "Lent · not spending"
+                                  : item.type === "credit"
+                                    ? "Income"
+                                    : "Expense"}
                           </p>
                         </div>
                         <span

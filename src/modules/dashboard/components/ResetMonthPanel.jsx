@@ -42,6 +42,9 @@ export default function ResetMonthPanel({ embedded = false }) {
         tx.source === 'money_back' &&
         isTxInMonth(tx, month, year, monthKey)
     );
+    const lentEntries = (walletTransactions || []).filter(
+      (tx) => tx.type === 'debit' && tx.source === 'lent' && isTxInMonth(tx, month, year, monthKey)
+    );
     const transferEntries = (walletTransactions || []).filter(
       (tx) => tx.type === 'transfer' && isTxInMonth(tx, month, year, monthKey)
     );
@@ -49,11 +52,12 @@ export default function ResetMonthPanel({ embedded = false }) {
       expenses: monthExpenses.length,
       income: incomeEntries.length,
       moneyBack: moneyBackEntries.length,
+      lent: lentEntries.length,
       transfers: transferEntries.length,
     };
   }, [expenses, walletTransactions, month, year, monthKey]);
 
-  const totalItems = counts.expenses + counts.income + counts.moneyBack + counts.transfers;
+  const totalItems = counts.expenses + counts.income + counts.moneyBack + counts.lent + counts.transfers;
   const hasData = totalItems > 0;
 
   const handleReset = async () => {
@@ -68,6 +72,7 @@ export default function ResetMonthPanel({ embedded = false }) {
     const summary = [
       counts.income > 0 ? `${counts.income} income` : null,
       counts.moneyBack > 0 ? `${counts.moneyBack} money back` : null,
+      counts.lent > 0 ? `${counts.lent} lent` : null,
       counts.expenses > 0 ? `${counts.expenses} expense${counts.expenses === 1 ? '' : 's'}` : null,
       counts.transfers > 0 ? `${counts.transfers} transfer${counts.transfers === 1 ? '' : 's'}` : null,
     ]
@@ -110,6 +115,7 @@ export default function ResetMonthPanel({ embedded = false }) {
       {hasData ? (
         <p className="m-0 mb-3 text-sm text-muted">
           {counts.income} income · {counts.expenses} expense{counts.expenses === 1 ? '' : 's'}
+          {counts.lent > 0 ? ` · ${counts.lent} lent` : ''}
           {counts.transfers > 0 ? ` · ${counts.transfers} transfers` : ''}
         </p>
       ) : (

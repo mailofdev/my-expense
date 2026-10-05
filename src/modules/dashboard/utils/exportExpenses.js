@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import { isInDateRange } from '../../../core/utils/date';
 import { getAccountById, getDefaultAccountId } from './accounts';
-import { resolveLedgerDayKey, toMillis } from './moneyFlows';
+import { isLentTransaction, resolveLedgerDayKey, toMillis } from './moneyFlows';
 import { normalizeTags, resolveMainCategoryName } from './categories';
 import { formatSplitDetail } from './groups';
 
@@ -51,6 +51,23 @@ export const buildLedgerRows = ({
         description: `${from} → ${to}${note}`,
         category: '',
         account: `${from} → ${to}`,
+        split: '',
+        amount: Number(tx.amount) || 0,
+        sortTime: toMillis(tx.createdAt),
+        sortId: String(tx.id || ''),
+      });
+      return;
+    }
+
+    if (isLentTransaction(tx)) {
+      const accountName = getAccountById(accounts, tx.accountId || defaultAccountId)?.name || '';
+      const label = tx.note || 'Lent';
+      rows.push({
+        date: dayKey,
+        type: 'Lent',
+        description: accountName ? `${label} · ${accountName}` : label,
+        category: '',
+        account: accountName,
         split: '',
         amount: Number(tx.amount) || 0,
         sortTime: toMillis(tx.createdAt),

@@ -130,10 +130,12 @@ export const walletService = {
 
     const isIncome = source === 'income';
     const isMoneyBack = source === 'money_back';
+    const isLent = source === 'lent';
     const safeNote =
       note?.trim() ||
-      (isIncome ? 'Salary' : isMoneyBack ? 'Money back' : 'Added to wallet');
-    const storedSource = isIncome ? 'income' : isMoneyBack ? 'money_back' : 'manual';
+      (isIncome ? 'Salary' : isMoneyBack ? 'Money back' : isLent ? 'Lent' : 'Added to wallet');
+    const storedSource = isIncome ? 'income' : isMoneyBack ? 'money_back' : isLent ? 'lent' : 'manual';
+    const txType = isLent ? 'debit' : 'credit';
 
     const result = await runTransaction(db, async (transaction) => {
       const userRef = doc(db, 'users', uid);
@@ -177,7 +179,9 @@ export const walletService = {
       }
 
       const monthlyWallets = { ...(data.monthlyWallets || {}) };
-      monthlyWallets[resolvedMonthKey] = (monthlyWallets[resolvedMonthKey] || 0) + parsedAmount;
+      if (!isLent) {
+        monthlyWallets[resolvedMonthKey] = (monthlyWallets[resolvedMonthKey] || 0) + parsedAmount;
+      }
 
       const monthlyIncomes = { ...(data.monthlyIncomes || {}) };
       if (isIncome) {
@@ -197,7 +201,7 @@ export const walletService = {
 
       transaction.update(userRef, profileUpdate);
       const txPayload = {
-        type: 'credit',
+        type: txType,
         amount: parsedAmount,
         note: safeNote,
         source: storedSource,
@@ -227,7 +231,7 @@ export const walletService = {
       alreadyPosted: Boolean(result.alreadyPosted),
       transaction: {
         id: result.txId,
-        type: 'credit',
+        type: txType,
         amount: result.amount || parsedAmount,
         note: result.note || safeNote,
         source: storedSource,
@@ -267,8 +271,9 @@ export const walletService = {
       if (!txSnap.exists()) throw new Error('Income entry not found');
 
       const existing = txSnap.data();
-      if (existing.type !== 'credit') {
-        throw new Error('Only income or top-up entries can be edited');
+      const isLent = existing.type === 'debit' && existing.source === 'lent';
+      if (existing.type !== 'credit' && !isLent) {
+        throw new Error('Only income or lent entries can be edited');
       }
 
       const data = userSnap.data();
@@ -286,7 +291,7 @@ export const walletService = {
       const safeNote =
         note?.trim() ||
         existing.note ||
-        (isIncome ? 'Salary' : 'Added to wallet');
+        (isLent ? 'Lent' : isIncome ? 'Salary' : 'Added to wallet');
 
       const existingDate =
         existing.date ||
@@ -298,7 +303,7 @@ export const walletService = {
       const monthlyWallets = { ...(data.monthlyWallets || {}) };
       const monthlyIncomes = { ...(data.monthlyIncomes || {}) };
 
-      if (newMonthKey === oldMonthKey) {
+      if (!isLent && newMonthKey === oldMonthKey) {
         const delta = parsedAmount - oldAmount;
         monthlyWallets[oldMonthKey] = clampNonNegative(
           (monthlyWallets[oldMonthKey] || 0) + delta
@@ -308,7 +313,7 @@ export const walletService = {
             (Number(monthlyIncomes[oldMonthKey]) || 0) + delta
           );
         }
-      } else {
+      } else if (!isLent) {
         monthlyWallets[oldMonthKey] = clampNonNegative(
           (monthlyWallets[oldMonthKey] || 0) - oldAmount
         );
@@ -351,7 +356,7 @@ export const walletService = {
         accounts,
         transaction: {
           id: txId,
-          type: 'credit',
+          type: isLent ? 'debit' : 'credit',
           amount: parsedAmount,
           note: safeNote,
           source: existing.source || 'manual',
@@ -381,8 +386,9 @@ export const walletService = {
       if (!txSnap.exists()) throw new Error('Income entry not found');
 
       const existing = txSnap.data();
-      if (existing.type !== 'credit') {
-        throw new Error('Only income or top-up entries can be removed');
+      const isLent = existing.type === 'debit' && existing.source === 'lent';
+      if (existing.type !== 'credit' && !isLent) {
+        throw new Error('Only income or lent entries can be removed');
       }
 
       const data = userSnap.data();
@@ -391,7 +397,7 @@ export const walletService = {
       const isIncome = existing.source === 'income';
 
       const monthlyWallets = { ...(data.monthlyWallets || {}) };
-      if (monthKey) {
+      if (!isLent && monthKey) {
         monthlyWallets[monthKey] = clampNonNegative((monthlyWallets[monthKey] || 0) - amount);
       }
 

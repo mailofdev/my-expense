@@ -2,8 +2,8 @@ const CHANGES = [
   {
     title: 'Today',
     points: [
-      'Left to spend is the large centered number. Safe to spend sits under it, with a short explanation.',
-      'Income, Spent, Set aside, and Left are centered. Received back appears when a friend has paid you back.',
+      'Left to spend is the large centered number. It now subtracts money you lent. Safe to spend sits under it, with a short explanation.',
+      'Income, Spent, Set aside, and Left are centered. Received back appears when a friend has paid you back. Still out appears when some of that lent money has not come back. Category limits ignore it.',
       'Add expense is directly under that summary. Amount and date are on one line. Category, payment, and account are chips, and a suggestion appears as you type.',
       'Upcoming bills show the date and amount. Search sits on this page and opens the matching day.',
       'Tap the date to open the calendar. The arrows move the day and keep you in the same month.',
@@ -12,6 +12,8 @@ const CHANGES = [
   {
     title: 'Income',
     points: [
+      'Income has Lent, next to Salary and Money back. Use it when you send money you expect back. It lowers left to spend and the account you paid from, and it stays off category limits.',
+      'When the money comes back, choose Money back. Left to spend goes up. Income does not. Until the full amount is back, the form shows how much is still out. A later return counts in the month it arrives.',
       'Salary is income. Money a friend sends back is Money back. It raises left to spend and does not raise Income.',
       'Entries you already saved stay income. Tap Money back on a row only when that amount was a repayment. Left to spend stays the same.',
       'This screen no longer repeats the Today dashboard. One line shows what is left and opens Today.',
@@ -25,7 +27,7 @@ const CHANGES = [
       'Spent is centered. The review centers Income, Spent, and Left, then compares the month and lists the largest expenses.',
       'A large expense or a day opens that day on Today. The chart and category limits stay under Show.',
       'Guide and What’s new are in the profile menu. Tools is search and export, split bills, and resetting this month. Category limits are set in the money calculator.',
-      'Reset still removes only this month’s income, money back, expenses, and transfers. Accounts, repeats, and other months stay.',
+      'Reset still removes only this month’s income, money back, lent, expenses, and transfers. Accounts, repeats, and other months stay.',
     ],
   },
 ];

@@ -1,3 +1,5 @@
+import { isLentTransaction } from './moneyFlows';
+
 export const MAX_ACCOUNTS = 12;
 
 export const ACCOUNT_KINDS = {
@@ -146,6 +148,11 @@ export function computeAccountBalances({
 
     if (tx.type === 'credit') {
       balances[resolveBalanceId(tx.accountId)] += amount;
+      return;
+    }
+
+    if (isLentTransaction(tx)) {
+      balances[resolveBalanceId(tx.accountId)] -= amount;
     }
   });
 
@@ -230,11 +237,16 @@ export function parkedInSetAsideAccounts({
   let credits = 0;
   let transfersIn = 0;
   let transfersOut = 0;
+  let lentFromSetAside = 0;
   (walletTransactions || []).forEach((tx) => {
     const amount = Number(tx.amount) || 0;
     if (amount <= 0) return;
     if (tx.type === 'credit' && setAsideIds.has(tx.accountId)) {
       credits += amount;
+      return;
+    }
+    if (isLentTransaction(tx) && setAsideIds.has(tx.accountId)) {
+      lentFromSetAside += amount;
       return;
     }
     if (tx.type !== 'transfer') return;
@@ -250,7 +262,7 @@ export function parkedInSetAsideAccounts({
     spentFromSetAside += Number(expense.amount) || 0;
   });
 
-  return credits + transfersIn - transfersOut - spentFromSetAside;
+  return credits + transfersIn - transfersOut - spentFromSetAside - lentFromSetAside;
 }
 
 /** Sum credit outstanding across cards. */

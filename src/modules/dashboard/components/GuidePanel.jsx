@@ -6,8 +6,8 @@ const PAGES = [
     title: 'Today',
     lead: 'Home. It answers how much money is still yours this month.',
     points: [
-      'The large centered number is left to spend: income, plus money back, minus spends, minus money in a set-aside account.',
-      'Safe today is what remains after planned savings and bills still due, split across the days left. Income, Spent, Set aside, and Left sit under it. Received back appears only after a friend pays you.',
+      'The large centered number is left to spend: income, plus money back, minus spends, minus money lent, minus money in a set-aside account.',
+      'Safe today is what remains after planned savings and bills still due, split across the days left. Income, Spent, Set aside, and Left sit under it. Received back appears when a friend pays you. Still out appears when lent money has not all come back.',
       'Add an expense next. Name, then amount and date on one line, then category, payment, and account. A suggestion appears as you type. Tap another chip to change it.',
       'Upcoming lists bills due in the next two weeks, with the date and amount.',
       'Search finds a shop, tag, category, or date, then opens that day.',
@@ -20,7 +20,8 @@ const PAGES = [
     lead: 'Where money comes in. The full month picture stays on Today.',
     points: [
       'Choose Salary for money you earned. Left to spend appears on Today after that.',
-      'Choose Money back when a friend pays their share. Left to spend goes up. Income does not.',
+      'Choose Lent when you send money you expect back. Add who it went to under More details. Left to spend goes down. Category limits and Spent stay the same.',
+      'Choose Money back when that money returns, or when a friend pays their share of a bill. Left to spend goes up. Income stays the same. Still out drops by what came back. A return in a later month counts in that month.',
       'An amount you already saved stays income until you tap Money back on that row. Left to spend does not change when you mark it.',
       'The line at the top shows what is left and opens Today.',
       'Accounts show balances. A card purchase is the expense. Paying the card later is a transfer, not a second expense. A transfer between your accounts is not spending.',
@@ -48,7 +49,7 @@ const PAGES = [
       'Search & export finds spends, then downloads a PDF or CSV.',
       'Split bills keeps people groups so one expense can be shared.',
       'Guide and What’s new are in the profile menu, under your initials. They are not part of Tools.',
-      'Data management resets this month’s income, money back, expenses, and transfers. Accounts, repeats, limits, and other months stay as they are.',
+      'Data management resets this month’s income, money back, lent, expenses, and transfers. Accounts, repeats, limits, and other months stay as they are.',
     ],
   },
 ];

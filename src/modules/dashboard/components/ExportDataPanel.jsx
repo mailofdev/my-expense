@@ -41,13 +41,13 @@ function formatPreviewDate(date) {
 }
 
 function amountClassForType(type) {
-  if (type === 'Income') return ledgerAmountClass('income');
+  if (type === 'Income' || type === 'Money back') return ledgerAmountClass('income');
   if (type === 'Transfer') return ledgerAmountClass('transfer');
   return ledgerAmountClass('debit');
 }
 
 function amountPrefix(type) {
-  if (type === 'Income') return '+';
+  if (type === 'Income' || type === 'Money back') return '+';
   if (type === 'Transfer') return '↔';
   return '−';
 }

@@ -211,6 +211,49 @@ describe('accounts helpers', () => {
     expect(parkedInSetAsideAccounts({ accounts: list })).toBe(0);
   });
 
+  test('lent leaves the account and stays out of set-aside parking when it comes from salary', () => {
+    const list = ensureAccounts([
+      { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+      { id: 'acc_backup', name: 'Backup', kind: 'other', setAside: true },
+    ]);
+    const balances = computeAccountBalances({
+      accounts: list,
+      accountOpenings: { acc_salary: 20000, acc_backup: 8000 },
+      walletTransactions: [
+        { type: 'debit', source: 'lent', accountId: 'acc_salary', amount: 8000 },
+      ],
+      expenses: [],
+    });
+    expect(balances.acc_salary).toBe(12000);
+    expect(balances.acc_backup).toBe(8000);
+    expect(
+      parkedInSetAsideAccounts({
+        accounts: list,
+        walletTransactions: [
+          { type: 'debit', source: 'lent', accountId: 'acc_salary', amount: 8000 },
+        ],
+        expenses: [],
+      })
+    ).toBe(0);
+  });
+
+  test('lent from a set-aside account lowers parked money', () => {
+    const list = ensureAccounts([
+      { id: 'acc_salary', name: 'Salary', kind: 'salary' },
+      { id: 'acc_backup', name: 'Backup', kind: 'other', setAside: true },
+    ]);
+    expect(
+      parkedInSetAsideAccounts({
+        accounts: list,
+        walletTransactions: [
+          { type: 'transfer', fromAccountId: 'acc_salary', toAccountId: 'acc_backup', amount: 8000 },
+          { type: 'debit', source: 'lent', accountId: 'acc_backup', amount: 8000 },
+        ],
+        expenses: [],
+      })
+    ).toBe(0);
+  });
+
   test('openings match desired bank amounts', () => {
     const openings = openingsForDesiredBalances({
       accounts,
