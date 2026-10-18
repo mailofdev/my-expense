@@ -46,7 +46,7 @@ const PAGES = [
     title: 'Tools',
     lead: 'Search, sharing, and cleanup. Nothing here is required to track spending.',
     points: [
-      'Search & export finds spends, then downloads a PDF or CSV.',
+      'Search & export finds spends. After the preview, copy the list, or download a PDF or CSV.',
       'Split bills keeps people groups so one expense can be shared.',
       'Guide and What’s new are in the profile menu, under your initials. They are not part of Tools.',
       'Data management resets this month’s income, money back, lent, expenses, and transfers. Accounts, repeats, limits, and other months stay as they are.',

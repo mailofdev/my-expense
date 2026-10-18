@@ -44,7 +44,7 @@ export default function SettingsHub({ section = '' }) {
       <SettingsSection
         id="export"
         title="Search & export"
-        hint="Find a spend, then PDF or CSV"
+        hint="Find a spend, then copy, PDF, or CSV"
         openId={openId}
         onToggle={setOpenId}
       >

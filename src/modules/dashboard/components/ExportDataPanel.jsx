@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { getNowMonthYear, getTodayString } from '../../../core/utils/date';
@@ -18,6 +18,12 @@ import {
   downloadShareableSplitReport,
 } from '../utils/exportReport';
 import { normalizeExpenseSplit } from '../utils/groups';
+import {
+  buildCopyText,
+  copyText,
+  formatLedgerCopyLine,
+  formatSearchCopyLine,
+} from '../utils/copyExpenses';
 import {
   selectAccounts,
   selectMainCategories,
@@ -65,6 +71,61 @@ function ExportPreview({
   splitReadyCount = 0,
 }) {
   const visibleRows = rows.slice(0, PREVIEW_VISIBLE);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [copyState, setCopyState] = useState('');
+  const [copyError, setCopyError] = useState('');
+  const selectAllRef = useRef(null);
+  const copyTimerRef = useRef(null);
+  const selectedCount = rows.filter((row) => selectedIds.has(row.id)).length;
+  const allChecked = rows.length > 0 && selectedCount === rows.length;
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setCopyState('');
+    setCopyError('');
+  }, [rows]);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = selectedCount > 0 && !allChecked;
+    }
+  }, [selectedCount, allChecked]);
+
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
+
+  const toggleRow = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setCopyError('');
+  };
+
+  const toggleAll = () => {
+    setSelectedIds(allChecked ? new Set() : new Set(rows.map((row) => row.id)));
+    setCopyError('');
+  };
+
+  const handleCopy = async (mode) => {
+    const lines =
+      mode === 'all'
+        ? rows.map((row) => row.copyLine)
+        : rows.filter((row) => selectedIds.has(row.id)).map((row) => row.copyLine);
+    const text = buildCopyText(lines);
+    if (!text) return;
+    setCopyError('');
+    try {
+      await copyText(text);
+      setCopyState(mode);
+      clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopyState(''), 2000);
+    } catch {
+      setCopyState('');
+      setCopyError('Could not copy. Try again.');
+    }
+  };
 
   return (
     <div>
@@ -83,12 +144,30 @@ function ExportPreview({
         <p className="empty-state-sm">Nothing to export.</p>
       ) : (
         <>
+          <label className="mb-1 flex items-center gap-2 text-sm text-ink">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={allChecked}
+              onChange={toggleAll}
+              aria-label="Select all"
+            />
+            Select all
+            <span className="text-xs text-muted">{selectedCount} selected</span>
+          </label>
           <ul className="m-0 max-h-[min(50vh,22rem)] list-none overflow-y-auto overscroll-contain p-0">
             {visibleRows.map((row) => (
               <li
                 key={row.id}
                 className="flex items-start justify-between gap-2 border-t border-edge/50 py-2.5 first:border-0"
               >
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 shrink-0"
+                  checked={selectedIds.has(row.id)}
+                  onChange={() => toggleRow(row.id)}
+                  aria-label={`Select ${row.title}`}
+                />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate text-sm font-medium">{row.title}</p>
                   <p className="m-0 truncate text-xs text-muted">{row.detail}</p>
@@ -104,17 +183,37 @@ function ExportPreview({
           </ul>
           {rows.length > PREVIEW_VISIBLE && (
             <p className="mb-0 mt-2 text-xs text-muted">
-              Showing first {PREVIEW_VISIBLE} · export includes all {rows.length}
+              Showing first {PREVIEW_VISIBLE} · copy all and export include all {rows.length}
             </p>
           )}
         </>
       )}
 
       {message && <p className="mt-2 mb-0 text-sm text-danger">{message}</p>}
+      {copyError && <p className="mt-2 mb-0 text-sm text-danger">{copyError}</p>}
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={() => handleCopy('all')}
+          disabled={exporting || rows.length === 0}
+        >
+          {copyState === 'all' ? 'Copied' : 'Copy all'}
+        </button>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={() => handleCopy('selected')}
+          disabled={exporting || selectedCount === 0}
+        >
+          {copyState === 'selected' ? 'Copied' : 'Copy selected'}
+        </button>
+      </div>
 
       <button
         type="button"
-        className="btn-primary btn-full mt-4"
+        className="btn-primary btn-full mt-2"
         onClick={onExportPdf}
         disabled={exporting || rows.length === 0}
       >
@@ -241,6 +340,7 @@ export default function ExportDataPanel({ embedded = false }) {
           .join(' · '),
         amount: row.amount,
         type: row.type,
+        copyLine: formatLedgerCopyLine(row),
       })),
     [allRows]
   );
@@ -255,6 +355,7 @@ export default function ExportDataPanel({ embedded = false }) {
           .join(' · '),
         amount: row.amount,
         type: 'Expense',
+        copyLine: formatSearchCopyLine(row),
       })),
     [tagExportRows, tagResults]
   );
@@ -450,7 +551,7 @@ export default function ExportDataPanel({ embedded = false }) {
       {!embedded && (
         <>
           <h2 className="card-title mb-1">Export data</h2>
-          <p className="card-desc mb-3">Preview first, then download PDF or CSV.</p>
+          <p className="card-desc mb-3">Preview first, then copy the list or download PDF or CSV.</p>
         </>
       )}
 
