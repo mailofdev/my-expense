@@ -27,6 +27,7 @@ import {
 } from '../store/dashboardSlice';
 import { userService } from '../../auth/services/userService';
 import { tabFromUrl, urlFromTab } from '../utils/tabs';
+import { FEATURES } from '../utils/featureFlags';
 import dayjs from 'dayjs';
 
 const DATE_TABS = ['overview', 'wallet', 'analyzer'];
@@ -138,9 +139,9 @@ export default function DashboardPage() {
               <OverviewHero onAddIncome={goToIncome} />
               <GettingStarted />
               <AddExpenseForm onGoToMoney={goToIncome} onOpenGroups={goToGroups} />
-              <RecurringPanel compact />
+              {FEATURES.goalsAndRepeats && <RecurringPanel compact />}
               <HomeReminders onGoToMoney={goToIncome} />
-              {monthSpent > 0 && <SavingsHabit compact />}
+              {FEATURES.goalsAndRepeats && monthSpent > 0 && <SavingsHabit compact />}
               <ExpenseSearch onOpenDay={openExpenseDay} />
               <DailyExpenseLedger onOpenGroups={goToGroups} />
             </>

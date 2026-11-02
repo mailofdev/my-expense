@@ -12,6 +12,7 @@ import MonthHistoryList from './MonthHistoryList';
 import MonthlyReview from './MonthlyReview';
 import CategoryLimitStatus from './CategoryLimitStatus';
 import ExpenseSearch from './ExpenseSearch';
+import { FEATURES } from '../utils/featureFlags';
 
 export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits }) {
   const totalSpent = useSelector(selectTotalSpent);
@@ -74,25 +75,27 @@ export default function ExpenseAnalyzer({ onOpenDay, onAddExpense, onEditLimits 
         )}
       </section>
 
-      <section className="card p-0">
-        <button
-          type="button"
-          className="flex min-h-11 w-full items-center justify-between px-5 py-4 text-left"
-          onClick={() => setShowLimits((open) => !open)}
-          aria-expanded={showLimits}
-        >
-          <span>
-            <span className="block text-sm font-semibold">Category limits</span>
-            <span className="block text-xs text-muted">From the salary split</span>
-          </span>
-          <span className="text-xs font-semibold text-primary">{showLimits ? 'Hide' : 'Show'}</span>
-        </button>
-        {showLimits && (
-          <div className="border-t border-edge/50 px-5 pb-5 pt-4">
-            <CategoryLimitStatus onEdit={onEditLimits} />
-          </div>
-        )}
-      </section>
+      {FEATURES.categoryLimits && (
+        <section className="card p-0">
+          <button
+            type="button"
+            className="flex min-h-11 w-full items-center justify-between px-5 py-4 text-left"
+            onClick={() => setShowLimits((open) => !open)}
+            aria-expanded={showLimits}
+          >
+            <span>
+              <span className="block text-sm font-semibold">Category limits</span>
+              <span className="block text-xs text-muted">From the salary split</span>
+            </span>
+            <span className="text-xs font-semibold text-primary">{showLimits ? 'Hide' : 'Show'}</span>
+          </button>
+          {showLimits && (
+            <div className="border-t border-edge/50 px-5 pb-5 pt-4">
+              <CategoryLimitStatus onEdit={onEditLimits} />
+            </div>
+          )}
+        </section>
+      )}
 
       {monthExpenses.length > 0 ? (
         <MonthHistoryList onOpenDay={onOpenDay} />

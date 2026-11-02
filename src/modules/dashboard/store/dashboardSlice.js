@@ -52,6 +52,7 @@ import {
   withAccountBalanceViews,
   MAX_ACCOUNTS,
 } from '../utils/accounts';
+import { FEATURES } from '../utils/featureFlags';
 import {
   DEFAULT_MAIN_CATEGORIES,
   ensureMainCategories,
@@ -365,6 +366,13 @@ export const updateFinanceSettings = createAsyncThunk(
           });
           next.accountOpenings = openings;
         }
+      } else if (next.accountOpenings && typeof next.accountOpenings === 'object') {
+        const accounts = ensureAccounts(state.accounts);
+        const openings = {};
+        accounts.forEach((account) => {
+          openings[account.id] = Number(next.accountOpenings[account.id]) || 0;
+        });
+        next.accountOpenings = openings;
       }
       if (Array.isArray(next.peopleGroups)) {
         next.peopleGroups = ensurePeopleGroups(next.peopleGroups, [], {
@@ -1748,7 +1756,12 @@ export const selectInAppReminders = createSelector(
     const today = getTodayString();
     const rupee = (value) => `₹${Math.abs(Math.round(Number(value) || 0)).toLocaleString('en-IN')}`;
 
-    if (isCurrentMonth && safe.hasIncome && safe.held > walletRemaining) {
+    if (
+      FEATURES.moneyCalculator &&
+      isCurrentMonth &&
+      safe.hasIncome &&
+      safe.held > walletRemaining
+    ) {
       reminders.push({
         id: 'safe-over',
         tone: 'warning',
@@ -1756,31 +1769,35 @@ export const selectInAppReminders = createSelector(
       });
     }
 
-    (limits || [])
-      .filter((row) => row.level)
-      .slice(0, 2)
-      .forEach((row) => {
-        const left = row.limit - row.spent;
-        const name = shortCategoryLabel(row.category);
-        reminders.push({
-          id: `limit-${row.category}`,
-          tone: left <= 0 ? 'danger' : 'warning',
-          text: left <= 0 ? `${name} limit reached` : `${rupee(left)} left in ${name}`,
+    if (FEATURES.categoryLimits) {
+      (limits || [])
+        .filter((row) => row.level)
+        .slice(0, 2)
+        .forEach((row) => {
+          const left = row.limit - row.spent;
+          const name = shortCategoryLabel(row.category);
+          reminders.push({
+            id: `limit-${row.category}`,
+            tone: left <= 0 ? 'danger' : 'warning',
+            text: left <= 0 ? `${name} limit reached` : `${rupee(left)} left in ${name}`,
+          });
         });
-      });
+    }
 
-    listUpcoming(recurringExpenses, { today, horizonDays: 7 })
-      .filter((item) => item.kind !== 'income')
-      .slice(0, 2)
-      .forEach((item) => {
-        const days = dayjs(item.nextDate).startOf('day').diff(dayjs(today), 'day');
-        const when = days < 0 ? 'overdue' : days === 0 ? 'due today' : days === 1 ? 'due tomorrow' : `due in ${days} days`;
-        reminders.push({
-          id: `bill-${item.id}`,
-          tone: days <= 2 ? 'warning' : 'info',
-          text: `${item.title} ${rupee(item.amount)} ${when}`,
+    if (FEATURES.goalsAndRepeats) {
+      listUpcoming(recurringExpenses, { today, horizonDays: 7 })
+        .filter((item) => item.kind !== 'income')
+        .slice(0, 2)
+        .forEach((item) => {
+          const days = dayjs(item.nextDate).startOf('day').diff(dayjs(today), 'day');
+          const when = days < 0 ? 'overdue' : days === 0 ? 'due today' : days === 1 ? 'due tomorrow' : `due in ${days} days`;
+          reminders.push({
+            id: `bill-${item.id}`,
+            tone: days <= 2 ? 'warning' : 'info',
+            text: `${item.title} ${rupee(item.amount)} ${when}`,
+          });
         });
-      });
+    }
 
     if (walletFunded === 0 && (isCurrentMonth || monthSpent > 0)) {
       reminders.push({

@@ -199,7 +199,7 @@ export default function AddIncomeForm() {
           kind === 'lent'
             ? fromSetAside
               ? `−${formatINR(value)} lent from ${accountName}. Left to spend stays the same.`
-              : `−${formatINR(value)} lent from ${accountName}. Left to spend goes down. Category limits stay the same.`
+              : `−${formatINR(value)} lent from ${accountName}. Left to spend goes down.`
             : kind === 'money_back'
               ? `+${formatINR(value)} money back → ${accountName}. Not counted as income.`
               : `+${formatINR(value)} → ${accountName}`
@@ -253,7 +253,7 @@ export default function AddIncomeForm() {
           </div>
           <p className="m-0 mt-1.5 text-xs text-muted">
             {kind === 'lent'
-              ? 'Money you expect back. Left to spend goes down. Category limits do not change.'
+              ? 'Money you expect back. Left to spend goes down.'
               : kind === 'money_back'
                 ? 'A friend paid you back. Left to spend goes up. Income does not.'
                 : 'Salary or other money you earned. This is your Income total.'}
